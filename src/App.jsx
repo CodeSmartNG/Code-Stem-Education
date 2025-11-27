@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import StudentProfile from './components/StudentProfile';
 import CourseCatalog from './components/CourseCatalog';
@@ -80,7 +81,6 @@ const safeObjectKeys = (obj, location = 'unknown') => {
 };
 
 function App() {
-  const [currentView, setCurrentView] = useState('login');
   const [currentUser, setCurrentUserState] = useState(null);
   const [students, setStudentsState] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -90,10 +90,26 @@ function App() {
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   
+  const location = useLocation();
+  const navigate = useNavigate();
+  
   // Refs for timer management
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
   const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+
+  // Get current view from URL hash
+  const getCurrentViewFromHash = () => {
+    const hash = location.hash.replace('#', '') || '/';
+    return hash === '/' ? 'login' : hash.replace('/', '');
+  };
+
+  const [currentView, setCurrentView] = useState(getCurrentViewFromHash());
+
+  // Update currentView when hash changes
+  useEffect(() => {
+    setCurrentView(getCurrentViewFromHash());
+  }, [location.hash]);
 
   // Auto-logout handler
   const handleAutoLogout = useCallback(() => {
@@ -155,11 +171,11 @@ function App() {
           setCurrentUserState(loadedCurrentUser);
           // Redirect based on user role
           if (loadedCurrentUser.role === 'admin') {
-            setCurrentView('admin');
+            navigate('/admin');
           } else if (loadedCurrentUser.role === 'teacher') {
-            setCurrentView('teacher');
+            navigate('/teacher');
           } else {
-            setCurrentView('dashboard');
+            navigate('/dashboard');
           }
         }
         
@@ -171,7 +187,7 @@ function App() {
     };
 
     initApp();
-  }, []);
+  }, [navigate]);
 
   // Set up activity listeners when user is logged in
   useEffect(() => {
@@ -221,11 +237,11 @@ function App() {
         
         // Redirect based on role
         if (user.role === 'admin') {
-          setCurrentView('admin');
+          navigate('/admin');
         } else if (user.role === 'teacher') {
-          setCurrentView('teacher');
+          navigate('/teacher');
         } else {
-          setCurrentView('dashboard');
+          navigate('/dashboard');
         }
         setMessage('');
         return true;
@@ -257,7 +273,6 @@ function App() {
         password,
         role: 'student',
         level: 'Beginner',
-        // Initialize student-specific fields for payment system
         completedLessons: [],
         progress: {},
         purchasedLessons: []
@@ -267,7 +282,7 @@ function App() {
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
-      setCurrentView('email-confirmation');
+      navigate('/email-confirmation');
       setMessage(`Confirmation email sent to ${email}. Please check your inbox.`);
       return true;
     } catch (error) {
@@ -292,7 +307,6 @@ function App() {
       const result = await registerUser({
         ...teacherData,
         role: 'teacher',
-        // Initialize teacher-specific fields for payment system
         isApproved: false,
         earnings: 0,
         courses: [],
@@ -303,7 +317,7 @@ function App() {
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
-      setCurrentView('email-confirmation');
+      navigate('/email-confirmation');
       setMessage(`Confirmation email sent to ${teacherData.email}. Please check your inbox.`);
       return true;
     } catch (error) {
@@ -318,7 +332,7 @@ function App() {
       const user = await confirmUserEmail(token);
       
       setMessage('Email confirmed successfully! You can now log in.');
-      setCurrentView('login');
+      navigate('/login');
       setPendingUser(null);
       setConfirmationToken('');
       setShowConfirmationInfo(false);
@@ -358,13 +372,13 @@ function App() {
     logoutUser();
     setCurrentUserState(null);
     setCurrentUser(null);
-    setCurrentView('login');
+    navigate('/login');
     setMessage('');
     setShowConfirmationInfo(false);
     setShowInactivityWarning(false);
   };
 
-  // NEW: Enhanced student update with payment system support
+  // Enhanced student update
   const updateStudentData = (updatedStudent) => {
     try {
       // Update in localStorage
@@ -384,7 +398,7 @@ function App() {
     }
   };
 
-  // NEW: Enhanced user update with payment system support
+  // Enhanced user update
   const updateCurrentUser = (updatedUser) => {
     try {
       // Update user in the users collection
@@ -403,7 +417,7 @@ function App() {
     }
   };
 
-  // NEW: Handle lesson purchase from CourseCatalog
+  // Handle lesson purchase from CourseCatalog
   const handleLessonPurchase = async (courseKey, lessonId) => {
     try {
       if (!currentUser) {
@@ -432,13 +446,13 @@ function App() {
     }
   };
 
-  // NEW: Check if user can access lesson
+  // Check if user can access lesson
   const checkLessonAccess = (courseKey, lessonId) => {
     if (!currentUser) return false;
     return canAccessLesson(currentUser.id, courseKey, lessonId);
   };
 
-  // NEW: Get teacher WhatsApp URL
+  // Get teacher WhatsApp URL
   const getTeacherContactUrl = (teacherId) => {
     return getTeacherWhatsAppUrl(teacherId);
   };
@@ -507,272 +521,12 @@ function App() {
     </div>
   ) : null;
 
-  // Render view based on current view and user role
-  const renderView = () => {
-    console.log('🎯 renderView called with currentView:', currentView);
-    console.log('🎯 currentUser:', currentUser);
-
-    // Show message if exists
-    const MessageDisplay = () => message ? (
-      <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
-        {message}
-      </div>
-    ) : null;
-
-    if (!currentUser) {
-      console.log('👤 No current user, showing login/register views');
-      switch(currentView) {
-        case 'register':
-          return (
-            <>
-              <MessageDisplay />
-              <ConfirmationInfoDisplay />
-              <RegisterForm 
-                onRegister={handleStudentRegister} 
-                onSwitchToLogin={() => {
-                  setMessage('');
-                  setCurrentView('login');
-                }} 
-              />
-            </>
-          );
-        case 'teacher-register':
-          return (
-            <>
-              <MessageDisplay />
-              <ConfirmationInfoDisplay />
-              <TeacherRegisterForm 
-                onRegister={handleTeacherRegister} 
-                onSwitchToLogin={() => {
-                  setMessage('');
-                  setCurrentView('login');
-                }}
-                onSwitchToStudentRegister={() => {
-                  setMessage('');
-                  setCurrentView('register');
-                }}
-              />
-            </>
-          );
-        case 'email-confirmation':
-          return (
-            <>
-              <MessageDisplay />
-              <ConfirmationInfoDisplay />
-              <EmailConfirmation 
-                email={pendingUser?.email}
-                onConfirm={handleEmailConfirmation}
-                onResend={handleResendConfirmation}
-                onCancel={() => {
-                  setMessage('');
-                  setPendingUser(null);
-                  setConfirmationToken('');
-                  setShowConfirmationInfo(false);
-                  setCurrentView('login');
-                }}
-              />
-            </>
-          );
-        case 'login':
-        default:
-          return (
-            <div className="login-container">
-              <MessageDisplay />
-              <ConfirmationInfoDisplay />
-              <LoginForm 
-                onLogin={handleLogin} 
-                onSwitchToRegister={() => {
-                  setMessage('');
-                  setCurrentView('register');
-                }} 
-                onSwitchToTeacherRegister={() => {
-                  setMessage('');
-                  setCurrentView('teacher-register');
-                }}
-              />
-            </div>
-          );
-      }
-    }
-
-    // Role-based access control
-    console.log('🎯 Setting up role-based access control');
-    const isAdmin = currentUser?.role === 'admin';
-    const isTeacher = currentUser?.role === 'teacher';
-    const isStudent = currentUser?.role === 'student';
-    console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
-
-    // Handle general navigation views (accessible to all logged-in users)
-    console.log('🎯 Checking general navigation views for:', currentView);
-    switch(currentView) {
-      case 'about':
-        return <About />;
-      case 'faqs':
-        return <FAQs />;
-      case 'contact':
-        return <Contact />;
-      case 'blog':
-        return <Blog />;
-      case 'resources':
-        return <Resources />;
-      case 'careers':
-        return (
-          <Careers 
-            setCurrentView={setCurrentView} 
-            setMessage={setMessage}
-            onTeacherRegister={handleTeacherRegister}
-            currentUser={currentUser}
-          />
-        );
-      case 'support':
-        return <Support />;
-      case 'admin-courses':
-        if (isAdmin) {
-          return <AdminCourseManagement currentUser={currentUser} />;
-        } else {
-          return (
-            <div className="access-denied">
-              <h2>Access Denied</h2>
-              <p>You don't have permission to access course management.</p>
-              <button 
-                className="back-button"
-                onClick={() => setCurrentView(isAdmin ? 'admin' : isTeacher ? 'teacher' : 'dashboard')}
-              >
-                Back to Dashboard
-              </button>
-            </div>
-          );
-        }
-      default:
-        console.log('🎯 No match in general navigation, continuing to role-specific views');
-        break;
-    }
-
-    // Handle admin dashboard
-    if (currentView === 'admin') {
-      console.log('🎯 Rendering admin dashboard');
-      if (isAdmin) {
-        return <AdminDashboard currentUser={currentUser} setCurrentView={setCurrentView} />;
-      } else {
-        return (
-          <div className="access-denied">
-            <h2>Access Denied</h2>
-            <p>You don't have permission to access the admin dashboard.</p>
-            <button 
-              className="back-button"
-              onClick={() => setCurrentView(isTeacher ? 'teacher' : 'dashboard')}
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        );
-      }
-    }
-
-    // Handle teacher dashboard
-    if (currentView === 'teacher') {
-      console.log('🎯 Rendering teacher dashboard');
-      if (isTeacher) {
-        return <TeacherDashboard currentUser={currentUser} setCurrentUser={updateCurrentUser} />;
-      } else {
-        return (
-          <div className="access-denied">
-            <h2>Access Denied</h2>
-            <p>You don't have permission to access the teacher dashboard.</p>
-            <button 
-              className="back-button"
-              onClick={() => setCurrentView(isAdmin ? 'admin' : 'dashboard')}
-            >
-              Back to Dashboard
-            </button>
-          </div>
-        );
-      }
-    }
-
-    // Student-specific views
-    if (isStudent) {
-      console.log('🎯 Rendering student views for:', currentView);
-      switch(currentView) {
-        case 'profile':
-          return <StudentProfile student={currentUser} setStudent={updateStudentData} />;
-        case 'courses':
-          return (
-            <CourseCatalog 
-              student={currentUser} 
-              setStudent={updateStudentData}
-              // NEW: Pass payment-related functions
-              onLessonPurchase={handleLessonPurchase}
-              onCheckLessonAccess={checkLessonAccess}
-              onGetTeacherContact={getTeacherContactUrl}
-            />
-          );
-        case 'discussion':
-          return <DiscussionForum currentUser={currentUser} />;
-        case 'dashboard':
-        default:
-          return (
-            <>
-              <MessageDisplay />
-              <Dashboard student={currentUser} setStudent={updateStudentData} />
-            </>
-          );
-      }
-    }
-
-    // Teacher-specific views
-    if (isTeacher) {
-      console.log('🎯 Rendering teacher views for:', currentView);
-      switch(currentView) {
-        case 'profile':
-          return (
-            <div className="teacher-profile">
-              <h2>Teacher Profile</h2>
-              <p>Name: {currentUser.name}</p>
-              <p>Email: {currentUser.email}</p>
-              <p>Specialization: {currentUser.specialization}</p>
-              <p>WhatsApp: {currentUser.whatsappNumber || 'Not provided'}</p>
-              <p>Status: {currentUser.isApproved ? 'Approved' : 'Pending Approval'}</p>
-              <p>Earnings: ₦{currentUser.earnings || 0}</p>
-              <button 
-                className="back-button"
-                onClick={() => setCurrentView('teacher')}
-              >
-                Back to Teacher Dashboard
-              </button>
-            </div>
-          );
-        case 'dashboard':
-        default:
-          return <TeacherDashboard currentUser={currentUser} setCurrentUser={updateCurrentUser} />;
-      }
-    }
-
-    // Admin-specific views
-    if (isAdmin) {
-      console.log('🎯 Rendering admin views for:', currentView);
-      switch(currentView) {
-        case 'dashboard':
-        default:
-          return <AdminDashboard currentUser={currentUser} setCurrentView={setCurrentView} />;
-      }
-    }
-
-    // Default fallback for any unexpected state
-    console.error('❌ No matching view found for:', currentView, 'with user:', currentUser);
-    return (
-      <div className="error-view">
-        <h2>Something went wrong</h2>
-        <p>Unable to determine the appropriate view for your account.</p>
-        <button 
-          className="back-button"
-          onClick={handleLogout}
-        >
-          Return to Login
-        </button>
-      </div>
-    );
-  };
+  // Show message if exists
+  const MessageDisplay = () => message ? (
+    <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
+      {message}
+    </div>
+  ) : null;
 
   if (!isInitialized) {
     return (
@@ -783,26 +537,211 @@ function App() {
     );
   }
 
-  console.log('🎯 Rendering main App component');
   return (
     <div className="App">
       {/* Inactivity Warning Modal */}
       <InactivityWarning />
       
-      {currentUser && (
-        <Navigation 
-          currentView={currentView} 
-          setCurrentView={setCurrentView} 
-          currentUser={currentUser}
-          onLogout={handleLogout}
-          isAdmin={currentUser.role === 'admin'}
-          isTeacher={currentUser.role === 'teacher'}
-          isStudent={currentUser.role === 'student'}
-        />
-      )}
-      <main className="main-content">
-        {renderView()}
-      </main>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={
+          !currentUser ? (
+            <div className="login-container">
+              <MessageDisplay />
+              <ConfirmationInfoDisplay />
+              <LoginForm 
+                onLogin={handleLogin} 
+                onSwitchToRegister={() => navigate('/register')}
+                onSwitchToTeacherRegister={() => navigate('/teacher-register')}
+              />
+            </div>
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        } />
+        
+        <Route path="/login" element={
+          !currentUser ? (
+            <div className="login-container">
+              <MessageDisplay />
+              <ConfirmationInfoDisplay />
+              <LoginForm 
+                onLogin={handleLogin} 
+                onSwitchToRegister={() => navigate('/register')}
+                onSwitchToTeacherRegister={() => navigate('/teacher-register')}
+              />
+            </div>
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        } />
+        
+        <Route path="/register" element={
+          !currentUser ? (
+            <>
+              <MessageDisplay />
+              <ConfirmationInfoDisplay />
+              <RegisterForm 
+                onRegister={handleStudentRegister} 
+                onSwitchToLogin={() => navigate('/login')}
+              />
+            </>
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        } />
+        
+        <Route path="/teacher-register" element={
+          !currentUser ? (
+            <>
+              <MessageDisplay />
+              <ConfirmationInfoDisplay />
+              <TeacherRegisterForm 
+                onRegister={handleTeacherRegister} 
+                onSwitchToLogin={() => navigate('/login')}
+                onSwitchToStudentRegister={() => navigate('/register')}
+              />
+            </>
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        } />
+
+        <Route path="/email-confirmation" element={
+          !currentUser ? (
+            <>
+              <MessageDisplay />
+              <ConfirmationInfoDisplay />
+              <EmailConfirmation 
+                email={pendingUser?.email}
+                onConfirm={handleEmailConfirmation}
+                onResend={handleResendConfirmation}
+                onCancel={() => navigate('/login')}
+              />
+            </>
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        } />
+
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={
+          currentUser ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <MessageDisplay />
+                <Dashboard student={currentUser} setStudent={updateStudentData} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        <Route path="/courses" element={
+          currentUser ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <CourseCatalog 
+                  student={currentUser} 
+                  setStudent={updateStudentData}
+                  onLessonPurchase={handleLessonPurchase}
+                  onCheckLessonAccess={checkLessonAccess}
+                  onGetTeacherContact={getTeacherContactUrl}
+                />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        <Route path="/profile" element={
+          currentUser ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <StudentProfile student={currentUser} setStudent={updateStudentData} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        <Route path="/discussion" element={
+          currentUser ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <DiscussionForum currentUser={currentUser} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        {/* Add other routes for About, FAQs, Contact, etc. */}
+        <Route path="/about" element={<About />} />
+        <Route path="/faqs" element={<FAQs />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/resources" element={<Resources />} />
+        <Route path="/careers" element={
+          <Careers 
+            onTeacherRegister={handleTeacherRegister}
+            currentUser={currentUser}
+          />
+        } />
+        <Route path="/support" element={<Support />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin" element={
+          currentUser?.role === 'admin' ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <AdminDashboard currentUser={currentUser} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        <Route path="/admin-courses" element={
+          currentUser?.role === 'admin' ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <AdminCourseManagement currentUser={currentUser} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        {/* Teacher Routes */}
+        <Route path="/teacher" element={
+          currentUser?.role === 'teacher' ? (
+            <>
+              <Navigation currentUser={currentUser} onLogout={handleLogout} />
+              <main className="main-content">
+                <TeacherDashboard currentUser={currentUser} setCurrentUser={updateCurrentUser} />
+              </main>
+            </>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        } />
+
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 }
