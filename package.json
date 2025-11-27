@@ -1,9 +1,10 @@
+
 {
   "name": "codesmartng-stem",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://codesmartng.github.io/Code-Stem-Education",
+  "homepage": ".",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -14,8 +15,7 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-router-dom": "^6.28.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
