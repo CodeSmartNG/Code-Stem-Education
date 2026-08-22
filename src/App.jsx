@@ -1,6 +1,7 @@
-update
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
+
+import './styles/payments.css';
 import StudentProfile from './components/StudentProfile';
 import CourseCatalog from './components/CourseCatalog';
 import Navigation from './components/Navigation';
@@ -20,6 +21,7 @@ import Blog from './components/Blog';
 import Resources from './components/Resources';
 import Careers from './components/Careers';
 import Support from './components/Support';
+
 import { 
   initializeStorage, 
   getStudents, 
@@ -36,19 +38,42 @@ import {
   resendEmailConfirmation,
   canAccessLesson,
   purchaseLesson,
-  getTeacherWhatsAppUrl
+  getTeacherWhatsAppUrl,
+  getAllCoursesForAdmin,
+  getCourseDetailsForAdmin,
+  deleteCourseAsAdmin,
+  deleteLessonAsAdmin,
+  getCourseAnalyticsForAdmin,
+  getTeacherCoursesForAdmin,
+  getPlatformStats,
+  getAllUsers,
+  deleteUser,
+  updateUser,
+  approveTeacher,
+  rejectTeacher,
+  dismissTeacher,
+  getTeacherWallets,
+  saveTeacherWallets,
+  getTeacherWallet,
+  updateTeacherWallet,
+  addTeacherEarnings,
+  withdrawFromWallet,
+  getPaymentTransactions,
+  savePaymentTransactions,
+  processLessonPayment
 } from './utils/storage';
 
-// Safe object utility functions with detailed logging
+// Constants
+const USER_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+const INACTIVITY_WARNING_TIME = 55 * 60 * 1000;
+const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
+
+// Safe object utility functions
 const safeObjectEntries = (obj, location = 'unknown') => {
   console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
   try {
-    if (obj === null) {
-      console.log(`❌ ${location}: Object is null`);
-      return [];
-    }
-    if (obj === undefined) {
-      console.log(`❌ ${location}: Object is undefined`);
+    if (obj === null || obj === undefined) {
+      console.log(`❌ ${location}: Object is null/undefined`);
       return [];
     }
     if (typeof obj !== 'object') {
@@ -90,39 +115,53 @@ function App() {
   const [confirmationToken, setConfirmationToken] = useState('');
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   // Refs for timer management
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
-  const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
 
-  // Auto-logout handler
-  const handleAutoLogout = useCallback(() => {
-    setMessage('You have been automatically logged out due to inactivity.');
-    handleLogout();
-  }, []);
-
-  // Reset inactivity timer
-  const resetInactivityTimer = useCallback(() => {
-    // Clear existing timers
+  // Define handleLogout first so it can be used in other hooks
+  const handleLogout = useCallback(() => {
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
     }
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-    
-    // Only set timers if user is logged in
+
+    logoutUser();
+    setCurrentUserState(null);
+    setCurrentView('login');
+    setMessage('');
+    setShowConfirmationInfo(false);
+    setShowInactivityWarning(false);
+    localStorage.removeItem('hausaStem_currentView');
+  }, []);
+
+  // Auto-logout handler
+  const handleAutoLogout = useCallback(() => {
+    setMessage('You have been automatically logged out due to inactivity.');
+    handleLogout();
+  }, [handleLogout]);
+
+  // Reset inactivity timer
+  const resetInactivityTimer = useCallback(() => {
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+    }
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+    }
+
     if (currentUser) {
-      // Show warning after 55 minutes (5 minutes before logout)
       warningTimerRef.current = setTimeout(() => {
         setShowInactivityWarning(true);
-      }, 55 * 60 * 1000); // 55 minutes
-      
-      // Auto logout after 60 minutes
+      }, INACTIVITY_WARNING_TIME);
+
       logoutTimerRef.current = setTimeout(() => {
         handleAutoLogout();
-      }, 60 * 60 * 1000); // 60 minutes
+      }, INACTIVITY_LOGOUT_TIME);
     }
   }, [currentUser, handleAutoLogout]);
 
@@ -142,19 +181,18 @@ function App() {
       try {
         console.log('🔄 Initializing storage...');
         initializeStorage();
-        
-        // Load all data from localStorage
+
         const loadedStudents = getStudents();
         const loadedCurrentUser = getCurrentUser();
-        
+
         console.log('Loaded students:', loadedStudents);
         console.log('Loaded current user:', loadedCurrentUser);
-        
+
         setStudentsState(loadedStudents);
-        
+
         if (loadedCurrentUser) {
           setCurrentUserState(loadedCurrentUser);
-          // Redirect based on user role
+          
           if (loadedCurrentUser.role === 'admin') {
             setCurrentView('admin');
           } else if (loadedCurrentUser.role === 'teacher') {
@@ -163,7 +201,7 @@ function App() {
             setCurrentView('dashboard');
           }
         }
-        
+
         setIsInitialized(true);
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -177,17 +215,14 @@ function App() {
   // Set up activity listeners when user is logged in
   useEffect(() => {
     if (currentUser) {
-      // Add event listeners for user activity
-      events.forEach(event => {
+      USER_ACTIVITY_EVENTS.forEach(event => {
         document.addEventListener(event, handleUserActivity);
       });
-      
-      // Start the inactivity timer
+
       resetInactivityTimer();
-      
-      // Cleanup function
+
       return () => {
-        events.forEach(event => {
+        USER_ACTIVITY_EVENTS.forEach(event => {
           document.removeEventListener(event, handleUserActivity);
         });
         if (logoutTimerRef.current) {
@@ -200,7 +235,7 @@ function App() {
     }
   }, [currentUser, handleUserActivity, resetInactivityTimer]);
 
-  // Check for confirmation token in URL (for email confirmation links)
+  // Check for confirmation token in URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -209,18 +244,18 @@ function App() {
     }
   }, []);
 
-  const handleLogin = (email, password) => {
+  // Login handler
+  const handleLogin = useCallback((email, password) => {
     try {
+      setIsLoading(true);
       const user = authenticateUser(email, password);
       if (user) {
         const { password: _, ...userWithoutPassword } = user;
         setCurrentUserState(userWithoutPassword);
         setCurrentUser(userWithoutPassword);
-        
-        // Reset inactivity timer on login
+
         resetInactivityTimer();
-        
-        // Redirect based on role
+
         if (user.role === 'admin') {
           setCurrentView('admin');
         } else if (user.role === 'teacher') {
@@ -229,223 +264,214 @@ function App() {
           setCurrentView('dashboard');
         }
         setMessage('');
+        setIsLoading(false);
         return true;
       }
       setMessage('Invalid email or password');
+      setIsLoading(false);
       return false;
     } catch (error) {
       console.error('Login error:', error);
       setMessage(error.message);
+      setIsLoading(false);
       return false;
     }
-  };
+  }, [resetInactivityTimer]);
 
-  const handleStudentRegister = async (name, email, password) => {
+  // Student registration
+  const handleStudentRegister = useCallback(async (name, email, password) => {
     try {
-      // Check if email already exists in students
+      setIsLoading(true);
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'student-register').find(([key, user]) => user.email === email);
-      
+
       if (existingUser || students.find(s => s.email === email)) {
         setMessage('Email already exists. Please use a different email or login.');
+        setIsLoading(false);
         return false;
       }
 
-      // Register user with email confirmation
       const result = await registerUser({
         name,
         email,
         password,
         role: 'student',
         level: 'Beginner',
-        // Initialize student-specific fields for payment system
         completedLessons: [],
         progress: {},
         purchasedLessons: []
       });
 
-      // Store pending user data and token
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
       setCurrentView('email-confirmation');
       setMessage(`Confirmation email sent to ${email}. Please check your inbox.`);
+      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
       setMessage(error.message || 'Registration failed. Please try again.');
+      setIsLoading(false);
       return false;
     }
-  };
+  }, [students]);
 
-  const handleTeacherRegister = async (teacherData) => {
+  // Teacher registration
+  const handleTeacherRegister = useCallback(async (teacherData) => {
     try {
-      // Check if email already exists
+      setIsLoading(true);
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'teacher-register').find(([key, user]) => user.email === teacherData.email);
-      
+
       if (existingUser) {
         setMessage('Email already exists. Please use a different email or login.');
+        setIsLoading(false);
         return false;
       }
 
-      // Register teacher with email confirmation
       const result = await registerUser({
         ...teacherData,
         role: 'teacher',
-        // Initialize teacher-specific fields for payment system
         isApproved: false,
         earnings: 0,
         courses: [],
         whatsappNumber: teacherData.whatsappNumber || ''
       });
 
-      // Store pending user data and token
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
       setCurrentView('email-confirmation');
       setMessage(`Confirmation email sent to ${teacherData.email}. Please check your inbox.`);
+      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Teacher registration error:', error);
       setMessage(error.message || 'Teacher registration failed. Please try again.');
+      setIsLoading(false);
       return false;
     }
-  };
+  }, []);
 
-  const handleEmailConfirmation = async (token) => {
+  // Email confirmation
+  const handleEmailConfirmation = useCallback(async (token) => {
     try {
+      setIsLoading(true);
       const user = await confirmUserEmail(token);
-      
+
       setMessage('Email confirmed successfully! You can now log in.');
       setCurrentView('login');
       setPendingUser(null);
       setConfirmationToken('');
       setShowConfirmationInfo(false);
-      
-      // Clear token from URL
+
       window.history.replaceState({}, document.title, window.location.pathname);
-      
+      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Email confirmation error:', error);
       setMessage(error.message || 'Email confirmation failed. Please try again.');
+      setIsLoading(false);
       return false;
     }
-  };
+  }, []);
 
-  const handleResendConfirmation = async () => {
+  // Resend confirmation
+  const handleResendConfirmation = useCallback(async () => {
     if (pendingUser) {
       try {
+        setIsLoading(true);
         await resendEmailConfirmation(pendingUser.email);
         setMessage('Confirmation email resent successfully! Please check your inbox.');
+        setIsLoading(false);
       } catch (error) {
         console.error('Resend confirmation error:', error);
         setMessage(error.message || 'Failed to resend confirmation email. Please try again.');
+        setIsLoading(false);
       }
     }
-  };
+  }, [pendingUser]);
 
-  const handleLogout = () => {
-    // Clear all timers
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-    }
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
-    }
-    
-    logoutUser();
-    setCurrentUserState(null);
-    setCurrentUser(null);
-    setCurrentView('login');
-    setMessage('');
-    setShowConfirmationInfo(false);
-    setShowInactivityWarning(false);
-  };
-
-  // NEW: Enhanced student update with payment system support
-  const updateStudentData = (updatedStudent) => {
+  // Update student data
+  const updateStudentData = useCallback((updatedStudent) => {
     try {
-      // Update in localStorage
       updateStudent(updatedStudent);
-      
-      // Update in state
+
       const { password, ...studentWithoutPassword } = updatedStudent;
       setCurrentUserState(studentWithoutPassword);
       setCurrentUser(studentWithoutPassword);
-      
-      // Update in students list
+
       setStudentsState(prev => 
         prev.map(s => s.id === updatedStudent.id ? updatedStudent : s)
       );
     } catch (error) {
       console.error('Error updating student:', error);
     }
-  };
+  }, []);
 
-  // NEW: Enhanced user update with payment system support
-  const updateCurrentUser = (updatedUser) => {
+  // Update current user
+  const updateCurrentUser = useCallback((updatedUser) => {
     try {
-      // Update user in the users collection
       const users = getUsers();
       if (users[updatedUser.id]) {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
         localStorage.setItem('hausaStem_users', JSON.stringify(users));
       }
-      
-      // Update current user state
+
       const { password: _, ...userWithoutPassword } = updatedUser;
       setCurrentUserState(userWithoutPassword);
       setCurrentUser(userWithoutPassword);
     } catch (error) {
       console.error('Error updating user:', error);
     }
-  };
+  }, []);
 
-  // NEW: Handle lesson purchase from CourseCatalog
-  const handleLessonPurchase = async (courseKey, lessonId) => {
+  // Lesson purchase
+  const handleLessonPurchase = useCallback(async (courseKey, lessonId) => {
     try {
       if (!currentUser) {
         setMessage('Please log in to purchase lessons');
         return false;
       }
 
+      setIsLoading(true);
       const success = await purchaseLesson(currentUser.id, courseKey, lessonId);
       if (success) {
-        // Refresh user data to reflect the purchase
         const updatedUser = getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
           setCurrentUser(updatedUser);
         }
         setMessage('✅ Lesson purchased successfully!');
+        setIsLoading(false);
         return true;
       } else {
         setMessage('❌ Failed to purchase lesson. Please try again.');
+        setIsLoading(false);
         return false;
       }
     } catch (error) {
       console.error('Error purchasing lesson:', error);
       setMessage('❌ Error processing payment: ' + error.message);
+      setIsLoading(false);
       return false;
     }
-  };
+  }, [currentUser]);
 
-  // NEW: Check if user can access lesson
-  const checkLessonAccess = (courseKey, lessonId) => {
+  // Check lesson access
+  const checkLessonAccess = useCallback((courseKey, lessonId) => {
     if (!currentUser) return false;
     return canAccessLesson(currentUser.id, courseKey, lessonId);
-  };
+  }, [currentUser]);
 
-  // NEW: Get teacher WhatsApp URL
-  const getTeacherContactUrl = (teacherId) => {
+  // Get teacher contact
+  const getTeacherContactUrl = useCallback((teacherId) => {
     return getTeacherWhatsAppUrl(teacherId);
-  };
+  }, []);
 
-  // Inactivity Warning Modal Component
-  const InactivityWarning = () => {
+  // Inactivity Warning Modal
+  const InactivityWarning = useCallback(() => {
     if (!showInactivityWarning) return null;
 
     return (
@@ -478,47 +504,55 @@ function App() {
         </div>
       </div>
     );
-  };
+  }, [showInactivityWarning, resetInactivityTimer, handleLogout]);
 
-  // Demo confirmation info display
-  const ConfirmationInfoDisplay = () => showConfirmationInfo && confirmationToken ? (
-    <div className="confirmation-demo-display">
-      <h3>📧 Demo Email Confirmation</h3>
-      <p>Since this is a demo, here's your confirmation token:</p>
-      <div className="confirmation-token">{confirmationToken}</div>
-      <p>You can:</p>
-      <ul>
-        <li>Click the confirmation button below to simulate email confirmation</li>
-        <li>Or manually navigate to: {window.location.origin}/confirm-email?token={confirmationToken}</li>
-      </ul>
-      <div className="demo-buttons">
-        <button 
-          onClick={() => handleEmailConfirmation(confirmationToken)}
-          className="confirm-email-btn"
-        >
-          Confirm Email Now
-        </button>
-        <button 
-          onClick={() => setShowConfirmationInfo(false)}
-          className="close-info-btn"
-        >
-          Close
-        </button>
+  // Confirmation Info Display
+  const ConfirmationInfoDisplay = useCallback(() => {
+    if (!showConfirmationInfo || !confirmationToken) return null;
+
+    return (
+      <div className="confirmation-demo-display">
+        <h3>📧 Demo Email Confirmation</h3>
+        <p>Since this is a demo, here's your confirmation token:</p>
+        <div className="confirmation-token">{confirmationToken}</div>
+        <p>You can:</p>
+        <ul>
+          <li>Click the confirmation button below to simulate email confirmation</li>
+          <li>Or manually navigate to: {window.location.origin}/confirm-email?token={confirmationToken}</li>
+        </ul>
+        <div className="demo-buttons">
+          <button 
+            onClick={() => handleEmailConfirmation(confirmationToken)}
+            className="confirm-email-btn"
+          >
+            Confirm Email Now
+          </button>
+          <button 
+            onClick={() => setShowConfirmationInfo(false)}
+            className="close-info-btn"
+          >
+            Close
+          </button>
+        </div>
       </div>
-    </div>
-  ) : null;
+    );
+  }, [showConfirmationInfo, confirmationToken, handleEmailConfirmation]);
 
-  // Render view based on current view and user role
-  const renderView = () => {
-    console.log('🎯 renderView called with currentView:', currentView);
-    console.log('🎯 currentUser:', currentUser);
+  // Message Display
+  const MessageDisplay = useCallback(() => {
+    if (!message) return null;
 
-    // Show message if exists
-    const MessageDisplay = () => message ? (
+    return (
       <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
         {message}
       </div>
-    ) : null;
+    );
+  }, [message]);
+
+  // Render view
+  const renderView = useCallback(() => {
+    console.log('🎯 renderView called with currentView:', currentView);
+    console.log('🎯 currentUser:', currentUser);
 
     if (!currentUser) {
       console.log('👤 No current user, showing login/register views');
@@ -534,6 +568,7 @@ function App() {
                   setMessage('');
                   setCurrentView('login');
                 }} 
+                isRegistering={isLoading}
               />
             </>
           );
@@ -590,20 +625,19 @@ function App() {
                   setMessage('');
                   setCurrentView('teacher-register');
                 }}
+                isLoading={isLoading}
               />
             </div>
           );
       }
     }
 
-    // Role-based access control
-    console.log('🎯 Setting up role-based access control');
     const isAdmin = currentUser?.role === 'admin';
     const isTeacher = currentUser?.role === 'teacher';
     const isStudent = currentUser?.role === 'student';
     console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
 
-    // Handle general navigation views (accessible to all logged-in users)
+    // Handle general navigation views
     console.log('🎯 Checking general navigation views for:', currentView);
     switch(currentView) {
       case 'about':
@@ -649,7 +683,7 @@ function App() {
         break;
     }
 
-    // Handle admin dashboard
+    // Admin dashboard
     if (currentView === 'admin') {
       console.log('🎯 Rendering admin dashboard');
       if (isAdmin) {
@@ -670,7 +704,7 @@ function App() {
       }
     }
 
-    // Handle teacher dashboard
+    // Teacher dashboard
     if (currentView === 'teacher') {
       console.log('🎯 Rendering teacher dashboard');
       if (isTeacher) {
@@ -691,7 +725,7 @@ function App() {
       }
     }
 
-    // Student-specific views
+    // Student views
     if (isStudent) {
       console.log('🎯 Rendering student views for:', currentView);
       switch(currentView) {
@@ -702,7 +736,6 @@ function App() {
             <CourseCatalog 
               student={currentUser} 
               setStudent={updateStudentData}
-              // NEW: Pass payment-related functions
               onLessonPurchase={handleLessonPurchase}
               onCheckLessonAccess={checkLessonAccess}
               onGetTeacherContact={getTeacherContactUrl}
@@ -759,7 +792,6 @@ function App() {
       }
     }
 
-    // Default fallback for any unexpected state
     console.error('❌ No matching view found for:', currentView, 'with user:', currentUser);
     return (
       <div className="error-view">
@@ -773,7 +805,25 @@ function App() {
         </button>
       </div>
     );
-  };
+  }, [
+    currentUser,
+    currentView,
+    handleLogin,
+    handleStudentRegister,
+    handleTeacherRegister,
+    handleEmailConfirmation,
+    handleResendConfirmation,
+    handleLogout,
+    updateStudentData,
+    updateCurrentUser,
+    handleLessonPurchase,
+    checkLessonAccess,
+    getTeacherContactUrl,
+    MessageDisplay,
+    ConfirmationInfoDisplay,
+    pendingUser,
+    isLoading
+  ]);
 
   if (!isInitialized) {
     return (
@@ -787,9 +837,8 @@ function App() {
   console.log('🎯 Rendering main App component');
   return (
     <div className="App">
-      {/* Inactivity Warning Modal */}
       <InactivityWarning />
-      
+
       {currentUser && (
         <Navigation 
           currentView={currentView} 
