@@ -193,24 +193,27 @@ function App() {
     }
   }, [currentUser, resetInactivityTimer, showInactivityWarning]);
 
-  // Initialize storage and load data
+  // ✅ UPDATED: Initialize storage and load data with async/await
   useEffect(() => {
-    const initApp = () => {
+    const initApp = async () => {
       try {
         console.log('🔄 Initializing storage...');
-        initializeStorage();
 
-        const loadedStudents = getStudents();
+        await initializeStorage();
+
+        const loadedStudents = getStudents() || [];
         const loadedCurrentUser = getCurrentUser();
 
-        console.log('Loaded students:', loadedStudents);
-        console.log('Loaded current user:', loadedCurrentUser);
+        console.log('✅ Loaded students:', loadedStudents);
+        console.log('✅ Loaded current user:', loadedCurrentUser);
 
         setStudentsState(loadedStudents);
 
         if (loadedCurrentUser) {
+          console.log('👤 Restoring logged-in user:', loadedCurrentUser);
+
           setCurrentUserState(loadedCurrentUser);
-          
+
           if (loadedCurrentUser.role === 'admin') {
             setCurrentView('admin');
           } else if (loadedCurrentUser.role === 'teacher') {
@@ -218,11 +221,19 @@ function App() {
           } else {
             setCurrentView('dashboard');
           }
+        } else {
+          console.log('👤 No logged-in user → showing login');
+          setCurrentUserState(null);
+          setCurrentView('login');
         }
 
-        setIsInitialized(true);
       } catch (error) {
-        console.error('Error initializing app:', error);
+        console.error('❌ Error initializing app:', error);
+
+        setCurrentUserState(null);
+        setCurrentView('login');
+      } finally {
+        console.log('✅ App initialization finished');
         setIsInitialized(true);
       }
     };
@@ -309,7 +320,6 @@ function App() {
         return false;
       }
 
-      // ✅ FIXED: Include all required fields for student registration
       const result = await registerUser({
         name,
         email,
@@ -425,7 +435,7 @@ function App() {
         console.error('Invalid student data for update');
         return;
       }
-      
+
       updateStudent(updatedStudent);
 
       const { password, ...studentWithoutPassword } = updatedStudent;
@@ -448,7 +458,7 @@ function App() {
         console.error('Invalid user data for update');
         return;
       }
-      
+
       const users = getUsers();
       if (users[updatedUser.id]) {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
@@ -458,8 +468,7 @@ function App() {
       const { password: _, ...userWithoutPassword } = updatedUser;
       setCurrentUserState(userWithoutPassword);
       setCurrentUser(userWithoutPassword);
-      
-      // Also update the stored current user
+
       const currentUserData = getCurrentUser();
       if (currentUserData && currentUserData.id === updatedUser.id) {
         setCurrentUser(userWithoutPassword);
@@ -479,11 +488,9 @@ function App() {
       }
 
       setIsLoading(true);
-      // ✅ FIXED: purchaseLesson returns an object, not a boolean
       const result = await purchaseLesson(currentUser.id, courseKey, lessonId);
-      
+
       if (result.success) {
-        // Refresh user data from storage
         const updatedUser = getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
@@ -692,8 +699,6 @@ function App() {
     const isStudent = currentUser?.role === 'student';
     console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
 
-    // Handle general navigation views
-    console.log('🎯 Checking general navigation views for:', currentView);
     switch(currentView) {
       case 'about':
         return <About />;
@@ -734,11 +739,9 @@ function App() {
           );
         }
       default:
-        console.log('🎯 No match in general navigation, continuing to role-specific views');
         break;
     }
 
-    // Admin dashboard
     if (currentView === 'admin') {
       console.log('🎯 Rendering admin dashboard');
       if (isAdmin) {
@@ -759,7 +762,6 @@ function App() {
       }
     }
 
-    // Teacher dashboard
     if (currentView === 'teacher') {
       console.log('🎯 Rendering teacher dashboard');
       if (isTeacher) {
@@ -780,7 +782,6 @@ function App() {
       }
     }
 
-    // Student views
     if (isStudent) {
       console.log('🎯 Rendering student views for:', currentView);
       switch(currentView) {
@@ -809,7 +810,6 @@ function App() {
       }
     }
 
-    // Teacher-specific views
     if (isTeacher) {
       console.log('🎯 Rendering teacher views for:', currentView);
       switch(currentView) {
@@ -837,7 +837,6 @@ function App() {
       }
     }
 
-    // Admin-specific views
     if (isAdmin) {
       console.log('🎯 Rendering admin views for:', currentView);
       switch(currentView) {
