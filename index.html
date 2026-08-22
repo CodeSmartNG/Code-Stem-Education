@@ -38,12 +38,15 @@
     <!-- Base URL for GitHub Pages -->
     <base href="/Code-Stem-Education/" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="apple-touch-icon" href="/vite.svg" />
+    <!-- Favicon - FIXED: Use absolute path from base -->
+    <link rel="icon" type="image/svg+xml" href="vite.svg" />
+    <link rel="apple-touch-icon" href="vite.svg" />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
+    <!-- PWA Manifest - FIXED: Use absolute path from base -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Preload critical assets -->
+    <link rel="preload" href="vite.svg" as="image" type="image/svg+xml" />
 
     <style>
       /* ========================================
@@ -480,6 +483,29 @@
       .error-btn.clear-cache:hover {
         background: rgba(239, 68, 68, 0.5);
       }
+
+      /* ========================================
+         SCROLLBAR STYLING
+         ======================================== */
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
     </style>
   </head>
   <body>
@@ -535,13 +561,13 @@
         <p class="error-message">We're having trouble loading the app. Please try refreshing the page or clearing your cache.</p>
         <div>
           <button class="error-btn" onclick="window.location.reload()">🔄 Refresh Page</button>
-          <button class="error-btn clear-cache" onclick="localStorage.clear(); window.location.reload()">🗑️ Clear Cache</button>
+          <button class="error-btn clear-cache" onclick="localStorage.clear(); sessionStorage.clear(); window.location.reload()">🗑️ Clear Cache</button>
         </div>
       </div>
     </div>
 
-    <!-- App Script -->
-    <script type="module" src="/src/main.jsx"></script>
+    <!-- App Script - FIXED: Use absolute path from base -->
+    <script type="module" src="src/main.jsx"></script>
 
     <!-- Fallback error handler -->
     <script>
@@ -584,6 +610,9 @@
       console.log('🚀 CodeSmartNG STEM Platform');
       console.log('📍 Environment:', window.location.href);
       console.log('📱 Screen:', window.screen.width + 'x' + window.screen.height);
+      
+      // Log base path
+      console.log('📁 Base Path:', document.querySelector('base')?.getAttribute('href') || '/');
     </script>
   </body>
 </html>
