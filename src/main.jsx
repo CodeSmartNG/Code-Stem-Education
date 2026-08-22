@@ -1,18 +1,25 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
+// FIXED: Make sure ErrorBoundary exists at this path, or remove if not needed
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+// FIXED: Create this file or remove the import
 import './index.css';
 
 // ========================================
 // DEBUGGING & ENVIRONMENT INFO
 // ========================================
 
-console.log('🚀 CodeSmartNG STEM Platform Starting...');
-console.log(`📍 Environment: ${import.meta.env.MODE}`);
-console.log(`📍 Base URL: ${import.meta.env.BASE_URL}`);
-console.log(`📍 Current URL: ${window.location.href}`);
-console.log(`📍 User Agent: ${navigator.userAgent}`);
+// Only show logs in development
+const isDevelopment = import.meta.env.MODE === 'development';
+
+if (isDevelopment) {
+  console.log('🚀 CodeSmartNG STEM Platform Starting...');
+  console.log(`📍 Environment: ${import.meta.env.MODE}`);
+  console.log(`📍 Base URL: ${import.meta.env.BASE_URL || '/'}`);
+  console.log(`📍 Current URL: ${window.location.href}`);
+  console.log(`📍 User Agent: ${navigator.userAgent}`);
+}
 
 // ========================================
 // LOCAL STORAGE STATUS CHECK
@@ -24,11 +31,13 @@ const localStorageStatus = {
   keys: Object.keys(localStorage)
 };
 
-console.log('💾 Local Storage Status:', {
-  available: localStorageStatus.available ? '✅ Available' : '❌ Not Available',
-  items: localStorageStatus.size,
-  keys: localStorageStatus.keys.length > 0 ? localStorageStatus.keys : 'Empty'
-});
+if (isDevelopment) {
+  console.log('💾 Local Storage Status:', {
+    available: localStorageStatus.available ? '✅ Available' : '❌ Not Available',
+    items: localStorageStatus.size,
+    keys: localStorageStatus.keys.length > 0 ? localStorageStatus.keys : 'Empty'
+  });
+}
 
 // Check for required storage keys
 const requiredKeys = [
@@ -39,9 +48,9 @@ const requiredKeys = [
 ];
 
 const missingKeys = requiredKeys.filter(key => !localStorage.getItem(key));
-if (missingKeys.length > 0) {
+if (isDevelopment && missingKeys.length > 0) {
   console.log('📦 Missing storage keys (will be created on init):', missingKeys);
-} else {
+} else if (isDevelopment) {
   console.log('✅ All required storage keys found');
 }
 
@@ -97,13 +106,15 @@ if (!rootElement) {
   throw new Error('Root element not found');
 }
 
-console.log('✅ Root element found');
+if (isDevelopment) {
+  console.log('✅ Root element found');
+}
 
 // ========================================
 // PERFORMANCE MONITORING
 // ========================================
 
-if ('performance' in window && 'getEntriesByType' in performance) {
+if (isDevelopment && 'performance' in window && 'getEntriesByType' in performance) {
   const perfEntries = performance.getEntriesByType('navigation');
   if (perfEntries.length > 0) {
     const navTiming = perfEntries[0];
@@ -126,7 +137,9 @@ window.addEventListener('online', () => {
   console.log('📡 You are back online.');
 });
 
-console.log(`📡 Network Status: ${navigator.onLine ? '🟢 Online' : '🔴 Offline'}`);
+if (isDevelopment) {
+  console.log(`📡 Network Status: ${navigator.onLine ? '🟢 Online' : '🔴 Offline'}`);
+}
 
 // ========================================
 // STORAGE USAGE CHECK
@@ -136,19 +149,20 @@ const getStorageSize = () => {
   let total = 0;
   for (let key in localStorage) {
     if (localStorage.hasOwnProperty(key)) {
-      total += localStorage[key].length * 2; // UTF-16 uses 2 bytes per character
+      total += localStorage[key].length * 2;
     }
   }
   return total;
 };
 
-const storageSize = getStorageSize();
-const storageSizeMB = (storageSize / (1024 * 1024)).toFixed(2);
+if (isDevelopment) {
+  const storageSize = getStorageSize();
+  const storageSizeMB = (storageSize / (1024 * 1024)).toFixed(2);
+  console.log(`💾 Storage Usage: ${storageSizeMB} MB`);
 
-console.log(`💾 Storage Usage: ${storageSizeMB} MB`);
-
-if (storageSize > 5 * 1024 * 1024) {
-  console.warn('⚠️ Storage usage is high (>5MB). Consider clearing unused data.');
+  if (storageSize > 5 * 1024 * 1024) {
+    console.warn('⚠️ Storage usage is high (>5MB). Consider clearing unused data.');
+  }
 }
 
 // ========================================
@@ -166,8 +180,10 @@ try {
     </React.StrictMode>
   );
   
-  console.log('✅ React app rendered successfully');
-  console.log('🎯 App is ready!');
+  if (isDevelopment) {
+    console.log('✅ React app rendered successfully');
+    console.log('🎯 App is ready!');
+  }
 } catch (error) {
   console.error('❌ Error rendering React app:', error);
   console.error('Error details:', error.stack);
@@ -308,13 +324,17 @@ window.__debugStorage = () => {
   console.log('=== END DEBUG ===');
 };
 
-console.log('💡 Tip: Run __debugStorage() in console to view localStorage data');
+if (isDevelopment) {
+  console.log('💡 Tip: Run __debugStorage() in console to view localStorage data');
+}
 
 // ========================================
 // APP READY
 // ========================================
 
-console.log('✅ Main.jsx initialization complete');
-console.log('🎯 CodeSmartNG STEM Platform is ready!');
-console.log(`📦 Data Storage: ${localStorageStatus.available ? 'LocalStorage' : 'Memory'}`);
-console.log(`👤 ${localStorage.getItem('hausaStem_currentUser') ? 'User session found' : 'No active session'}`);
+if (isDevelopment) {
+  console.log('✅ Main.jsx initialization complete');
+  console.log('🎯 CodeSmartNG STEM Platform is ready!');
+  console.log(`📦 Data Storage: ${localStorageStatus.available ? 'LocalStorage' : 'Memory'}`);
+  console.log(`👤 ${localStorage.getItem('hausaStem_currentUser') ? 'User session found' : 'No active session'}`);
+}
