@@ -7,10 +7,11 @@ const COURSES_KEY = 'hausaStem_courses';
 const USERS_KEY = 'hausaStem_users';
 const EMAIL_CONFIRMATIONS_KEY = 'hausaStem_email_confirmations';
 const SESSION_TRACKING_KEY = 'hausaStem_session_tracking';
-const TEACHER_WALLETS_KEY = 'hausaStem_teacher_wallets'; // NEW
-const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions'; // NEW
+const TEACHER_WALLETS_KEY = 'hausaStem_teacher_wallets';
+const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions';
 
-// Initialize with default data if empty
+// ==================== INITIALIZATION ====================
+
 export const initializeStorage = () => {
   const existingStudents = getStudents() || [];
   const existingCourses = getCourses() || {};
@@ -21,11 +22,10 @@ export const initializeStorage = () => {
   console.log('Existing students:', existingStudents.length);
   console.log('Existing courses:', Object.keys(existingCourses).length);
 
-  // Always ensure admin user exists, even if storage already has data
   const users = getUsers() || {};
   let needsSave = false;
 
-  // Check and create admin if missing
+  // Create admin user if missing
   if (!users['admin1']) {
     console.log('🛠 Creating admin user...');
     users['admin1'] = {
@@ -34,19 +34,18 @@ export const initializeStorage = () => {
       email: "codesmartng1@gmail.com",
       password: "Kb1217@#$%&",
       role: "admin",
-      isEmailConfirmed: true, // Admin email is pre-confirmed
+      isEmailConfirmed: true,
       joinedDate: new Date().toISOString()
     };
     needsSave = true;
   } else if (users['admin1'].email !== 'codesmartng1@gmail.com') {
-    // Update existing admin with proper email
     console.log('🛠 Updating admin user email...');
     users['admin1'].email = "codesmartng1@gmail.com";
     users['admin1'].isEmailConfirmed = true;
     needsSave = true;
   }
 
-  // Check and create teacher if missing
+  // Create teacher user if missing
   if (!users['teacher1'] || users['teacher1'].email !== 'kabir@teacher.com') {
     console.log('🛠 Creating teacher user...');
     users['teacher1'] = {
@@ -60,14 +59,14 @@ export const initializeStorage = () => {
       joinedDate: new Date().toISOString(),
       courses: ['webDevelopment', 'python', 'mathematics'],
       isApproved: true,
-      isEmailConfirmed: true, // Teacher email is pre-confirmed
+      isEmailConfirmed: true,
       approvedDate: new Date().toISOString(),
-      whatsappNumber: '2348012345678' // NEW: Default WhatsApp number
+      whatsappNumber: '2348012345678'
     };
     needsSave = true;
   }
 
-  // Check and create student if missing
+  // Create student user if missing
   if (!users['student1'] || users['student1'].email !== 'student@example.com') {
     console.log('🛠 Creating student user...');
     users['student1'] = {
@@ -82,7 +81,7 @@ export const initializeStorage = () => {
       points: 0,
       badges: [],
       enrolledCourses: [],
-      isEmailConfirmed: true, // Demo student email is pre-confirmed
+      isEmailConfirmed: true,
       joinedDate: new Date().toISOString()
     };
     needsSave = true;
@@ -93,6 +92,7 @@ export const initializeStorage = () => {
     saveUsers(users);
   }
 
+  // Create default students if empty
   if (existingStudents.length === 0) {
     console.log('🛠 Creating default students...');
     const defaultStudents = [
@@ -115,231 +115,153 @@ export const initializeStorage = () => {
     saveStudents(defaultStudents);
   }
 
+  // Create default courses if empty
   if (Object.keys(existingCourses).length === 0) {
     console.log('🛠 Creating default courses...');
-    const defaultCourses = {
-      webDevelopment: {
-        title: "Web Development",
-        description: "Learn how to build websites using HTML, CSS and JavaScript",
-        thumbnail: "🌐",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Introduction to HTML",
-            content: "HTML is the first part of a website. It provides the structure of web pages.",
-            duration: "30 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: true, // NEW: Free lesson
-            price: 0, // NEW: Price for paid lessons
-            multimedia: [
-              {
-                id: 1,
-                type: "video",
-                url: "https://www.youtube.com/embed/dD2EISBDjWM",
-                title: "Video: How to use HTML",
-                description: "This video will teach you everything you need to know about HTML"
-              }
-            ],
-            quiz: {
-              title: "HTML Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "What does HTML stand for?",
-                  type: "text",
-                  options: [
-                    "Hyper Text Markup Language",
-                    "High Tech Modern Language", 
-                    "Hyper Transfer Markup Language",
-                    "Home Tool Markup Language"
-                  ],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      },
-      python: {
-        title: "Python Programming", 
-        description: "Learn how to program software with the Python language",
-        thumbnail: "🐍",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Python Basics",
-            content: "Start learning about the basic components in Python: variables, data types, and basic operations.",
-            duration: "40 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: false, // NEW: Paid lesson
-            price: 1500, // NEW: Price for this lesson
-            multimedia: [],
-            quiz: {
-              title: "Python Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "How do you create a variable in Python?",
-                  type: "text",
-                  options: [
-                    "x = 5",
-                    "variable x = 5", 
-                    "let x = 5",
-                    "var x = 5"
-                  ],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      },
-      mathematics: {
-        title: "Mathematics",
-        description: "Learn mathematics from basics to advanced levels",
-        thumbnail: "📊",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Algebra Basics", 
-            content: "Start learning about algebra and how to use it to solve problems.",
-            duration: "35 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: true, // NEW: Free lesson
-            price: 0, // NEW: Price for paid lessons
-            multimedia: [],
-            quiz: {
-              title: "Algebra Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "What is x in the equation 2x + 5 = 15?",
-                  type: "text",
-                  options: ["5", "10", "15", "20"],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      }
-    };
-    saveCourses(defaultCourses);
+    saveCourses(getDefaultCourses());
   }
 
-  // NEW: Initialize teacher wallets
+  // Initialize teacher wallets
   initializeTeacherWallets();
 
   console.log('✅ Storage initialization complete');
-  debugStorage(); // Show final state
+  debugStorage();
 };
 
-
-
-
-// ==================== LESSON PURCHASE FUNCTION ====================
-// Add this function - it's missing from your current storage.js
-export const purchaseLesson = (studentId, courseKey, lessonId, amount) => {
-  try {
-    const student = getStudentById(studentId);
-    if (!student) {
-      throw new Error('Student not found');
+const getDefaultCourses = () => {
+  return {
+    webDevelopment: {
+      title: "Web Development",
+      description: "Learn how to build websites using HTML, CSS and JavaScript",
+      thumbnail: "🌐",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Introduction to HTML",
+          content: "HTML is the first part of a website. It provides the structure of web pages.",
+          duration: "30 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: true,
+          price: 0,
+          multimedia: [
+            {
+              id: 1,
+              type: "video",
+              url: "https://www.youtube.com/embed/dD2EISBDjWM",
+              title: "Video: How to use HTML",
+              description: "This video will teach you everything you need to know about HTML"
+            }
+          ],
+          quiz: {
+            title: "HTML Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "What does HTML stand for?",
+                type: "text",
+                options: [
+                  "Hyper Text Markup Language",
+                  "High Tech Modern Language",
+                  "Hyper Transfer Markup Language",
+                  "Home Tool Markup Language"
+                ],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    python: {
+      title: "Python Programming",
+      description: "Learn how to program software with the Python language",
+      thumbnail: "🐍",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Python Basics",
+          content: "Start learning about the basic components in Python: variables, data types, and basic operations.",
+          duration: "40 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: false,
+          price: 1500,
+          multimedia: [],
+          quiz: {
+            title: "Python Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "How do you create a variable in Python?",
+                type: "text",
+                options: [
+                  "x = 5",
+                  "variable x = 5",
+                  "let x = 5",
+                  "var x = 5"
+                ],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    mathematics: {
+      title: "Mathematics",
+      description: "Learn mathematics from basics to advanced levels",
+      thumbnail: "📊",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Algebra Basics",
+          content: "Start learning about algebra and how to use it to solve problems.",
+          duration: "35 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: true,
+          price: 0,
+          multimedia: [],
+          quiz: {
+            title: "Algebra Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "What is x in the equation 2x + 5 = 15?",
+                type: "text",
+                options: ["5", "10", "15", "20"],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
     }
-
-    // Initialize purchased lessons array if it doesn't exist
-    if (!student.purchasedLessons) {
-      student.purchasedLessons = [];
-    }
-
-    const purchaseKey = `${courseKey}-${lessonId}`;
-    
-    // Check if already purchased
-    if (student.purchasedLessons.includes(purchaseKey)) {
-      throw new Error('Lesson already purchased');
-    }
-
-    // Add to purchased lessons
-    student.purchasedLessons.push(purchaseKey);
-
-    // Record purchase transaction
-    if (!student.purchaseHistory) {
-      student.purchaseHistory = [];
-    }
-
-    const purchaseRecord = {
-      id: `purchase_${Date.now()}`,
-      courseKey: courseKey,
-      lessonId: lessonId,
-      amount: amount,
-      date: new Date().toISOString(),
-      status: 'completed'
-    };
-
-    student.purchaseHistory.push(purchaseRecord);
-
-    // Update student
-    updateStudent(student);
-
-    console.log(`✅ Student ${studentId} purchased lesson ${lessonId} in course ${courseKey} for ₦${amount}`);
-    return true;
-  } catch (error) {
-    console.error('Error purchasing lesson:', error);
-    throw error;
-  }
+  };
 };
 
+// ==================== TEACHER WALLET FUNCTIONS ====================
 
-
-
-
-
-
-
-// ==================== LESSON ACCESS CONTROL ====================
-
-export const canAccessLesson = (studentId, courseKey, lessonId) => {
-  const lesson = getLessonById(courseKey, lessonId);
-  if (!lesson) return false;
-  
-  // If lesson is free, it's accessible
-  if (lesson.isFree) return true;
-  
-  // If lesson is paid, check if student purchased it
-  return hasStudentPurchasedLesson(studentId, courseKey, lessonId);
-};
-
-
-
-
-
-
-
-
-// ==================== TEACHER WALLET & PAYMENT FUNCTIONS ====================
-
-// NEW: Initialize teacher wallets
 export const initializeTeacherWallets = () => {
   const wallets = getTeacherWallets();
   const teachers = getAllTeachers();
-  
+
   teachers.forEach(teacher => {
     if (!wallets[teacher.id]) {
       wallets[teacher.id] = {
@@ -354,11 +276,10 @@ export const initializeTeacherWallets = () => {
       };
     }
   });
-  
+
   saveTeacherWallets(wallets);
 };
 
-// NEW: Get teacher wallets
 export const getTeacherWallets = () => {
   try {
     const wallets = localStorage.getItem(TEACHER_WALLETS_KEY);
@@ -369,7 +290,6 @@ export const getTeacherWallets = () => {
   }
 };
 
-// NEW: Save teacher wallets
 export const saveTeacherWallets = (wallets) => {
   try {
     localStorage.setItem(TEACHER_WALLETS_KEY, JSON.stringify(wallets));
@@ -378,7 +298,6 @@ export const saveTeacherWallets = (wallets) => {
   }
 };
 
-// NEW: Get teacher wallet
 export const getTeacherWallet = (teacherId) => {
   const wallets = getTeacherWallets();
   return wallets[teacherId] || {
@@ -393,25 +312,23 @@ export const getTeacherWallet = (teacherId) => {
   };
 };
 
-// NEW: Update teacher wallet
 export const updateTeacherWallet = (teacherId, walletData) => {
   const wallets = getTeacherWallets();
   const currentWallet = getTeacherWallet(teacherId);
-  
+
   wallets[teacherId] = {
     ...currentWallet,
     ...walletData,
     updatedAt: new Date().toISOString()
   };
-  
+
   saveTeacherWallets(wallets);
   return wallets[teacherId];
 };
 
-// NEW: Add earnings to teacher wallet
 export const addTeacherEarnings = (teacherId, amount, description, lessonDetails = {}) => {
   const wallet = getTeacherWallet(teacherId);
-  
+
   const transaction = {
     id: `txn_${Date.now()}`,
     type: 'credit',
@@ -421,29 +338,28 @@ export const addTeacherEarnings = (teacherId, amount, description, lessonDetails
     date: new Date().toISOString(),
     status: 'completed'
   };
-  
+
   const updatedWallet = {
     ...wallet,
     balance: wallet.balance + amount,
     totalEarnings: wallet.totalEarnings + amount,
     transactions: [transaction, ...wallet.transactions]
   };
-  
+
   return updateTeacherWallet(teacherId, updatedWallet);
 };
 
-// NEW: Process withdrawal from teacher wallet
 export const withdrawFromWallet = (teacherId, amount, bankDetails) => {
   const wallet = getTeacherWallet(teacherId);
-  
+
   if (wallet.balance < amount) {
     throw new Error('Insufficient balance for withdrawal');
   }
-  
+
   if (amount < 100) {
     throw new Error('Minimum withdrawal amount is ₦100');
   }
-  
+
   const transaction = {
     id: `withdraw_${Date.now()}`,
     type: 'debit',
@@ -453,54 +369,68 @@ export const withdrawFromWallet = (teacherId, amount, bankDetails) => {
     date: new Date().toISOString(),
     status: 'pending'
   };
-  
+
   const updatedWallet = {
     ...wallet,
     balance: wallet.balance - amount,
     pendingWithdrawals: wallet.pendingWithdrawals + amount,
     transactions: [transaction, ...wallet.transactions]
   };
-  
+
   return updateTeacherWallet(teacherId, updatedWallet);
 };
 
-// NEW: Update teacher profile with WhatsApp
-export const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
-  const users = getUsers() || {};
-  
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-  
-  users[teacherId] = {
-    ...users[teacherId],
-    ...profileData,
-    updatedAt: new Date().toISOString()
+export const getTeacherPaymentStats = (teacherId) => {
+  const wallet = getTeacherWallet(teacherId);
+  const transactions = getPaymentTransactions();
+
+  const teacherTransactions = Object.values(transactions).filter(
+    transaction => transaction.teacherId === teacherId && transaction.status === 'completed'
+  );
+
+  const monthlyEarnings = teacherTransactions
+    .filter(txn => {
+      const txnDate = new Date(txn.date);
+      const currentMonth = new Date();
+      return txnDate.getMonth() === currentMonth.getMonth() &&
+        txnDate.getFullYear() === currentMonth.getFullYear();
+    })
+    .reduce((total, txn) => total + txn.amount * 0.9, 0);
+
+  const totalSales = teacherTransactions.length;
+
+  return {
+    totalEarnings: wallet.totalEarnings,
+    availableBalance: wallet.balance,
+    pendingWithdrawals: wallet.pendingWithdrawals,
+    monthlyEarnings: monthlyEarnings,
+    totalSales: totalSales,
+    transactionHistory: wallet.transactions.slice(0, 10)
   };
-  
-  saveUsers(users);
-  return users[teacherId];
 };
 
-// NEW: Get teacher WhatsApp URL
-export const getTeacherWhatsAppUrl = (teacherId) => {
-  const users = getUsers() || {};
-  const teacher = users[teacherId];
-  
-  if (!teacher || !teacher.whatsappNumber) {
-    return null;
+// ==================== PAYMENT FUNCTIONS ====================
+
+export const getPaymentTransactions = () => {
+  try {
+    const transactions = localStorage.getItem(PAYMENT_TRANSACTIONS_KEY);
+    return transactions ? JSON.parse(transactions) : {};
+  } catch (error) {
+    console.error('Error loading payment transactions:', error);
+    return {};
   }
-  
-  const whatsappNumber = teacher.whatsappNumber.replace(/\D/g, '');
-  const message = `Hello ${teacher.name}! I found you on the STEM Learning Platform and would like to learn more about your courses.`;
-  
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 };
 
-// NEW: Process lesson payment
+export const savePaymentTransactions = (transactions) => {
+  try {
+    localStorage.setItem(PAYMENT_TRANSACTIONS_KEY, JSON.stringify(transactions));
+  } catch (error) {
+    console.error('Error saving payment transactions:', error);
+  }
+};
+
 export const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount) => {
   try {
-    // Record payment transaction
     const paymentTransaction = {
       id: `pay_${Date.now()}`,
       studentId: studentId,
@@ -512,34 +442,31 @@ export const processLessonPayment = (studentId, teacherId, courseKey, lessonId, 
       date: new Date().toISOString(),
       type: 'lesson_purchase'
     };
-    
-    // Save payment transaction
+
     const transactions = getPaymentTransactions();
     transactions[paymentTransaction.id] = paymentTransaction;
     savePaymentTransactions(transactions);
-    
-    // Add earnings to teacher wallet (keep 90% for teacher, 10% platform fee)
+
     const teacherEarnings = amount * 0.9;
     addTeacherEarnings(teacherId, teacherEarnings, `Payment for lesson purchase`, {
       courseKey: courseKey,
       lessonId: lessonId,
       studentId: studentId
     });
-    
-    // Update student's purchased lessons
+
     const student = getStudentById(studentId);
     if (student) {
       if (!student.purchasedLessons) {
         student.purchasedLessons = [];
       }
-      
+
       const purchaseKey = `${courseKey}-${lessonId}`;
       if (!student.purchasedLessons.includes(purchaseKey)) {
         student.purchasedLessons.push(purchaseKey);
         updateStudent(student);
       }
     }
-    
+
     return paymentTransaction;
   } catch (error) {
     console.error('Error processing payment:', error);
@@ -547,366 +474,285 @@ export const processLessonPayment = (studentId, teacherId, courseKey, lessonId, 
   }
 };
 
-// NEW: Get payment transactions
-export const getPaymentTransactions = () => {
+// ==================== LESSON PURCHASE & ACCESS ====================
+
+export const purchaseLesson = (studentId, courseKey, lessonId, paymentData) => {
   try {
-    const transactions = localStorage.getItem(PAYMENT_TRANSACTIONS_KEY);
-    return transactions ? JSON.parse(transactions) : {};
+    const student = getStudentById(studentId);
+    if (!student) {
+      throw new Error('Student not found');
+    }
+
+    if (!student.purchasedLessons) {
+      student.purchasedLessons = [];
+    }
+
+    const purchaseKey = `${courseKey}-${lessonId}`;
+
+    if (student.purchasedLessons.includes(purchaseKey)) {
+      return { success: true, alreadyPurchased: true };
+    }
+
+    student.purchasedLessons.push(purchaseKey);
+
+    if (!student.paymentHistory) {
+      student.paymentHistory = [];
+    }
+
+    student.paymentHistory.push({
+      paymentId: paymentData?.paymentId || `pay_${Date.now()}`,
+      amount: paymentData?.amount || 0,
+      lessonId: lessonId,
+      courseKey: courseKey,
+      gateway: paymentData?.gateway || 'manual',
+      timestamp: new Date().toISOString(),
+      status: 'completed'
+    });
+
+    updateStudent(student);
+    return { success: true, alreadyPurchased: false };
   } catch (error) {
-    console.error('Error loading payment transactions:', error);
-    return {};
+    console.error('Error purchasing lesson:', error);
+    throw error;
   }
 };
 
-// NEW: Save payment transactions
-export const savePaymentTransactions = (transactions) => {
-  try {
-    localStorage.setItem(PAYMENT_TRANSACTIONS_KEY, JSON.stringify(transactions));
-  } catch (error) {
-    console.error('Error saving payment transactions:', error);
-  }
+export const canAccessLesson = (studentId, courseKey, lessonId) => {
+  const lesson = getLessonById(courseKey, lessonId);
+  if (!lesson) return false;
+
+  if (lesson.isFree) return true;
+
+  return hasStudentPurchasedLesson(studentId, courseKey, lessonId);
 };
 
-// NEW: Check if student has purchased lesson
 export const hasStudentPurchasedLesson = (studentId, courseKey, lessonId) => {
   const student = getStudentById(studentId);
   if (!student || !student.purchasedLessons) {
     return false;
   }
-  
+
   const purchaseKey = `${courseKey}-${lessonId}`;
   return student.purchasedLessons.includes(purchaseKey);
 };
 
-// NEW: Get teacher's payment statistics
-export const getTeacherPaymentStats = (teacherId) => {
-  const wallet = getTeacherWallet(teacherId);
-  const transactions = getPaymentTransactions();
-  
-  const teacherTransactions = Object.values(transactions).filter(
-    transaction => transaction.teacherId === teacherId && transaction.status === 'completed'
+// ==================== USER MANAGEMENT ====================
+
+export const getUsers = () => {
+  try {
+    const users = localStorage.getItem(USERS_KEY);
+    return users ? JSON.parse(users) : {};
+  } catch (error) {
+    console.error('Error loading users:', error);
+    return {};
+  }
+};
+
+export const saveUsers = (users) => {
+  try {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  } catch (error) {
+    console.error('Error saving users:', error);
+  }
+};
+
+export const getAllUsers = () => {
+  const users = getUsers();
+  return Object.values(users);
+};
+
+export const getUserById = (userId) => {
+  const users = getUsers();
+  return users[userId] || null;
+};
+
+export const deleteUser = (userId) => {
+  const users = getUsers();
+  const currentUser = getCurrentUser();
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  if (currentUser && currentUser.id === userId) {
+    throw new Error('Cannot delete your own account');
+  }
+
+  if (users[userId].role === 'admin') {
+    throw new Error('Cannot delete admin users');
+  }
+
+  const userRole = users[userId].role;
+  delete users[userId];
+  saveUsers(users);
+
+  if (userRole === 'student') {
+    const students = getStudents();
+    const updatedStudents = students.filter(s => s.userId !== userId && s.id !== userId);
+    saveStudents(updatedStudents);
+  }
+
+  if (userRole === 'teacher') {
+    const wallets = getTeacherWallets();
+    if (wallets[userId]) {
+      delete wallets[userId];
+      saveTeacherWallets(wallets);
+    }
+  }
+
+  console.log('🗑 User deleted:', userId);
+  return true;
+};
+
+export const updateUser = (userId, userData) => {
+  const users = getUsers();
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  users[userId] = {
+    ...users[userId],
+    ...userData,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveUsers(users);
+  return users[userId];
+};
+
+// ==================== AUTHENTICATION ====================
+
+export const authenticateUser = (email, password) => {
+  const users = getUsers();
+
+  const user = Object.values(users).find(
+    user => user.email === email && user.password === password
   );
-  
-  const monthlyEarnings = teacherTransactions
-    .filter(txn => {
-      const txnDate = new Date(txn.date);
-      const currentMonth = new Date();
-      return txnDate.getMonth() === currentMonth.getMonth() && 
-             txnDate.getFullYear() === currentMonth.getFullYear();
-    })
-    .reduce((total, txn) => total + txn.amount * 0.9, 0);
-  
-  const totalSales = teacherTransactions.length;
-  
-  return {
-    totalEarnings: wallet.totalEarnings,
-    availableBalance: wallet.balance,
-    pendingWithdrawals: wallet.pendingWithdrawals,
-    monthlyEarnings: monthlyEarnings,
-    totalSales: totalSales,
-    transactionHistory: wallet.transactions.slice(0, 10) // Last 10 transactions
-  };
+
+  if (!user) return null;
+
+  if (user.role !== 'admin' && !user.isEmailConfirmed) {
+    throw new Error('Please confirm your email before logging in.');
+  }
+
+  if (user.role === 'teacher' && !user.isApproved) {
+    throw new Error('Your teacher account is pending admin approval.');
+  }
+
+  setCurrentUser(user);
+  resetSession();
+  return user;
 };
 
-// ==================== COURSE ENROLLMENT FUNCTIONS ====================
-export const enrollStudentInCourse = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  // Check if already enrolled
-  if (student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Already enrolled in this course');
-  }
-
-  // Initialize enrolled courses array if it doesn't exist
-  if (!student.enrolledCourses) {
-    student.enrolledCourses = [];
-  }
-
-  // Initialize progress tracking if it doesn't exist
-  if (!student.progress) {
-    student.progress = {};
-  }
-
-  // Add course to enrolled courses
-  student.enrolledCourses.push(courseKey);
-
-  // Initialize progress for this course
-  student.progress[courseKey] = 0;
-
-  // Initialize enrolled courses date tracking
-  if (!student.enrolledCoursesDate) {
-    student.enrolledCoursesDate = {};
-  }
-  student.enrolledCoursesDate[courseKey] = new Date().toISOString();
-
-  // Update student
-  updateStudent(student);
-
-  console.log(`✅ Student ${studentId} enrolled in course: ${courseKey}`);
-  return true;
-};
-
-export const unenrollStudentFromCourse = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  // Check if enrolled
-  if (!student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Not enrolled in this course');
-  }
-
-  // Remove course from enrolled courses
-  student.enrolledCourses = student.enrolledCourses.filter(course => course !== courseKey);
-
-  // Remove progress tracking for this course
-  if (student.progress && student.progress[courseKey]) {
-    delete student.progress[courseKey];
-  }
-
-  // Remove from completed courses if present
-  if (student.completedCourses?.includes(courseKey)) {
-    student.completedCourses = student.completedCourses.filter(course => course !== courseKey);
-  }
-
-  // Remove enrollment date
-  if (student.enrolledCoursesDate && student.enrolledCoursesDate[courseKey]) {
-    delete student.enrolledCoursesDate[courseKey];
-  }
-
-  // Update student
-  updateStudent(student);
-
-  console.log(`❌ Student ${studentId} unenrolled from course: ${courseKey}`);
-  return true;
-};
-
-export const getEnrolledCoursesWithProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student || !student.enrolledCourses) {
-    return [];
-  }
-
-  return student.enrolledCourses.map(courseKey => {
-    const course = courses[courseKey];
-    return {
-      key: courseKey,
-      ...course,
-      progress: student.progress?.[courseKey] || 0,
-      isCompleted: student.completedCourses?.includes(courseKey) || false,
-      enrolledDate: student.enrolledCoursesDate?.[courseKey] || student.joinedDate
-    };
-  }).filter(course => course !== null); // Filter out any null courses
-};
-
-export const updateCourseProgress = (studentId, courseKey, progress) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  if (!student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Not enrolled in this course');
-  }
-
-  // Initialize progress tracking if it doesn't exist
-  if (!student.progress) {
-    student.progress = {};
-  }
-
-  // Update progress
-  student.progress[courseKey] = Math.min(100, Math.max(0, progress));
-
-  // Check if course is completed
-  if (progress >= 100) {
-    if (!student.completedCourses) {
-      student.completedCourses = [];
-    }
-    if (!student.completedCourses.includes(courseKey)) {
-      student.completedCourses.push(courseKey);
-
-      // Award points for course completion
-      student.points = (student.points || 0) + 100;
-
-      // Add completion badge if not already present
-      if (!student.badges) {
-        student.badges = [];
-      }
-      if (!student.badges.includes('Course Completer')) {
-        student.badges.push('Course Completer');
-      }
-    }
-  }
-
-  updateStudent(student);
-  return student.progress[courseKey];
-};
-
-export const getCourseCompletionStatus = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    return { enrolled: false, progress: 0, completed: false };
-  }
-
-  return {
-    enrolled: student.enrolledCourses?.includes(courseKey) || false,
-    progress: student.progress?.[courseKey] || 0,
-    completed: student.completedCourses?.includes(courseKey) || false
-  };
-};
-
-// ==================== SESSION TRACKING & AUTO-LOGOUT ====================
-export const getSessionTracking = () => {
+export const getCurrentUser = () => {
   try {
-    const sessionData = localStorage.getItem(SESSION_TRACKING_KEY);
-    return sessionData ? JSON.parse(sessionData) : {
-      lastActivity: null,
-      sessionStart: null,
-      autoLogoutEnabled: true,
-      logoutTimeout: 60 * 60 * 1000, // 1 hour in milliseconds
-      warningTimeout: 55 * 60 * 1000 // 55 minutes in milliseconds
-    };
+    const user = localStorage.getItem(CURRENT_USER_KEY);
+    return user ? JSON.parse(user) : null;
   } catch (error) {
-    console.error('Error loading session tracking:', error);
-    return {
-      lastActivity: null,
-      sessionStart: null,
-      autoLogoutEnabled: true,
-      logoutTimeout: 60 * 60 * 1000,
-      warningTimeout: 55 * 60 * 1000
-    };
-  }
-};
-
-export const saveSessionTracking = (sessionData) => {
-  try {
-    localStorage.setItem(SESSION_TRACKING_KEY, JSON.stringify(sessionData));
-  } catch (error) {
-    console.error('Error saving session tracking:', error);
-  }
-};
-
-export const updateLastActivity = () => {
-  const sessionData = getSessionTracking();
-  sessionData.lastActivity = new Date().toISOString();
-
-  if (!sessionData.sessionStart) {
-    sessionData.sessionStart = new Date().toISOString();
-  }
-
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
-
-export const getSessionDuration = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.sessionStart) return 0;
-
-  const startTime = new Date(sessionData.sessionStart);
-  const currentTime = new Date();
-  return currentTime - startTime;
-};
-
-export const getTimeUntilLogout = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
+    console.error('Error loading current user:', error);
     return null;
   }
-
-  const lastActivity = new Date(sessionData.lastActivity);
-  const currentTime = new Date();
-  const timeSinceActivity = currentTime - lastActivity;
-  const timeRemaining = sessionData.logoutTimeout - timeSinceActivity;
-
-  return Math.max(0, timeRemaining);
 };
 
-export const getTimeUntilWarning = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
-    return null;
+export const setCurrentUser = (user) => {
+  try {
+    if (user) {
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      updateLastActivity();
+    } else {
+      localStorage.removeItem(CURRENT_USER_KEY);
+    }
+  } catch (error) {
+    console.error('Error saving current user:', error);
+  }
+};
+
+export const logoutUser = () => {
+  clearSession();
+  localStorage.removeItem(CURRENT_USER_KEY);
+};
+
+// ==================== USER REGISTRATION ====================
+
+export const registerUser = (userData) => {
+  const users = getUsers();
+
+  const existingUser = Object.values(users).find(
+    user => user.email === userData.email
+  );
+
+  if (existingUser) {
+    throw new Error('Email already registered');
   }
 
-  const lastActivity = new Date(sessionData.lastActivity);
-  const currentTime = new Date();
-  const timeSinceActivity = currentTime - lastActivity;
-  const timeRemaining = sessionData.warningTimeout - timeSinceActivity;
+  const userId = `${userData.role}_${Date.now()}`;
 
-  return Math.max(0, timeRemaining);
-};
-
-export const resetSession = () => {
-  const sessionData = {
-    lastActivity: new Date().toISOString(),
-    sessionStart: new Date().toISOString(),
-    autoLogoutEnabled: true,
-    logoutTimeout: 60 * 60 * 1000,
-    warningTimeout: 55 * 60 * 1000
+  const newUser = {
+    id: userId,
+    name: userData.name,
+    email: userData.email,
+    password: userData.password,
+    role: userData.role,
+    isEmailConfirmed: false,
+    joinedDate: new Date().toISOString()
   };
-  saveSessionTracking(sessionData);
-  return sessionData;
+
+  if (userData.role === 'teacher') {
+    newUser.specialization = userData.specialization || 'General';
+    newUser.bio = userData.bio || '';
+    newUser.courses = [];
+    newUser.isApproved = false;
+    newUser.profileImage = userData.profileImage || '';
+    newUser.whatsappNumber = userData.whatsappNumber || '';
+  } else if (userData.role === 'student') {
+    newUser.level = userData.level || 'Beginner';
+    newUser.progress = {};
+    newUser.completedLessons = [];
+    newUser.points = 0;
+    newUser.badges = [];
+    newUser.enrolledCourses = [];
+
+    const students = getStudents();
+    const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
+    const newStudent = {
+      id: newStudentId,
+      userId: userId,
+      name: userData.name,
+      email: userData.email,
+      password: userData.password,
+      role: 'student',
+      level: userData.level || 'Beginner',
+      progress: {},
+      completedLessons: [],
+      points: 0,
+      badges: [],
+      enrolledCourses: [],
+      isEmailConfirmed: false,
+      joinedDate: new Date().toISOString()
+    };
+    saveStudents([...students, newStudent]);
+  }
+
+  users[userId] = newUser;
+  saveUsers(users);
+
+  const confirmationToken = createEmailConfirmation(userId, userData.email);
+  sendEmailConfirmation(userData.email, confirmationToken);
+
+  console.log('✅ New user registered:', userId);
+  return { user: newUser, confirmationToken };
 };
 
-export const clearSession = () => {
-  localStorage.removeItem(SESSION_TRACKING_KEY);
+export const registerTeacher = (teacherData) => {
+  return registerUser({
+    ...teacherData,
+    role: 'teacher'
+  });
 };
 
-export const setAutoLogoutTimeout = (minutes) => {
-  const sessionData = getSessionTracking();
-  sessionData.logoutTimeout = minutes * 60 * 1000;
-  sessionData.warningTimeout = (minutes - 5) * 60 * 1000;
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
+// ==================== EMAIL CONFIRMATION ====================
 
-export const disableAutoLogout = () => {
-  const sessionData = getSessionTracking();
-  sessionData.autoLogoutEnabled = false;
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
-
-export const enableAutoLogout = () => {
-  const sessionData = getSessionTracking();
-  sessionData.autoLogoutEnabled = true;
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
-
-export const getSessionStats = () => {
-  const sessionData = getSessionTracking();
-  const timeUntilLogout = getTimeUntilLogout();
-  const timeUntilWarning = getTimeUntilWarning();
-  const sessionDuration = getSessionDuration();
-
-  return {
-    isActive: timeUntilLogout !== null && timeUntilLogout > 0,
-    timeUntilLogout: timeUntilLogout,
-    timeUntilWarning: timeUntilWarning,
-    sessionDuration: sessionDuration,
-    lastActivity: sessionData.lastActivity,
-    sessionStart: sessionData.sessionStart,
-    autoLogoutEnabled: sessionData.autoLogoutEnabled,
-    willWarnSoon: timeUntilWarning !== null && timeUntilWarning <= 5 * 60 * 1000 // 5 minutes or less
-  };
-};
-
-// ==================== EMAIL CONFIRMATION MANAGEMENT ====================
 export const getEmailConfirmations = () => {
   try {
     const confirmations = localStorage.getItem(EMAIL_CONFIRMATIONS_KEY);
@@ -938,7 +784,7 @@ export const createEmailConfirmation = (userId, email) => {
     email,
     token,
     createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     isUsed: false
   };
 
@@ -965,7 +811,6 @@ export const verifyEmailConfirmation = (token) => {
     throw new Error('Confirmation token has expired');
   }
 
-  // Mark token as used
   confirmation.isUsed = true;
   confirmation.confirmedAt = new Date().toISOString();
   confirmations[token] = confirmation;
@@ -975,8 +820,6 @@ export const verifyEmailConfirmation = (token) => {
 };
 
 export const sendEmailConfirmation = (email, token) => {
-  // In a real application, this would send an actual email
-  // For demo purposes, we'll simulate the email sending and log the confirmation link
   const confirmationLink = `${window.location.origin}/confirm-email?token=${token}`;
 
   console.log('📧 Email Confirmation Details:');
@@ -984,7 +827,6 @@ export const sendEmailConfirmation = (email, token) => {
   console.log('Confirmation Link:', confirmationLink);
   console.log('Token (for testing):', token);
 
-  // Simulate email sending
   return new Promise((resolve) => {
     setTimeout(() => {
       console.log('✅ Confirmation email sent successfully');
@@ -993,191 +835,20 @@ export const sendEmailConfirmation = (email, token) => {
   });
 };
 
-// ==================== USER MANAGEMENT ====================
-export const getUsers = () => {
-  try {
-    const users = localStorage.getItem(USERS_KEY);
-    return users ? JSON.parse(users) : {};
-  } catch (error) {
-    console.error('Error loading users:', error);
-    return {};
-  }
-};
-
-export const saveUsers = (users) => {
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch (error) {
-    console.error('Error saving users:', error);
-  }
-};
-
-export const authenticateUser = (email, password) => {
-  const users = getUsers() || {};
-
-  console.log('🔐 Authentication Attempt:', { email });
-  console.log('Available Users:', Object.values(users).map(u => ({ 
-    email: u.email, 
-    role: u.role, 
-    isApproved: u.isApproved,
-    isEmailConfirmed: u.isEmailConfirmed 
-  })));
-
-  // Find user by email and password
-  const user = Object.values(users).find(
-    user => user.email === email && user.password === password
-  );
-
-  console.log('Found User:', user);
-
-  if (user) {
-    // Admin users don't need email confirmation
-    if (user.role !== 'admin' && !user.isEmailConfirmed) {
-      console.log('❌ Login blocked: Email not confirmed');
-      throw new Error('Please confirm your email address before logging in. Check your inbox for the confirmation link.');
-    }
-
-    // Check if user is a teacher and not approved
-    if (user.role === 'teacher' && !user.isApproved) {
-      console.log('❌ Teacher login blocked: Account not approved');
-      throw new Error('Your teacher account is pending admin approval. Please wait for approval before logging in.');
-    }
-
-    // Set current user and update session tracking
-    setCurrentUser(user);
-    resetSession(); // Reset session on login
-
-    console.log('✅ Login Successful:', user.role);
-    return user;
-  }
-
-  console.log('❌ Login Failed: No matching user found');
-  return null;
-};
-
-export const getCurrentUser = () => {
-  try {
-    const user = localStorage.getItem(CURRENT_USER_KEY);
-    return user ? JSON.parse(user) : null;
-  } catch (error) {
-    console.error('Error loading current user:', error);
-    return null;
-  }
-};
-
-export const setCurrentUser = (user) => {
-  try {
-    if (user) {
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-      // Update session tracking when user is set
-      updateLastActivity();
-    } else {
-      localStorage.removeItem(CURRENT_USER_KEY);
-    }
-  } catch (error) {
-    console.error('Error saving current user:', error);
-  }
-};
-
-export const logoutUser = () => {
-  // Clear session tracking on logout
-  clearSession();
-  localStorage.removeItem(CURRENT_USER_KEY);
-};
-
-// ==================== USER REGISTRATION ====================
-export const registerUser = (userData) => {
-  const users = getUsers() || {};
-
-  // Check if email already exists
-  const existingUser = Object.values(users).find(
-    user => user.email === userData.email
-  );
-
-  if (existingUser) {
-    throw new Error('Email already registered');
-  }
-
-  // Generate unique user ID based on role
-  const userId = `${userData.role}_${Date.now()}`;
-
-  const newUser = {
-    id: userId,
-    name: userData.name,
-    email: userData.email,
-    password: userData.password,
-    role: userData.role,
-    isEmailConfirmed: false, // Email not confirmed initially
-    joinedDate: new Date().toISOString()
-  };
-
-  // Add role-specific fields
-  if (userData.role === 'teacher') {
-    newUser.specialization = userData.specialization || 'General';
-    newUser.bio = userData.bio || '';
-    newUser.courses = [];
-    newUser.isApproved = false; // Must be approved by admin
-    newUser.profileImage = userData.profileImage || '';
-    newUser.whatsappNumber = userData.whatsappNumber || ''; // NEW
-  } else if (userData.role === 'student') {
-    newUser.level = userData.level || 'Beginner';
-    newUser.progress = {};
-    newUser.completedLessons = [];
-    newUser.points = 0;
-    newUser.badges = [];
-    newUser.enrolledCourses = [];
-
-    // Also add to students array for backward compatibility
-    const students = getStudents() || [];
-    const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-    const newStudent = {
-      id: newStudentId,
-      userId: userId,
-      name: userData.name,
-      email: userData.email,
-      password: userData.password,
-      role: 'student',
-      level: userData.level || 'Beginner',
-      progress: {},
-      completedLessons: [],
-      points: 0,
-      badges: [],
-      enrolledCourses: [],
-      isEmailConfirmed: false,
-      joinedDate: new Date().toISOString()
-    };
-    saveStudents([...students, newStudent]);
-  }
-
-  // Add to users
-  users[userId] = newUser;
-  saveUsers(users);
-
-  // Create and send email confirmation
-  const confirmationToken = createEmailConfirmation(userId, userData.email);
-  sendEmailConfirmation(userData.email, confirmationToken);
-
-  console.log('✅ New user registered (email confirmation sent):', userId);
-  return { user: newUser, confirmationToken };
-};
-
-// ==================== EMAIL CONFIRMATION ====================
 export const confirmUserEmail = (token) => {
   try {
     const confirmation = verifyEmailConfirmation(token);
-    const users = getUsers() || {};
+    const users = getUsers();
 
     if (!users[confirmation.userId]) {
       throw new Error('User not found');
     }
 
-    // Update user email confirmation status
     users[confirmation.userId].isEmailConfirmed = true;
     users[confirmation.userId].emailConfirmedAt = new Date().toISOString();
 
-    // Also update in students array if it's a student
     if (users[confirmation.userId].role === 'student') {
-      const students = getStudents() || [];
+      const students = getStudents();
       const studentIndex = students.findIndex(s => s.userId === confirmation.userId || s.email === confirmation.email);
       if (studentIndex !== -1) {
         students[studentIndex].isEmailConfirmed = true;
@@ -1197,7 +868,7 @@ export const confirmUserEmail = (token) => {
 };
 
 export const resendEmailConfirmation = (email) => {
-  const users = getUsers() || {};
+  const users = getUsers();
   const user = Object.values(users).find(u => u.email === email);
 
   if (!user) {
@@ -1208,7 +879,6 @@ export const resendEmailConfirmation = (email) => {
     throw new Error('Email is already confirmed');
   }
 
-  // Create and send new email confirmation
   const confirmationToken = createEmailConfirmation(user.id, email);
   sendEmailConfirmation(email, confirmationToken);
 
@@ -1216,16 +886,10 @@ export const resendEmailConfirmation = (email) => {
   return { success: true, message: 'Confirmation email sent successfully' };
 };
 
-// ==================== TEACHER REGISTRATION & MANAGEMENT ====================
-export const registerTeacher = (teacherData) => {
-  return registerUser({
-    ...teacherData,
-    role: 'teacher'
-  });
-};
+// ==================== TEACHER MANAGEMENT ====================
 
 export const getAllTeachers = () => {
-  const users = getUsers() || {};
+  const users = getUsers();
   return Object.values(users).filter(user => user.role === 'teacher');
 };
 
@@ -1240,7 +904,7 @@ export const getApprovedTeachers = () => {
 };
 
 export const approveTeacher = (teacherId) => {
-  const users = getUsers() || {};
+  const users = getUsers();
 
   if (!users[teacherId] || users[teacherId].role !== 'teacher') {
     throw new Error('Teacher not found');
@@ -1255,28 +919,26 @@ export const approveTeacher = (teacherId) => {
 };
 
 export const rejectTeacher = (teacherId) => {
-  const users = getUsers() || {};
+  const users = getUsers();
 
   if (!users[teacherId] || users[teacherId].role !== 'teacher') {
     throw new Error('Teacher not found');
   }
 
-  // Remove teacher from users
   delete users[teacherId];
   saveUsers(users);
 
-  console.log('❌ Teacher rejected and removed:', teacherId);
+  console.log('❌ Teacher rejected:', teacherId);
   return true;
 };
 
 export const dismissTeacher = (teacherId) => {
-  const users = getUsers() || {};
+  const users = getUsers();
 
   if (!users[teacherId] || users[teacherId].role !== 'teacher') {
     throw new Error('Teacher not found');
   }
 
-  // Set teacher as not approved and add dismissal date
   users[teacherId].isApproved = false;
   users[teacherId].dismissedDate = new Date().toISOString();
 
@@ -1286,7 +948,24 @@ export const dismissTeacher = (teacherId) => {
 };
 
 export const updateTeacherProfile = (teacherId, profileData) => {
-  const users = getUsers() || {};
+  const users = getUsers();
+
+  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
+    throw new Error('Teacher not found');
+  }
+
+  users[teacherId] = {
+    ...users[teacherId],
+    ...profileData,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveUsers(users);
+  return users[teacherId];
+};
+
+export const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
+  const users = getUsers();
 
   if (!users[teacherId] || users[teacherId].role !== 'teacher') {
     throw new Error('Teacher not found');
@@ -1303,7 +982,7 @@ export const updateTeacherProfile = (teacherId, profileData) => {
 };
 
 export const getTeacherById = (teacherId) => {
-  const users = getUsers() || {};
+  const users = getUsers();
   const teacher = users[teacherId];
 
   if (!teacher || teacher.role !== 'teacher') {
@@ -1313,79 +992,22 @@ export const getTeacherById = (teacherId) => {
   return teacher;
 };
 
-// ==================== USER MANAGEMENT FUNCTIONS ====================
-export const deleteUser = (userId) => {
-  const users = getUsers() || {};
-  const currentUser = getCurrentUser();
+export const getTeacherWhatsAppUrl = (teacherId) => {
+  const users = getUsers();
+  const teacher = users[teacherId];
 
-  if (!users[userId]) {
-    throw new Error('User not found');
+  if (!teacher || !teacher.whatsappNumber) {
+    return null;
   }
 
-  // Don't allow deleting the current user
-  if (currentUser && currentUser.id === userId) {
-    throw new Error('Cannot delete your own account');
-  }
+  const whatsappNumber = teacher.whatsappNumber.replace(/\D/g, '');
+  const message = `Hello ${teacher.name}! I found you on the STEM Learning Platform and would like to learn more about your courses.`;
 
-  // Don't allow deleting admin users
-  if (users[userId].role === 'admin') {
-    throw new Error('Cannot delete admin users');
-  }
-
-  // Remove user from users
-  delete users[userId];
-  saveUsers(users);
-
-  // If it's a student, also remove from students array
-  if (users[userId]?.role === 'student') {
-    const students = getStudents() || [];
-    const updatedStudents = students.filter(student => student.userId !== userId);
-    saveStudents(updatedStudents);
-  }
-
-  // NEW: Remove teacher wallet if it's a teacher
-  if (users[userId]?.role === 'teacher') {
-    const wallets = getTeacherWallets();
-    if (wallets[userId]) {
-      delete wallets[userId];
-      saveTeacherWallets(wallets);
-    }
-  }
-
-  console.log('🗑 User deleted:', userId);
-  return true;
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 };
 
-export const updateUser = (userId, userData) => {
-  const users = getUsers() || {};
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  users[userId] = {
-    ...users[userId],
-    ...userData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveUsers(users);
-  return users[userId];
-};
-
-export const getAllUsers = () => {
-  const users = getUsers() || {};
-  return Object.values(users);
-};
-
-export const getUserById = (userId) => {
-  const users = getUsers() || {};
-  return users[userId] || null;
-};
-
-// ==================== TEACHER FUNCTIONS ====================
 export const getTeacherCourses = (teacherId) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
 
   if (!teacherId) {
     console.log('No teacher ID found, returning all courses for demo');
@@ -1399,22 +1021,20 @@ export const getTeacherCourses = (teacherId) => {
 
 export const getTeacherStats = (teacherId) => {
   const teacherCourses = getTeacherCourses(teacherId);
-  const allStudents = getStudents() || [];
+  const allStudents = getStudents();
 
   const totalCourses = Object.keys(teacherCourses).length;
   const totalLessons = Object.values(teacherCourses).reduce(
     (acc, course) => acc + (course.lessons?.length || 0), 0
   );
 
-  // Calculate students enrolled in teacher's courses
   const teacherCourseKeys = Object.keys(teacherCourses);
-  const totalStudents = allStudents.filter(student => 
-    student.enrolledCourses?.some(courseKey => 
+  const totalStudents = allStudents.filter(student =>
+    student.enrolledCourses?.some(courseKey =>
       teacherCourseKeys.includes(courseKey)
     )
   ).length;
 
-  // Calculate completion rate
   let totalCompletions = 0;
   let totalPossibleCompletions = 0;
 
@@ -1429,11 +1049,10 @@ export const getTeacherStats = (teacherId) => {
     });
   });
 
-  const averageCompletionRate = totalPossibleCompletions > 0 
+  const averageCompletionRate = totalPossibleCompletions > 0
     ? Math.round((totalCompletions / totalPossibleCompletions) * 100)
     : 0;
 
-  // NEW: Get payment stats
   const paymentStats = getTeacherPaymentStats(teacherId);
 
   return {
@@ -1467,90 +1086,8 @@ export const getCurrentTeacherId = () => {
   return currentUser && currentUser.role === 'teacher' ? currentUser.id : null;
 };
 
-// Update the addNewCourse function to include teacher ID
-export const addNewCourse = (courseData) => {
-  const courses = getCourses() || {};
-  const courseKey = courseData.key || generateCourseKey(courseData.title);
-
-  if (courses[courseKey]) {
-    throw new Error('Course with this key already exists');
-  }
-
-  const teacherId = getCurrentTeacherId();
-
-  courses[courseKey] = {
-    ...courseData,
-    key: courseKey,
-    teacherId: teacherId,
-    lessons: courseData.lessons || [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  localStorage.setItem(COURSES_KEY, JSON.stringify(courses));
-  return courseKey;
-};
-
-export const addNewCourseWithTeacher = (courseData, teacherId) => {
-  const courses = getCourses() || {};
-  const users = getUsers() || {};
-
-  const courseKey = courseData.key || generateCourseKey(courseData.title);
-
-  if (courses[courseKey]) {
-    throw new Error('Course with this key already exists');
-  }
-
-  // Verify teacher exists and is approved
-  const teacher = users[teacherId];
-  if (!teacher || teacher.role !== 'teacher' || !teacher.isApproved) {
-    throw new Error('Teacher not found or not approved');
-  }
-
-  // Create course
-  courses[courseKey] = {
-    ...courseData,
-    key: courseKey,
-    teacherId: teacherId,
-    teacherName: teacher.name,
-    lessons: courseData.lessons || [],
-    isPublished: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  // Add course to teacher's courses array
-  if (!teacher.courses) {
-    teacher.courses = [];
-  }
-  teacher.courses.push(courseKey);
-  users[teacherId] = teacher;
-
-  saveCourses(courses);
-  saveUsers(users);
-
-  return courseKey;
-};
-
-export const approveCourse = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey].isPublished = true;
-  courses[courseKey].approvedDate = new Date().toISOString();
-
-  saveCourses(courses);
-  return courses[courseKey];
-};
-
-const generateCourseKey = (title) => {
-  return title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-};
-
 // ==================== STUDENT MANAGEMENT ====================
+
 export const getStudents = () => {
   try {
     const students = localStorage.getItem(STUDENT_KEY);
@@ -1570,34 +1107,55 @@ export const saveStudents = (students) => {
 };
 
 export const getStudentById = (id) => {
-  const students = getStudents() || [];
-  return students.find(student => student.id === id);
+  const users = getUsers();
+  if (users[id] && users[id].role === 'student') {
+    return users[id];
+  }
+
+  const students = getStudents();
+  return students.find(student => student.id === id || student.userId === id);
 };
 
 export const updateStudent = (updatedStudent) => {
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student => 
-    student.id === updatedStudent.id ? { ...student, ...updatedStudent } : student
+  const users = getUsers();
+  const userId = updatedStudent.userId || updatedStudent.id;
+
+  if (users[userId] && users[userId].role === 'student') {
+    users[userId] = { ...users[userId], ...updatedStudent };
+    saveUsers(users);
+  }
+
+  const students = getStudents();
+  const updatedStudents = students.map(student =>
+    student.id === updatedStudent.id || student.userId === userId
+      ? { ...student, ...updatedStudent }
+      : student
   );
   saveStudents(updatedStudents);
+
+  const currentUser = getCurrentUser();
+  if (currentUser && (currentUser.id === userId || currentUser.id === updatedStudent.id)) {
+    setCurrentUser(updatedStudent);
+  }
+
   return updatedStudent;
 };
 
 export const addStudent = (newStudent) => {
-  const students = getStudents() || [];
+  const students = getStudents();
   const newId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-  const studentWithId = { 
-    ...newStudent, 
-    id: newId, 
-    joinedDate: new Date().toISOString() 
+  const studentWithId = {
+    ...newStudent,
+    id: newId,
+    joinedDate: new Date().toISOString()
   };
 
-  const updatedStudents = [...students, studentWithId];
-  saveStudents(updatedStudents);
+  saveStudents([...students, studentWithId]);
   return studentWithId;
 };
 
-// ==================== COURSES MANAGEMENT ====================
+// ==================== COURSE MANAGEMENT ====================
+
 export const getCourses = () => {
   try {
     const courses = localStorage.getItem(COURSES_KEY);
@@ -1616,89 +1174,107 @@ export const saveCourses = (courses) => {
   }
 };
 
-// Progress tracking
-export const updateStudentProgress = (studentId, courseKey, progress, completedLessonId = null) => {
-  const student = getStudentById(studentId);
-  if (!student) return null;
-
-  const updatedStudent = {
-    ...student,
-    progress: {
-      ...student.progress,
-      [courseKey]: progress
-    }
-  };
-
-  if (completedLessonId && !updatedStudent.completedLessons.includes(completedLessonId)) {
-    updatedStudent.completedLessons = [...updatedStudent.completedLessons, completedLessonId];
-    updatedStudent.points = (updatedStudent.points || 0) + 10;
-
-    if (updatedStudent.completedLessons.length >= 5) {
-      if (!updatedStudent.badges) updatedStudent.badges = [];
-      if (!updatedStudent.badges.includes('Fast Learner')) {
-        updatedStudent.badges = [...updatedStudent.badges, 'Fast Learner'];
-      }
-    }
-  }
-
-  return updateStudent(updatedStudent);
+export const getCourseByKey = (courseKey) => {
+  const courses = getCourses();
+  return courses[courseKey] || null;
 };
 
-export const addLessonToCourse = (courseKey, lessonData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
+const generateCourseKey = (title) => {
+  return title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+};
 
-  if (!course) {
-    throw new Error('Course not found');
+export const addNewCourse = (courseData) => {
+  const courses = getCourses();
+  const courseKey = courseData.key || generateCourseKey(courseData.title);
+
+  if (courses[courseKey]) {
+    throw new Error('Course with this key already exists');
   }
 
-  const newLessonId = course.lessons.length > 0 
-    ? Math.max(...course.lessons.map(l => l.id)) + 1 
-    : 1;
+  const teacherId = getCurrentTeacherId();
 
-  const newLesson = {
-    id: newLessonId,
-    ...lessonData
+  courses[courseKey] = {
+    ...courseData,
+    key: courseKey,
+    teacherId: teacherId,
+    lessons: courseData.lessons || [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
-  const updatedCourse = {
-    ...course,
-    lessons: [...course.lessons, newLesson]
+  saveCourses(courses);
+  return courseKey;
+};
+
+export const addNewCourseWithTeacher = (courseData, teacherId) => {
+  const courses = getCourses();
+  const users = getUsers();
+
+  const courseKey = courseData.key || generateCourseKey(courseData.title);
+
+  if (courses[courseKey]) {
+    throw new Error('Course with this key already exists');
+  }
+
+  const teacher = users[teacherId];
+  if (!teacher || teacher.role !== 'teacher' || !teacher.isApproved) {
+    throw new Error('Teacher not found or not approved');
+  }
+
+  courses[courseKey] = {
+    ...courseData,
+    key: courseKey,
+    teacherId: teacherId,
+    teacherName: teacher.name,
+    lessons: courseData.lessons || [],
+    isPublished: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: updatedCourse
-  };
+  if (!teacher.courses) {
+    teacher.courses = [];
+  }
+  teacher.courses.push(courseKey);
+  users[teacherId] = teacher;
 
-  saveCourses(updatedCourses);
-  return newLesson;
+  saveCourses(courses);
+  saveUsers(users);
+
+  return courseKey;
 };
 
 export const updateCourse = (courseKey, courseData) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
 
   if (!courses[courseKey]) {
     throw new Error('Course not found');
   }
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: { 
-      ...courses[courseKey], 
-      ...courseData,
-      updatedAt: new Date().toISOString()
-    }
+  courses[courseKey] = {
+    ...courses[courseKey],
+    ...courseData,
+    updatedAt: new Date().toISOString()
   };
 
-  saveCourses(updatedCourses);
-  return updatedCourses[courseKey];
+  saveCourses(courses);
+  return courses[courseKey];
 };
 
 export const deleteCourse = (courseKey) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   if (!courses[courseKey]) {
     throw new Error('Course not found');
+  }
+
+  const teacherId = courses[courseKey].teacherId;
+  if (teacherId) {
+    const users = getUsers();
+    const teacher = users[teacherId];
+    if (teacher && teacher.courses) {
+      teacher.courses = teacher.courses.filter(course => course !== courseKey);
+      saveUsers(users);
+    }
   }
 
   const updatedCourses = { ...courses };
@@ -1707,78 +1283,126 @@ export const deleteCourse = (courseKey) => {
   return true;
 };
 
+export const approveCourse = (courseKey) => {
+  const courses = getCourses();
+
+  if (!courses[courseKey]) {
+    throw new Error('Course not found');
+  }
+
+  courses[courseKey].isPublished = true;
+  courses[courseKey].approvedDate = new Date().toISOString();
+
+  saveCourses(courses);
+  return courses[courseKey];
+};
+
 // ==================== LESSON MANAGEMENT ====================
-export const updateLesson = (courseKey, lessonId, lessonData) => {
-  const courses = getCourses() || {};
+
+export const getLessonById = (courseKey, lessonId) => {
+  const course = getCourseByKey(courseKey);
+  if (!course) return null;
+
+  return course.lessons.find(lesson => lesson.id === lessonId) || null;
+};
+
+export const getLessons = (courseKey) => {
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!course) {
+    console.warn(`Course "${courseKey}" not found`);
+    return [];
+  }
+
+  return course.lessons || [];
+};
+
+export const addLessonToCourse = (courseKey, lessonData) => {
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
     throw new Error('Course not found');
   }
 
-  const updatedLessons = course.lessons.map(lesson =>
-    lesson.id === lessonId ? { ...lesson, ...lessonData } : lesson
-  );
+  const newLessonId = course.lessons.length > 0
+    ? Math.max(...course.lessons.map(l => l.id)) + 1
+    : 1;
 
-  const updatedCourse = {
-    ...course,
-    lessons: updatedLessons
+  const newLesson = {
+    id: newLessonId,
+    ...lessonData,
+    createdAt: new Date().toISOString()
   };
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: updatedCourse
-  };
+  course.lessons.push(newLesson);
+  course.updatedAt = new Date().toISOString();
 
-  saveCourses(updatedCourses);
-  return updatedCourse;
+  saveCourses(courses);
+  return newLesson;
+};
+
+export const updateLesson = (courseKey, lessonId, lessonData) => {
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!course) {
+    throw new Error('Course not found');
+  }
+
+  const lessonIndex = course.lessons.findIndex(l => l.id === lessonId);
+  if (lessonIndex === -1) {
+    throw new Error('Lesson not found');
+  }
+
+  course.lessons[lessonIndex] = {
+    ...course.lessons[lessonIndex],
+    ...lessonData,
+    updatedAt: new Date().toISOString()
+  };
+  course.updatedAt = new Date().toISOString();
+
+  saveCourses(courses);
+  return course.lessons[lessonIndex];
 };
 
 export const deleteLesson = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
     throw new Error('Course not found');
   }
 
-  const updatedLessons = course.lessons.filter(lesson => lesson.id !== lessonId);
+  course.lessons = course.lessons.filter(lesson => lesson.id !== lessonId);
+  course.updatedAt = new Date().toISOString();
 
-  const updatedCourse = {
-    ...course,
-    lessons: updatedLessons
-  };
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: updatedCourse
-  };
-
-  saveCourses(updatedCourses);
-  return updatedCourse;
+  saveCourses(courses);
+  return course;
 };
 
 // ==================== LESSON LOCK MANAGEMENT ====================
+
 export const toggleLessonLock = (courseKey, lessonId, isLocked) => {
   try {
-    const courses = getCourses() || {};
+    const courses = getCourses();
     if (!courses[courseKey]) {
       throw new Error('Course not found');
     }
 
     const course = courses[courseKey];
     const lessonIndex = course.lessons.findIndex(lesson => lesson.id === lessonId);
-    
+
     if (lessonIndex === -1) {
       throw new Error('Lesson not found');
     }
 
-    // Update the lesson's lock status
     course.lessons[lessonIndex].isLocked = isLocked;
-    
-    // Save the updated courses back to storage
-    localStorage.setItem(COURSES_KEY, JSON.stringify(courses));
-    
+    course.updatedAt = new Date().toISOString();
+
+    saveCourses(courses);
+
     console.log(`✅ Lesson ${lessonId} in course ${courseKey} ${isLocked ? 'locked' : 'unlocked'}`);
     return true;
   } catch (error) {
@@ -1788,25 +1412,25 @@ export const toggleLessonLock = (courseKey, lessonId, isLocked) => {
 };
 
 export const getLockedLessonsCount = (courseKey) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
-  
+
   if (!course || !course.lessons) {
     return 0;
   }
-  
+
   return course.lessons.filter(lesson => lesson.isLocked).length;
 };
 
 export const getLockedLessonsForStudent = (studentId, courseKey) => {
   const student = getStudentById(studentId);
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
-  
+
   if (!student || !course) {
     return [];
   }
-  
+
   return course.lessons
     .filter(lesson => lesson.isLocked)
     .map(lesson => ({
@@ -1819,30 +1443,29 @@ export const getLockedLessonsForStudent = (studentId, courseKey) => {
 
 export const isLessonAccessible = (studentId, courseKey, lessonId) => {
   const student = getStudentById(studentId);
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
-  
+
   if (!student || !course) {
     return false;
   }
-  
+
   const lesson = course.lessons.find(l => l.id === lessonId);
   if (!lesson) {
     return false;
   }
-  
-  // If lesson is free, it's accessible
+
   if (lesson.isFree) {
     return true;
   }
-  
-  // If lesson is paid, check if student has purchased it
+
   return hasStudentPurchasedLesson(studentId, courseKey, lessonId);
 };
 
 // ==================== MULTIMEDIA MANAGEMENT ====================
+
 export const addMultimediaToLesson = (courseKey, lessonId, multimediaItem) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
@@ -1864,18 +1487,14 @@ export const addMultimediaToLesson = (courseKey, lessonId, multimediaItem) => {
   };
 
   lesson.multimedia.push(newMultimediaItem);
+  course.updatedAt = new Date().toISOString();
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
+  saveCourses(courses);
   return newMultimediaItem;
 };
 
 export const updateMultimediaInLesson = (courseKey, lessonId, multimediaId, multimediaData) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
@@ -1887,23 +1506,20 @@ export const updateMultimediaInLesson = (courseKey, lessonId, multimediaId, mult
     throw new Error('Lesson or multimedia not found');
   }
 
-  const updatedMultimedia = lesson.multimedia.map(item =>
-    item.id === multimediaId ? { ...item, ...multimediaData } : item
-  );
+  const multimediaIndex = lesson.multimedia.findIndex(item => item.id === multimediaId);
+  if (multimediaIndex === -1) {
+    throw new Error('Multimedia item not found');
+  }
 
-  lesson.multimedia = updatedMultimedia;
+  lesson.multimedia[multimediaIndex] = { ...lesson.multimedia[multimediaIndex], ...multimediaData };
+  course.updatedAt = new Date().toISOString();
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
-  return updatedMultimedia.find(item => item.id === multimediaId);
+  saveCourses(courses);
+  return lesson.multimedia[multimediaIndex];
 };
 
 export const deleteMultimediaFromLesson = (courseKey, lessonId, multimediaId) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
@@ -1916,31 +1532,462 @@ export const deleteMultimediaFromLesson = (courseKey, lessonId, multimediaId) =>
   }
 
   lesson.multimedia = lesson.multimedia.filter(item => item.id !== multimediaId);
+  course.updatedAt = new Date().toISOString();
 
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
+  saveCourses(courses);
   return true;
 };
 
-// ==================== ADMIN COURSE MANAGEMENT ====================
-export const getAllCoursesForAdmin = () => {
-  return getCourses() || {};
+// ==================== COURSE ENROLLMENT ====================
+
+export const enrollStudentInCourse = (studentId, courseKey) => {
+  const student = getStudentById(studentId);
+  const courses = getCourses();
+
+  if (!student) {
+    throw new Error('Student not found');
+  }
+
+  if (!courses[courseKey]) {
+    throw new Error('Course not found');
+  }
+
+  if (student.enrolledCourses?.includes(courseKey)) {
+    throw new Error('Already enrolled in this course');
+  }
+
+  if (!student.enrolledCourses) {
+    student.enrolledCourses = [];
+  }
+
+  if (!student.progress) {
+    student.progress = {};
+  }
+
+  student.enrolledCourses.push(courseKey);
+  student.progress[courseKey] = 0;
+
+  if (!student.enrolledCoursesDate) {
+    student.enrolledCoursesDate = {};
+  }
+  student.enrolledCoursesDate[courseKey] = new Date().toISOString();
+
+  updateStudent(student);
+
+  console.log(`✅ Student ${studentId} enrolled in course: ${courseKey}`);
+  return true;
 };
 
-export const getCourseDetailsForAdmin = (courseKey) => {
-  const courses = getCourses() || {};
+export const unenrollStudentFromCourse = (studentId, courseKey) => {
+  const student = getStudentById(studentId);
+
+  if (!student) {
+    throw new Error('Student not found');
+  }
+
+  if (!student.enrolledCourses?.includes(courseKey)) {
+    throw new Error('Not enrolled in this course');
+  }
+
+  student.enrolledCourses = student.enrolledCourses.filter(course => course !== courseKey);
+
+  if (student.progress && student.progress[courseKey]) {
+    delete student.progress[courseKey];
+  }
+
+  if (student.completedCourses?.includes(courseKey)) {
+    student.completedCourses = student.completedCourses.filter(course => course !== courseKey);
+  }
+
+  if (student.enrolledCoursesDate && student.enrolledCoursesDate[courseKey]) {
+    delete student.enrolledCoursesDate[courseKey];
+  }
+
+  updateStudent(student);
+
+  console.log(`❌ Student ${studentId} unenrolled from course: ${courseKey}`);
+  return true;
+};
+
+export const getEnrolledCoursesWithProgress = (studentId) => {
+  const student = getStudentById(studentId);
+  const courses = getCourses();
+
+  if (!student || !student.enrolledCourses) {
+    return [];
+  }
+
+  return student.enrolledCourses.map(courseKey => {
+    const course = courses[courseKey];
+    return {
+      key: courseKey,
+      ...course,
+      progress: student.progress?.[courseKey] || 0,
+      isCompleted: student.completedCourses?.includes(courseKey) || false,
+      enrolledDate: student.enrolledCoursesDate?.[courseKey] || student.joinedDate
+    };
+  }).filter(course => course !== null);
+};
+
+export const updateCourseProgress = (studentId, courseKey, progress) => {
+  const student = getStudentById(studentId);
+
+  if (!student) {
+    throw new Error('Student not found');
+  }
+
+  if (!student.enrolledCourses?.includes(courseKey)) {
+    throw new Error('Not enrolled in this course');
+  }
+
+  if (!student.progress) {
+    student.progress = {};
+  }
+
+  student.progress[courseKey] = Math.min(100, Math.max(0, progress));
+
+  if (progress >= 100) {
+    if (!student.completedCourses) {
+      student.completedCourses = [];
+    }
+    if (!student.completedCourses.includes(courseKey)) {
+      student.completedCourses.push(courseKey);
+      student.points = (student.points || 0) + 100;
+
+      if (!student.badges) {
+        student.badges = [];
+      }
+      if (!student.badges.includes('Course Completer')) {
+        student.badges.push('Course Completer');
+      }
+    }
+  }
+
+  updateStudent(student);
+  return student.progress[courseKey];
+};
+
+export const getCourseCompletionStatus = (studentId, courseKey) => {
+  const student = getStudentById(studentId);
+
+  if (!student) {
+    return { enrolled: false, progress: 0, completed: false };
+  }
+
+  return {
+    enrolled: student.enrolledCourses?.includes(courseKey) || false,
+    progress: student.progress?.[courseKey] || 0,
+    completed: student.completedCourses?.includes(courseKey) || false
+  };
+};
+
+// ==================== QUIZ MANAGEMENT ====================
+
+export const addQuizToLesson = (courseKey, lessonId, quizData) => {
+  const courses = getCourses();
   const course = courses[courseKey];
 
   if (!course) {
     throw new Error('Course not found');
   }
 
-  // Get teacher information
-  const users = getUsers() || {};
+  const lesson = course.lessons.find(l => l.id === lessonId);
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  const quizWithIds = {
+    ...quizData,
+    questions: quizData.questions.map((q, index) => ({
+      id: q.id || index + 1,
+      ...q
+    }))
+  };
+
+  lesson.quiz = quizWithIds;
+  course.updatedAt = new Date().toISOString();
+
+  saveCourses(courses);
+  return quizWithIds;
+};
+
+export const updateQuizInLesson = (courseKey, lessonId, quizData) => {
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!course) {
+    throw new Error('Course not found');
+  }
+
+  const lesson = course.lessons.find(l => l.id === lessonId);
+  if (!lesson || !lesson.quiz) {
+    throw new Error('Lesson or quiz not found');
+  }
+
+  lesson.quiz = { ...lesson.quiz, ...quizData };
+  course.updatedAt = new Date().toISOString();
+
+  saveCourses(courses);
+  return lesson.quiz;
+};
+
+export const deleteQuizFromLesson = (courseKey, lessonId) => {
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!course) {
+    throw new Error('Course not found');
+  }
+
+  const lesson = course.lessons.find(l => l.id === lessonId);
+  if (!lesson) {
+    throw new Error('Lesson not found');
+  }
+
+  lesson.quiz = null;
+  course.updatedAt = new Date().toISOString();
+
+  saveCourses(courses);
+  return true;
+};
+
+export const getQuizResults = (studentId, courseKey, lessonId) => {
+  const student = getStudentById(studentId);
+  if (!student || !student.quizResults) return null;
+
+  return student.quizResults.find(result =>
+    result.courseKey === courseKey && result.lessonId === lessonId
+  );
+};
+
+export const saveQuizResult = (studentId, courseKey, lessonId, score, passed, totalQuestions) => {
+  const student = getStudentById(studentId);
+  if (!student) return null;
+
+  if (!student.quizResults) {
+    student.quizResults = [];
+  }
+
+  const existingResultIndex = student.quizResults.findIndex(
+    result => result.courseKey === courseKey && result.lessonId === lessonId
+  );
+
+  const quizResult = {
+    courseKey,
+    lessonId,
+    score,
+    passed,
+    totalQuestions,
+    completedAt: new Date().toISOString(),
+    attempts: existingResultIndex >= 0 ? student.quizResults[existingResultIndex].attempts + 1 : 1
+  };
+
+  if (existingResultIndex >= 0) {
+    if (score > student.quizResults[existingResultIndex].score) {
+      student.quizResults[existingResultIndex] = quizResult;
+    }
+  } else {
+    student.quizResults.push(quizResult);
+  }
+
+  updateStudent(student);
+  return student;
+};
+
+export const getQuizAnalytics = () => {
+  const students = getStudents();
+  const courses = getCourses();
+
+  let totalQuizzes = 0;
+  let totalAttempts = 0;
+  let passedAttempts = 0;
+  let averageScore = 0;
+
+  students.forEach(student => {
+    if (student.quizResults) {
+      student.quizResults.forEach(result => {
+        totalAttempts++;
+        averageScore += result.score;
+        if (result.passed) {
+          passedAttempts++;
+        }
+      });
+    }
+  });
+
+  Object.values(courses).forEach(course => {
+    course.lessons.forEach(lesson => {
+      if (lesson.quiz) {
+        totalQuizzes++;
+      }
+    });
+  });
+
+  averageScore = totalAttempts > 0 ? averageScore / totalAttempts : 0;
+
+  return {
+    totalQuizzes,
+    totalAttempts,
+    passedAttempts,
+    failedAttempts: totalAttempts - passedAttempts,
+    averageScore: Math.round(averageScore),
+    passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0
+  };
+};
+
+export const getStudentQuizProgress = (studentId) => {
+  const student = getStudentById(studentId);
+  const courses = getCourses();
+
+  if (!student) return null;
+
+  let totalQuizzes = 0;
+  let completedQuizzes = 0;
+  let averageQuizScore = 0;
+
+  Object.entries(courses).forEach(([courseKey, course]) => {
+    course.lessons.forEach(lesson => {
+      if (lesson.quiz) {
+        totalQuizzes++;
+        const quizResult = student.quizResults?.find(
+          result => result.courseKey === courseKey && result.lessonId === lesson.id
+        );
+        if (quizResult) {
+          completedQuizzes++;
+          averageQuizScore += quizResult.score;
+        }
+      }
+    });
+  });
+
+  averageQuizScore = completedQuizzes > 0 ? averageQuizScore / completedQuizzes : 0;
+
+  return {
+    totalQuizzes,
+    completedQuizzes,
+    pendingQuizzes: totalQuizzes - completedQuizzes,
+    completionRate: totalQuizzes > 0 ? Math.round((completedQuizzes / totalQuizzes) * 100) : 0,
+    averageScore: Math.round(averageQuizScore)
+  };
+};
+
+// ==================== CERTIFICATE FUNCTIONS ====================
+
+export const generateCertificate = (studentId, courseKey, completionDate, certificateId) => {
+  const student = getStudentById(studentId);
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!student || !course) {
+    throw new Error('Student or course not found');
+  }
+
+  const certificate = {
+    id: certificateId || `cert_${Date.now()}`,
+    studentId: student.id,
+    studentName: student.name,
+    courseKey: courseKey,
+    courseTitle: course.title,
+    completionDate: completionDate || new Date().toISOString(),
+    issuedDate: new Date().toISOString(),
+    certificateUrl: null,
+    verificationCode: generateVerificationCode()
+  };
+
+  if (!student.certificates) {
+    student.certificates = [];
+  }
+  student.certificates.push(certificate);
+
+  updateStudent(student);
+
+  return certificate;
+};
+
+export const getStudentCertificates = (studentId) => {
+  const student = getStudentById(studentId);
+  return student?.certificates || [];
+};
+
+export const getCertificateById = (certificateId) => {
+  const students = getStudents();
+  for (let student of students) {
+    if (student.certificates) {
+      const certificate = student.certificates.find(cert => cert.id === certificateId);
+      if (certificate) return certificate;
+    }
+  }
+  return null;
+};
+
+export const verifyCertificate = (certificateId, verificationCode) => {
+  const certificate = getCertificateById(certificateId);
+  if (!certificate) {
+    return { valid: false, message: 'Certificate not found' };
+  }
+
+  if (certificate.verificationCode !== verificationCode) {
+    return { valid: false, message: 'Invalid verification code' };
+  }
+
+  return {
+    valid: true,
+    message: 'Certificate verified successfully',
+    certificate: certificate
+  };
+};
+
+export const checkCertificateEligibility = (studentId, courseKey) => {
+  const student = getStudentById(studentId);
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!student || !course) {
+    return { eligible: false, reason: 'Student or course not found' };
+  }
+
+  if (student.progress[courseKey] < 100) {
+    return {
+      eligible: false,
+      reason: 'Course not completed',
+      progress: student.progress[courseKey]
+    };
+  }
+
+  const existingCert = student.certificates?.find(cert =>
+    cert.courseKey === courseKey
+  );
+
+  if (existingCert) {
+    return {
+      eligible: false,
+      reason: 'Certificate already issued',
+      certificate: existingCert
+    };
+  }
+
+  return { eligible: true, reason: 'Eligible for certificate' };
+};
+
+const generateVerificationCode = () => {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+};
+
+// ==================== ADMIN COURSE MANAGEMENT ====================
+
+export const getAllCoursesForAdmin = () => {
+  return getCourses();
+};
+
+export const getCourseDetailsForAdmin = (courseKey) => {
+  const courses = getCourses();
+  const course = courses[courseKey];
+
+  if (!course) {
+    throw new Error('Course not found');
+  }
+
+  const users = getUsers();
   const teacher = users[course.teacherId];
 
   return {
@@ -1955,92 +2002,15 @@ export const getCourseDetailsForAdmin = (courseKey) => {
 };
 
 export const deleteCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  // Remove course from teacher's courses array if teacher exists
-  const teacherId = courses[courseKey].teacherId;
-  if (teacherId) {
-    const users = getUsers() || {};
-    const teacher = users[teacherId];
-    if (teacher && teacher.courses) {
-      teacher.courses = teacher.courses.filter(course => course !== courseKey);
-      saveUsers(users);
-    }
-  }
-
-  // Remove course from enrolled students
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student => ({
-    ...student,
-    enrolledCourses: student.enrolledCourses?.filter(course => course !== courseKey) || [],
-    completedCourses: student.completedCourses?.filter(course => course !== courseKey) || [],
-    progress: Object.fromEntries(
-      Object.entries(student.progress || {}).filter(([key]) => key !== courseKey)
-    )
-  }));
-  saveStudents(updatedStudents);
-
-  // Delete the course
-  const updatedCourses = { ...courses };
-  delete updatedCourses[courseKey];
-  saveCourses(updatedCourses);
-
-  console.log(`🗑 Admin deleted course: ${courseKey}`);
-  return true;
+  return deleteCourse(courseKey);
 };
 
 export const deleteLessonAsAdmin = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  // Remove lesson from students' completed lessons
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student => ({
-    ...student,
-    completedLessons: student.completedLessons?.filter(lessonKey => 
-      !lessonKey.includes(`${courseKey}-${lessonId}`)
-    ) || []
-  }));
-  saveStudents(updatedStudents);
-
-  // Delete the lesson
-  const updatedLessons = course.lessons.filter(lesson => lesson.id !== lessonId);
-  const updatedCourse = {
-    ...course,
-    lessons: updatedLessons
-  };
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: updatedCourse
-  };
-
-  saveCourses(updatedCourses);
-
-  console.log(`🗑 Admin deleted lesson ${lessonId} from course: ${courseKey}`);
-  return true;
+  return deleteLesson(courseKey, lessonId);
 };
 
 export const getTeacherCoursesForAdmin = (teacherId) => {
-  const courses = getCourses() || {};
-  const teacherCourses = Object.fromEntries(
-    Object.entries(courses).filter(([key, course]) => course.teacherId === teacherId)
-  );
-
-  return teacherCourses;
+  return getTeacherCourses(teacherId);
 };
 
 export const getCourseAnalyticsForAdmin = (courseKey) => {
@@ -2049,12 +2019,12 @@ export const getCourseAnalyticsForAdmin = (courseKey) => {
     throw new Error('Course not found');
   }
 
-  const students = getStudents() || [];
-  const enrolledStudents = students.filter(student => 
+  const students = getStudents();
+  const enrolledStudents = students.filter(student =>
     student.enrolledCourses?.includes(courseKey)
   );
 
-  const completedStudents = students.filter(student => 
+  const completedStudents = students.filter(student =>
     student.completedCourses?.includes(courseKey)
   );
 
@@ -2070,11 +2040,10 @@ export const getCourseAnalyticsForAdmin = (courseKey) => {
     });
   });
 
-  const averageCompletionRate = totalPossibleCompletions > 0 
+  const averageCompletionRate = totalPossibleCompletions > 0
     ? Math.round((totalLessonCompletions / totalPossibleCompletions) * 100)
     : 0;
 
-  // Quiz analytics
   let totalQuizAttempts = 0;
   let passedQuizAttempts = 0;
   let totalQuizScore = 0;
@@ -2119,7 +2088,7 @@ export const getCourseAnalyticsForAdmin = (courseKey) => {
 };
 
 export const getAllCoursesAnalyticsForAdmin = () => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
   const analytics = [];
 
   Object.entries(courses).forEach(([courseKey, course]) => {
@@ -2131,83 +2100,28 @@ export const getAllCoursesAnalyticsForAdmin = () => {
 };
 
 export const updateCourseAsAdmin = (courseKey, courseData) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: { 
-      ...courses[courseKey], 
-      ...courseData,
-      updatedAt: new Date().toISOString(),
-      lastUpdatedBy: 'admin'
-    }
-  };
-
-  saveCourses(updatedCourses);
-  return updatedCourses[courseKey];
+  return updateCourse(courseKey, {
+    ...courseData,
+    lastUpdatedBy: 'admin'
+  });
 };
 
 export const updateLessonAsAdmin = (courseKey, lessonId, lessonData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const updatedLessons = course.lessons.map(lesson =>
-    lesson.id === lessonId ? { 
-      ...lesson, 
-      ...lessonData,
-      lastUpdatedBy: 'admin'
-    } : lesson
-  );
-
-  const updatedCourse = {
-    ...course,
-    lessons: updatedLessons
-  };
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: updatedCourse
-  };
-
-  saveCourses(updatedCourses);
-  return updatedCourse;
-};
-
-// ==================== ADMIN TEACHER MANAGEMENT ====================
-export const getTeacherCoursesWithDetails = (teacherId) => {
-  const teacherCourses = getTeacherCoursesForAdmin(teacherId);
-  const coursesWithDetails = {};
-
-  Object.entries(teacherCourses).forEach(([courseKey, course]) => {
-    const analytics = getCourseAnalyticsForAdmin(courseKey);
-    coursesWithDetails[courseKey] = {
-      ...course,
-      analytics
-    };
+  return updateLesson(courseKey, lessonId, {
+    ...lessonData,
+    lastUpdatedBy: 'admin'
   });
-
-  return coursesWithDetails;
 };
 
 export const getUnapprovedCourses = () => {
-  const courses = getCourses() || {};
-  const unapprovedCourses = Object.fromEntries(
+  const courses = getCourses();
+  return Object.fromEntries(
     Object.entries(courses).filter(([key, course]) => !course.isPublished)
   );
-
-  return unapprovedCourses;
 };
 
 export const approveCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
 
   if (!courses[courseKey]) {
     throw new Error('Course not found');
@@ -2223,14 +2137,12 @@ export const approveCourseAsAdmin = (courseKey) => {
 };
 
 export const rejectCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
+  const courses = getCourses();
 
   if (!courses[courseKey]) {
     throw new Error('Course not found');
   }
 
-  // You can either delete the course or mark it as rejected
-  // Here we'll mark it as rejected but keep it for review
   courses[courseKey].isPublished = false;
   courses[courseKey].rejectedDate = new Date().toISOString();
   courses[courseKey].rejectedBy = 'admin';
@@ -2241,10 +2153,11 @@ export const rejectCourseAsAdmin = (courseKey) => {
   return courses[courseKey];
 };
 
-// ==================== ADMIN FUNCTIONS ====================
+// ==================== PLATFORM STATISTICS ====================
+
 export const getPlatformStats = () => {
-  const students = getStudents() || [];
-  const courses = getCourses() || {};
+  const students = getStudents();
+  const courses = getCourses();
   const teachers = getAllTeachers();
   const approvedTeachers = getApprovedTeachers();
   const pendingTeachers = getPendingTeachers();
@@ -2255,10 +2168,10 @@ export const getPlatformStats = () => {
   const totalApprovedTeachers = approvedTeachers.length;
   const totalPendingTeachers = pendingTeachers.length;
   const totalCourses = Object.keys(courses).length;
-  const totalLessons = Object.values(courses).reduce((total, course) => 
+  const totalLessons = Object.values(courses).reduce((total, course) =>
     total + course.lessons.length, 0
   );
-  const totalCompletedLessons = students.reduce((total, student) => 
+  const totalCompletedLessons = students.reduce((total, student) =>
     total + student.completedLessons.length, 0
   );
 
@@ -2266,7 +2179,6 @@ export const getPlatformStats = () => {
     .sort((a, b) => new Date(b.joinedDate) - new Date(a.joinedDate))
     .slice(0, 5);
 
-  // Get quiz analytics
   const quizAnalytics = getQuizAnalytics();
 
   return {
@@ -2289,356 +2201,194 @@ export const getPlatformStats = () => {
   };
 };
 
-// ==================== CERTIFICATE FUNCTIONS ====================
-export const generateCertificate = (studentId, courseKey, completionDate, certificateId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
+// ==================== SESSION TRACKING ====================
 
-  if (!student || !course) {
-    throw new Error('Student or course not found');
-  }
-
-  const certificate = {
-    id: certificateId || `cert_${Date.now()}`,
-    studentId: student.id,
-    studentName: student.name,
-    courseKey: courseKey,
-    courseTitle: course.title,
-    completionDate: completionDate || new Date().toISOString(),
-    issuedDate: new Date().toISOString(),
-    certificateUrl: null,
-    verificationCode: generateVerificationCode()
-  };
-
-  if (!student.certificates) {
-    student.certificates = [];
-  }
-  student.certificates.push(certificate);
-
-  updateStudent(student);
-
-  return certificate;
-};
-
-export const getStudentCertificates = (studentId) => {
-  const student = getStudentById(studentId);
-  return student?.certificates || [];
-};
-
-export const getCertificateById = (certificateId) => {
-  const students = getStudents() || [];
-  for (let student of students) {
-    if (student.certificates) {
-      const certificate = student.certificates.find(cert => cert.id === certificateId);
-      if (certificate) return certificate;
-    }
-  }
-  return null;
-};
-
-export const verifyCertificate = (certificateId, verificationCode) => {
-  const certificate = getCertificateById(certificateId);
-  if (!certificate) {
-    return { valid: false, message: 'Certificate not found' };
-  }
-
-  if (certificate.verificationCode !== verificationCode) {
-    return { valid: false, message: 'Invalid verification code' };
-  }
-
-  return { 
-    valid: true, 
-    message: 'Certificate verified successfully',
-    certificate: certificate 
-  };
-};
-
-export const checkCertificateEligibility = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!student || !course) {
-    return { eligible: false, reason: 'Student or course not found' };
-  }
-
-  if (student.progress[courseKey] < 100) {
-    return { 
-      eligible: false, 
-      reason: 'Course not completed', 
-      progress: student.progress[courseKey] 
+export const getSessionTracking = () => {
+  try {
+    const sessionData = localStorage.getItem(SESSION_TRACKING_KEY);
+    return sessionData ? JSON.parse(sessionData) : {
+      lastActivity: null,
+      sessionStart: null,
+      autoLogoutEnabled: true,
+      logoutTimeout: 60 * 60 * 1000,
+      warningTimeout: 55 * 60 * 1000
+    };
+  } catch (error) {
+    console.error('Error loading session tracking:', error);
+    return {
+      lastActivity: null,
+      sessionStart: null,
+      autoLogoutEnabled: true,
+      logoutTimeout: 60 * 60 * 1000,
+      warningTimeout: 55 * 60 * 1000
     };
   }
-
-  const existingCert = student.certificates?.find(cert => 
-    cert.courseKey === courseKey
-  );
-
-  if (existingCert) {
-    return { 
-      eligible: false, 
-      reason: 'Certificate already issued',
-      certificate: existingCert 
-    };
-  }
-
-  return { eligible: true, reason: 'Eligible for certificate' };
 };
 
-const generateVerificationCode = () => {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
+export const saveSessionTracking = (sessionData) => {
+  try {
+    localStorage.setItem(SESSION_TRACKING_KEY, JSON.stringify(sessionData));
+  } catch (error) {
+    console.error('Error saving session tracking:', error);
+  }
 };
 
-// ==================== QUIZ MANAGEMENT FUNCTIONS ====================
-export const addQuizToLesson = (courseKey, lessonId, quizData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
+export const updateLastActivity = () => {
+  const sessionData = getSessionTracking();
+  sessionData.lastActivity = new Date().toISOString();
 
-  if (!course) {
-    throw new Error('Course not found');
+  if (!sessionData.sessionStart) {
+    sessionData.sessionStart = new Date().toISOString();
   }
 
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
+  saveSessionTracking(sessionData);
+  return sessionData;
+};
 
-  // Generate unique IDs for questions if not provided
-  const quizWithIds = {
-    ...quizData,
-    questions: quizData.questions.map((q, index) => ({
-      id: q.id || index + 1,
-      ...q
-    }))
+export const resetSession = () => {
+  const sessionData = {
+    lastActivity: new Date().toISOString(),
+    sessionStart: new Date().toISOString(),
+    autoLogoutEnabled: true,
+    logoutTimeout: 60 * 60 * 1000,
+    warningTimeout: 55 * 60 * 1000
   };
-
-  lesson.quiz = quizWithIds;
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
-  return quizWithIds;
+  saveSessionTracking(sessionData);
+  return sessionData;
 };
 
-export const updateQuizInLesson = (courseKey, lessonId, quizData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson || !lesson.quiz) {
-    throw new Error('Lesson or quiz not found');
-  }
-
-  lesson.quiz = { ...lesson.quiz, ...quizData };
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
-  return lesson.quiz;
+export const clearSession = () => {
+  localStorage.removeItem(SESSION_TRACKING_KEY);
 };
 
-export const deleteQuizFromLesson = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
+export const getSessionDuration = () => {
+  const sessionData = getSessionTracking();
+  if (!sessionData.sessionStart) return 0;
 
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  lesson.quiz = null;
-
-  const updatedCourses = {
-    ...courses,
-    [courseKey]: course
-  };
-
-  saveCourses(updatedCourses);
-  return true;
+  const startTime = new Date(sessionData.sessionStart);
+  const currentTime = new Date();
+  return currentTime - startTime;
 };
 
-export const getQuizResults = (studentId, courseKey, lessonId) => {
+export const getTimeUntilLogout = () => {
+  const sessionData = getSessionTracking();
+  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
+    return null;
+  }
+
+  const lastActivity = new Date(sessionData.lastActivity);
+  const currentTime = new Date();
+  const timeSinceActivity = currentTime - lastActivity;
+  const timeRemaining = sessionData.logoutTimeout - timeSinceActivity;
+
+  return Math.max(0, timeRemaining);
+};
+
+export const getTimeUntilWarning = () => {
+  const sessionData = getSessionTracking();
+  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
+    return null;
+  }
+
+  const lastActivity = new Date(sessionData.lastActivity);
+  const currentTime = new Date();
+  const timeSinceActivity = currentTime - lastActivity;
+  const timeRemaining = sessionData.warningTimeout - timeSinceActivity;
+
+  return Math.max(0, timeRemaining);
+};
+
+export const getSessionStats = () => {
+  const sessionData = getSessionTracking();
+  const timeUntilLogout = getTimeUntilLogout();
+  const timeUntilWarning = getTimeUntilWarning();
+  const sessionDuration = getSessionDuration();
+
+  return {
+    isActive: timeUntilLogout !== null && timeUntilLogout > 0,
+    timeUntilLogout: timeUntilLogout,
+    timeUntilWarning: timeUntilWarning,
+    sessionDuration: sessionDuration,
+    lastActivity: sessionData.lastActivity,
+    sessionStart: sessionData.sessionStart,
+    autoLogoutEnabled: sessionData.autoLogoutEnabled,
+    willWarnSoon: timeUntilWarning !== null && timeUntilWarning <= 5 * 60 * 1000
+  };
+};
+
+// ==================== PROGRESS TRACKING ====================
+
+export const calculateOverallProgress = (studentId) => {
   const student = getStudentById(studentId);
-  if (!student || !student.quizResults) return null;
+  const courses = getCourses();
 
-  return student.quizResults.find(result => 
-    result.courseKey === courseKey && result.lessonId === lessonId
-  );
+  if (!student) return 0;
+
+  let totalLessons = 0;
+  let completedLessons = 0;
+
+  Object.entries(courses).forEach(([courseKey, course]) => {
+    totalLessons += course.lessons.length;
+    completedLessons += course.lessons.filter(lesson =>
+      student.completedLessons.includes(`${courseKey}-${lesson.id}`)
+    ).length;
+  });
+
+  return totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 };
 
-export const saveQuizResult = (studentId, courseKey, lessonId, score, passed, totalQuestions) => {
+export const getStudentActivity = (studentId, days = 30) => {
   const student = getStudentById(studentId);
-  if (!student) return null;
+  if (!student) return [];
 
-  if (!student.quizResults) {
-    student.quizResults = [];
+  const activities = [];
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+
+  student.completedLessons.forEach(lessonKey => {
+    activities.push({
+      type: 'lesson_completed',
+      lessonKey,
+      date: new Date().toISOString(),
+      description: 'Completed a lesson'
+    });
+  });
+
+  if (student.quizResults) {
+    student.quizResults.forEach(result => {
+      activities.push({
+        type: 'quiz_attempt',
+        courseKey: result.courseKey,
+        lessonId: result.lessonId,
+        score: result.score,
+        passed: result.passed,
+        date: result.completedAt,
+        description: `Scored ${result.score}% on quiz`
+      });
+    });
   }
 
-  const existingResultIndex = student.quizResults.findIndex(
-    result => result.courseKey === courseKey && result.lessonId === lessonId
-  );
-
-  const quizResult = {
-    courseKey,
-    lessonId,
-    score,
-    passed,
-    totalQuestions,
-    completedAt: new Date().toISOString(),
-    attempts: existingResultIndex >= 0 ? student.quizResults[existingResultIndex].attempts + 1 : 1
-  };
-
-  if (existingResultIndex >= 0) {
-    // Update existing result if this score is higher
-    if (score > student.quizResults[existingResultIndex].score) {
-      student.quizResults[existingResultIndex] = quizResult;
-    }
-  } else {
-    // Add new result
-    student.quizResults.push(quizResult);
-  }
-
-  return updateStudent(student);
-};
-
-// ==================== ENHANCED ANALYTICS ====================
-export const getQuizAnalytics = () => {
-  const students = getStudents() || [];
-  const courses = getCourses() || {};
-
-  let totalQuizzes = 0;
-  let totalAttempts = 0;
-  let passedAttempts = 0;
-  let averageScore = 0;
-
-  // Calculate quiz statistics
-  students.forEach(student => {
-    if (student.quizResults) {
-      student.quizResults.forEach(result => {
-        totalAttempts++;
-        averageScore += result.score;
-        if (result.passed) {
-          passedAttempts++;
-        }
+  const transactions = getPaymentTransactions();
+  Object.values(transactions).forEach(transaction => {
+    if (transaction.studentId === studentId) {
+      activities.push({
+        type: 'payment',
+        courseKey: transaction.courseKey,
+        lessonId: transaction.lessonId,
+        amount: transaction.amount,
+        date: transaction.date,
+        description: `Purchased lesson for ₦${transaction.amount}`
       });
     }
   });
 
-  // Count total quizzes available
-  Object.values(courses).forEach(course => {
-    course.lessons.forEach(lesson => {
-      if (lesson.quiz) {
-        totalQuizzes++;
-      }
-    });
-  });
-
-  averageScore = totalAttempts > 0 ? averageScore / totalAttempts : 0;
-
-  return {
-    totalQuizzes,
-    totalAttempts,
-    passedAttempts,
-    failedAttempts: totalAttempts - passedAttempts,
-    averageScore: Math.round(averageScore),
-    passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0
-  };
+  return activities
+    .filter(activity => new Date(activity.date) >= cutoffDate)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
-export const getStudentQuizProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
+// ==================== DATA BACKUP ====================
 
-  if (!student) return null;
-
-  let totalQuizzes = 0;
-  let completedQuizzes = 0;
-  let averageQuizScore = 0;
-
-  // Count total quizzes and completed quizzes
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    course.lessons.forEach(lesson => {
-      if (lesson.quiz) {
-        totalQuizzes++;
-        const quizResult = student.quizResults?.find(
-          result => result.courseKey === courseKey && result.lessonId === lesson.id
-        );
-        if (quizResult) {
-          completedQuizzes++;
-          averageQuizScore += quizResult.score;
-        }
-      }
-    });
-  });
-
-  averageQuizScore = completedQuizzes > 0 ? averageQuizScore / completedQuizzes : 0;
-
-  return {
-    totalQuizzes,
-    completedQuizzes,
-    pendingQuizzes: totalQuizzes - completedQuizzes,
-    completionRate: totalQuizzes > 0 ? Math.round((completedQuizzes / totalQuizzes) * 100) : 0,
-    averageScore: Math.round(averageQuizScore)
-  };
-};
-
-// ==================== ENHANCED COURSE FUNCTIONS ====================
-export const getCourseByKey = (courseKey) => {
-  const courses = getCourses() || {};
-  return courses[courseKey] || null;
-};
-
-export const getLessonById = (courseKey, lessonId) => {
-  const course = getCourseByKey(courseKey);
-  if (!course) return null;
-
-  return course.lessons.find(lesson => lesson.id === lessonId) || null;
-};
-
-export const getTotalLessons = () => {
-  const courses = getCourses() || {};
-  return Object.values(courses).reduce((total, course) => 
-    total + course.lessons.length, 0
-  );
-};
-
-export const getLessonsWithQuizzes = () => {
-  const courses = getCourses() || {};
-  const lessonsWithQuizzes = [];
-
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    course.lessons.forEach(lesson => {
-      if (lesson.quiz) {
-        lessonsWithQuizzes.push({
-          courseKey,
-          courseTitle: course.title,
-          lessonId: lesson.id,
-          lessonTitle: lesson.title,
-          quiz: lesson.quiz
-        });
-      }
-    });
-  });
-
-  return lessonsWithQuizzes;
-};
-
-// ==================== DATA BACKUP AND MANAGEMENT ====================
 export const exportData = () => {
   const data = {
     students: getStudents(),
@@ -2646,13 +2396,12 @@ export const exportData = () => {
     users: getUsers(),
     sessionTracking: getSessionTracking(),
     emailConfirmations: getEmailConfirmations(),
-    teacherWallets: getTeacherWallets(), // NEW
-    paymentTransactions: getPaymentTransactions(), // NEW
+    teacherWallets: getTeacherWallets(),
+    paymentTransactions: getPaymentTransactions(),
     exportDate: new Date().toISOString(),
     version: '1.0'
   };
 
-  // Create a downloadable JSON file
   const dataStr = JSON.stringify(data, null, 2);
   const dataBlob = new Blob([dataStr], { type: 'application/json' });
 
@@ -2683,7 +2432,6 @@ export const importData = (jsonData) => {
       saveEmailConfirmations(data.emailConfirmations);
     }
 
-    // NEW: Import teacher wallets and payment transactions
     if (data.teacherWallets && typeof data.teacherWallets === 'object') {
       saveTeacherWallets(data.teacherWallets);
     }
@@ -2707,89 +2455,16 @@ export const resetAllData = () => {
     localStorage.removeItem(USERS_KEY);
     localStorage.removeItem(SESSION_TRACKING_KEY);
     localStorage.removeItem(EMAIL_CONFIRMATIONS_KEY);
-    localStorage.removeItem(TEACHER_WALLETS_KEY); // NEW
-    localStorage.removeItem(PAYMENT_TRANSACTIONS_KEY); // NEW
+    localStorage.removeItem(TEACHER_WALLETS_KEY);
+    localStorage.removeItem(PAYMENT_TRANSACTIONS_KEY);
     initializeStorage();
     return true;
   }
   return false;
 };
 
-// ==================== ENHANCED PROGRESS TRACKING ====================
-export const calculateOverallProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student) return 0;
-
-  let totalLessons = 0;
-  let completedLessons = 0;
-
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    totalLessons += course.lessons.length;
-    completedLessons += course.lessons.filter(lesson => 
-      student.completedLessons.includes(`${courseKey}-${lesson.id}`)
-    ).length;
-  });
-
-  return totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-};
-
-export const getStudentActivity = (studentId, days = 30) => {
-  const student = getStudentById(studentId);
-  if (!student) return [];
-
-  const activities = [];
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-
-  // Add lesson completions
-  student.completedLessons.forEach(lessonKey => {
-    // You might want to store completion dates separately for better tracking
-    activities.push({
-      type: 'lesson_completed',
-      lessonKey,
-      date: new Date().toISOString(), // This should ideally be stored with completion
-      description: 'Completed a lesson'
-    });
-  });
-
-  // Add quiz attempts
-  if (student.quizResults) {
-    student.quizResults.forEach(result => {
-      activities.push({
-        type: 'quiz_attempt',
-        courseKey: result.courseKey,
-        lessonId: result.lessonId,
-        score: result.score,
-        passed: result.passed,
-        date: result.completedAt,
-        description: `Scored ${result.score}% on quiz`
-      });
-    });
-  }
-
-  // NEW: Add payment activities
-  const transactions = getPaymentTransactions();
-  Object.values(transactions).forEach(transaction => {
-    if (transaction.studentId === studentId) {
-      activities.push({
-        type: 'payment',
-        courseKey: transaction.courseKey,
-        lessonId: transaction.lessonId,
-        amount: transaction.amount,
-        date: transaction.date,
-        description: `Purchased lesson for ₦${transaction.amount}`
-      });
-    }
-  });
-
-  return activities
-    .filter(activity => new Date(activity.date) >= cutoffDate)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-};
-
 // ==================== DEBUG FUNCTIONS ====================
+
 export const debugStorage = () => {
   console.log('=== STORAGE DEBUG INFO ===');
 
@@ -2798,18 +2473,17 @@ export const debugStorage = () => {
   const students = getStudents();
   const courses = getCourses();
   const sessionTracking = getSessionTracking();
-  const teacherWallets = getTeacherWallets(); // NEW
-  const paymentTransactions = getPaymentTransactions(); // NEW
+  const teacherWallets = getTeacherWallets();
+  const paymentTransactions = getPaymentTransactions();
 
   console.log('All Users:', users);
   console.log('Current User:', currentUser);
   console.log('Students:', students);
   console.log('Courses:', courses);
   console.log('Session Tracking:', sessionTracking);
-  console.log('Teacher Wallets:', teacherWallets); // NEW
-  console.log('Payment Transactions:', paymentTransactions); // NEW
+  console.log('Teacher Wallets:', teacherWallets);
+  console.log('Payment Transactions:', paymentTransactions);
 
-  // Check specific users
   console.log('Admin User (admin1):', users['admin1']);
   console.log('Teacher User (teacher1):', users['teacher1']);
   console.log('Student User (student1):', users['student1']);
@@ -2817,24 +2491,23 @@ export const debugStorage = () => {
   console.log('=== END DEBUG INFO ===');
 };
 
-// Export all functions
+// ==================== EXPORTS ====================
+
 export default {
   initializeStorage,
-  // NEW: Payment & Wallet functions
   getTeacherWallets,
   saveTeacherWallets,
   getTeacherWallet,
   updateTeacherWallet,
   addTeacherEarnings,
   withdrawFromWallet,
-  updateTeacherProfileWithWhatsApp,
-  getTeacherWhatsAppUrl,
-  processLessonPayment,
+  getTeacherPaymentStats,
   getPaymentTransactions,
   savePaymentTransactions,
+  processLessonPayment,
+  purchaseLesson,
+  canAccessLesson,
   hasStudentPurchasedLesson,
-  getTeacherPaymentStats,
-  // Session tracking & auto-logout
   getSessionTracking,
   saveSessionTracking,
   updateLastActivity,
@@ -2843,18 +2516,13 @@ export default {
   getTimeUntilWarning,
   resetSession,
   clearSession,
-  setAutoLogoutTimeout,
-  disableAutoLogout,
-  enableAutoLogout,
   getSessionStats,
-  // Email confirmation
   getEmailConfirmations,
   createEmailConfirmation,
   verifyEmailConfirmation,
   sendEmailConfirmation,
   confirmUserEmail,
   resendEmailConfirmation,
-  // User management
   getUsers,
   saveUsers,
   registerUser,
@@ -2866,7 +2534,6 @@ export default {
   updateUser,
   getAllUsers,
   getUserById,
-  // Teacher registration & management
   registerTeacher,
   getAllTeachers,
   getPendingTeachers,
@@ -2875,46 +2542,37 @@ export default {
   rejectTeacher,
   dismissTeacher,
   updateTeacherProfile,
+  updateTeacherProfileWithWhatsApp,
   getTeacherById,
-  // Teacher functions
   getTeacherCourses,
   getTeacherStats,
   getCurrentTeacherId,
   addNewCourse,
   addNewCourseWithTeacher,
   approveCourse,
-  // Student management
   getStudents,
   saveStudents,
   getStudentById,
   updateStudent,
   addStudent,
-  // Course management
   getCourses,
   saveCourses,
-  updateStudentProgress,
+  getCourseByKey,
   addLessonToCourse,
   updateCourse,
   deleteCourse,
-  getCourseByKey,
-  // Lesson management
   updateLesson,
   deleteLesson,
+  getLessons,
   getLessonById,
-  // Lesson lock management
   toggleLessonLock,
   getLockedLessonsCount,
   getLockedLessonsForStudent,
   isLessonAccessible,
-  // Multimedia management
   addMultimediaToLesson,
   updateMultimediaInLesson,
   deleteMultimediaFromLesson,
-  // Admin functions
   getPlatformStats,
-  getTotalLessons,
-  getLessonsWithQuizzes,
-  // ADMIN COURSE MANAGEMENT FUNCTIONS
   getAllCoursesForAdmin,
   getCourseDetailsForAdmin,
   deleteCourseAsAdmin,
@@ -2924,17 +2582,14 @@ export default {
   getAllCoursesAnalyticsForAdmin,
   updateCourseAsAdmin,
   updateLessonAsAdmin,
-  getTeacherCoursesWithDetails,
   getUnapprovedCourses,
   approveCourseAsAdmin,
   rejectCourseAsAdmin,
-  // Certificate functions
   generateCertificate,
   getStudentCertificates,
   getCertificateById,
   verifyCertificate,
   checkCertificateEligibility,
-  // Quiz functions
   addQuizToLesson,
   updateQuizInLesson,
   deleteQuizFromLesson,
@@ -2942,19 +2597,16 @@ export default {
   saveQuizResult,
   getQuizAnalytics,
   getStudentQuizProgress,
-  // Course enrollment functions
   enrollStudentInCourse,
   unenrollStudentFromCourse,
   getEnrolledCoursesWithProgress,
   updateCourseProgress,
   getCourseCompletionStatus,
-  // Data management
   exportData,
   importData,
   resetAllData,
-  // Progress tracking
   calculateOverallProgress,
   getStudentActivity,
-  // Debug functions
-  debugStorage
+  debugStorage,
+  getTeacherWhatsAppUrl
 };
