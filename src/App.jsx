@@ -60,7 +60,10 @@ import {
   withdrawFromWallet,
   getPaymentTransactions,
   savePaymentTransactions,
-  processLessonPayment
+  processLessonPayment,
+  getStudentById,
+  updateCourseProgress,
+  getEnrolledCoursesWithProgress
 } from './utils/storage';
 
 // Constants
@@ -70,18 +73,27 @@ const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
 
 // Safe object utility functions
 const safeObjectEntries = (obj, location = 'unknown') => {
-  console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
+  // Only log in development
+  if (import.meta.env.MODE === 'development') {
+    console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
+  }
   try {
     if (obj === null || obj === undefined) {
-      console.log(`❌ ${location}: Object is null/undefined`);
+      if (import.meta.env.MODE === 'development') {
+        console.log(`❌ ${location}: Object is null/undefined`);
+      }
       return [];
     }
     if (typeof obj !== 'object') {
-      console.log(`❌ ${location}: Not an object, type is:`, typeof obj);
+      if (import.meta.env.MODE === 'development') {
+        console.log(`❌ ${location}: Not an object, type is:`, typeof obj);
+      }
       return [];
     }
     const entries = Object.entries(obj);
-    console.log(`✅ ${location}: Object.entries success, count:`, entries.length);
+    if (import.meta.env.MODE === 'development') {
+      console.log(`✅ ${location}: Object.entries success, count:`, entries.length);
+    }
     return entries;
   } catch (error) {
     console.error(`❌ ${location}: Error in safeObjectEntries:`, error);
@@ -90,14 +102,20 @@ const safeObjectEntries = (obj, location = 'unknown') => {
 };
 
 const safeObjectKeys = (obj, location = 'unknown') => {
-  console.log(`🔧 safeObjectKeys called from: ${location}`, obj);
+  if (import.meta.env.MODE === 'development') {
+    console.log(`🔧 safeObjectKeys called from: ${location}`, obj);
+  }
   try {
     if (!obj || typeof obj !== 'object') {
-      console.log(`❌ ${location}: Invalid object for keys`);
+      if (import.meta.env.MODE === 'development') {
+        console.log(`❌ ${location}: Invalid object for keys`);
+      }
       return [];
     }
     const keys = Object.keys(obj);
-    console.log(`✅ ${location}: Object.keys success, count:`, keys.length);
+    if (import.meta.env.MODE === 'development') {
+      console.log(`✅ ${location}: Object.keys success, count:`, keys.length);
+    }
     return keys;
   } catch (error) {
     console.error(`❌ ${location}: Error in safeObjectKeys:`, error);
@@ -291,6 +309,7 @@ function App() {
         return false;
       }
 
+      // ✅ FIXED: Include all required fields for student registration
       const result = await registerUser({
         name,
         email,
@@ -298,8 +317,14 @@ function App() {
         role: 'student',
         level: 'Beginner',
         completedLessons: [],
+        completedCourses: [],
         progress: {},
-        purchasedLessons: []
+        purchasedLessons: [],
+        paymentHistory: [],
+        quizResults: [],
+        certificates: [],
+        enrolledCourses: [],
+        enrolledCoursesDate: {}
       });
 
       setPendingUser(result.user);
@@ -396,6 +421,11 @@ function App() {
   // Update student data
   const updateStudentData = useCallback((updatedStudent) => {
     try {
+      if (!updatedStudent || !updatedStudent.id) {
+        console.error('Invalid student data for update');
+        return;
+      }
+      
       updateStudent(updatedStudent);
 
       const { password, ...studentWithoutPassword } = updatedStudent;
@@ -407,12 +437,18 @@ function App() {
       );
     } catch (error) {
       console.error('Error updating student:', error);
+      setMessage('Failed to update student profile. Please try again.');
     }
   }, []);
 
   // Update current user
   const updateCurrentUser = useCallback((updatedUser) => {
     try {
+      if (!updatedUser || !updatedUser.id) {
+        console.error('Invalid user data for update');
+        return;
+      }
+      
       const users = getUsers();
       if (users[updatedUser.id]) {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
@@ -422,8 +458,15 @@ function App() {
       const { password: _, ...userWithoutPassword } = updatedUser;
       setCurrentUserState(userWithoutPassword);
       setCurrentUser(userWithoutPassword);
+      
+      // Also update the stored current user
+      const currentUserData = getCurrentUser();
+      if (currentUserData && currentUserData.id === updatedUser.id) {
+        setCurrentUser(userWithoutPassword);
+      }
     } catch (error) {
       console.error('Error updating user:', error);
+      setMessage('Failed to update user profile. Please try again.');
     }
   }, []);
 
@@ -436,14 +479,17 @@ function App() {
       }
 
       setIsLoading(true);
-      const success = await purchaseLesson(currentUser.id, courseKey, lessonId);
-      if (success) {
+      // ✅ FIXED: purchaseLesson returns an object, not a boolean
+      const result = await purchaseLesson(currentUser.id, courseKey, lessonId);
+      
+      if (result.success) {
+        // Refresh user data from storage
         const updatedUser = getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
           setCurrentUser(updatedUser);
         }
-        setMessage('✅ Lesson purchased successfully!');
+        setMessage(result.alreadyPurchased ? '✅ Lesson already purchased!' : '✅ Lesson purchased successfully!');
         setIsLoading(false);
         return true;
       } else {
@@ -542,8 +588,17 @@ function App() {
   const MessageDisplay = useCallback(() => {
     if (!message) return null;
 
+    let className = 'message';
+    if (message.includes('success') || message.includes('✅')) {
+      className += ' success';
+    } else if (message.includes('email') || message.includes('📧')) {
+      className += ' info';
+    } else if (message.includes('❌') || message.includes('error') || message.includes('failed')) {
+      className += ' error';
+    }
+
     return (
-      <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
+      <div className={className}>
         {message}
       </div>
     );
