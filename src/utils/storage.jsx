@@ -13,91 +13,60 @@ const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions';
 // ==================== INITIALIZATION ====================
 
 export const initializeStorage = () => {
-  const existingStudents = getStudents() || [];
-  const existingCourses = getCourses() || {};
-  const existingUsers = getUsers() || {};
+  try {
+    console.log('🔄 Initializing Storage...');
 
-  console.log('🔄 Initializing Storage...');
-  console.log('Existing users:', Object.keys(existingUsers).length);
-  console.log('Existing students:', existingStudents.length);
-  console.log('Existing courses:', Object.keys(existingCourses).length);
+    const existingStudents = getStudents() || [];
+    const existingCourses = getCourses() || {};
+    const users = getUsers() || {};
+    
+    console.log('Existing users:', Object.keys(users).length);
+    console.log('Existing students:', existingStudents.length);
+    console.log('Existing courses:', Object.keys(existingCourses).length);
 
-  const users = getUsers() || {};
-  let needsSave = false;
+    let needsSave = false;
 
-  // Create admin user if missing
-  if (!users['admin1']) {
-    console.log('🛠 Creating admin user...');
-    users['admin1'] = {
-      id: 'admin1',
-      name: "Kabir Alkasim",
-      email: "codesmartng1@gmail.com",
-      password: "Kb1217@#$%&",
-      role: "admin",
-      isEmailConfirmed: true,
-      joinedDate: new Date().toISOString()
-    };
-    needsSave = true;
-  } else if (users['admin1'].email !== 'codesmartng1@gmail.com') {
-    console.log('🛠 Updating admin user email...');
-    users['admin1'].email = "codesmartng1@gmail.com";
-    users['admin1'].isEmailConfirmed = true;
-    needsSave = true;
-  }
+    // Create admin user if missing
+    if (!users['admin1']) {
+      console.log('🛠 Creating admin user...');
+      users['admin1'] = {
+        id: 'admin1',
+        name: "Kabir Alkasim",
+        email: "codesmartng1@gmail.com",
+        password: "Kb1217@#$%&",
+        role: "admin",
+        isEmailConfirmed: true,
+        joinedDate: new Date().toISOString()
+      };
+      needsSave = true;
+    }
 
-  // Create teacher user if missing
-  if (!users['teacher1'] || users['teacher1'].email !== 'kabir@teacher.com') {
-    console.log('🛠 Creating teacher user...');
-    users['teacher1'] = {
-      id: 'teacher1',
-      name: "Kabir Teacher",
-      email: "kabir@teacher.com",
-      password: "121712",
-      role: "teacher",
-      specialization: "Computer Science",
-      bio: "Experienced teacher in web development and programming",
-      joinedDate: new Date().toISOString(),
-      courses: ['webDevelopment', 'python', 'mathematics'],
-      isApproved: true,
-      isEmailConfirmed: true,
-      approvedDate: new Date().toISOString(),
-      whatsappNumber: '2348012345678'
-    };
-    needsSave = true;
-  }
+    // Create teacher user if missing
+    if (!users['teacher1']) {
+      console.log('🛠 Creating teacher user...');
+      users['teacher1'] = {
+        id: 'teacher1',
+        name: "Kabir Teacher",
+        email: "kabir@teacher.com",
+        password: "121712",
+        role: "teacher",
+        specialization: "Computer Science",
+        bio: "Experienced teacher in web development and programming",
+        joinedDate: new Date().toISOString(),
+        courses: ['webDevelopment', 'python', 'mathematics'],
+        isApproved: true,
+        isEmailConfirmed: true,
+        approvedDate: new Date().toISOString(),
+        whatsappNumber: '2348012345678'
+      };
+      needsSave = true;
+    }
 
-  // Create student user if missing
-  if (!users['student1'] || users['student1'].email !== 'student@example.com') {
-    console.log('🛠 Creating student user...');
-    users['student1'] = {
-      id: 'student1',
-      name: "Ahmad Musa",
-      email: "student@example.com",
-      password: "password123",
-      role: "student",
-      level: "Beginner",
-      progress: {},
-      completedLessons: [],
-      points: 0,
-      badges: [],
-      enrolledCourses: [],
-      isEmailConfirmed: true,
-      joinedDate: new Date().toISOString()
-    };
-    needsSave = true;
-  }
-
-  if (needsSave) {
-    console.log('💾 Saving updated users...');
-    saveUsers(users);
-  }
-
-  // Create default students if empty
-  if (existingStudents.length === 0) {
-    console.log('🛠 Creating default students...');
-    const defaultStudents = [
-      {
-        id: 1,
+    // Create student user if missing
+    if (!users['student1']) {
+      console.log('🛠 Creating student user...');
+      users['student1'] = {
+        id: 'student1',
         name: "Ahmad Musa",
         email: "student@example.com",
         password: "password123",
@@ -105,27 +74,80 @@ export const initializeStorage = () => {
         level: "Beginner",
         progress: {},
         completedLessons: [],
+        completedCourses: [],
         points: 0,
         badges: [],
         enrolledCourses: [],
+        purchasedLessons: [],
+        paymentHistory: [],
+        quizResults: [],
+        certificates: [],
+        enrolledCoursesDate: {},
         isEmailConfirmed: true,
         joinedDate: new Date().toISOString()
-      }
-    ];
-    saveStudents(defaultStudents);
+      };
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      console.log('💾 Saving updated users...');
+      saveUsers(users);
+    }
+
+    // Create default students if empty
+    if (existingStudents.length === 0) {
+      console.log('🛠 Creating default students...');
+      const defaultStudents = [
+        {
+          id: 1,
+          name: "Ahmad Musa",
+          email: "student@example.com",
+          password: "password123",
+          role: "student",
+          level: "Beginner",
+          progress: {},
+          completedLessons: [],
+          completedCourses: [],
+          points: 0,
+          badges: [],
+          enrolledCourses: [],
+          purchasedLessons: [],
+          paymentHistory: [],
+          quizResults: [],
+          certificates: [],
+          enrolledCoursesDate: {},
+          isEmailConfirmed: true,
+          joinedDate: new Date().toISOString()
+        }
+      ];
+      saveStudents(defaultStudents);
+    }
+
+    // Create default courses if empty
+    if (Object.keys(existingCourses).length === 0) {
+      console.log('🛠 Creating default courses...');
+      saveCourses(getDefaultCourses());
+    }
+
+    // Initialize teacher wallets
+    try {
+      initializeTeacherWallets();
+    } catch (walletError) {
+      console.warn('⚠️ Teacher wallet initialization warning:', walletError.message);
+    }
+
+    console.log('✅ Storage initialization complete');
+    
+    // Only call debugStorage in development
+    if (import.meta.env.MODE === 'development') {
+      debugStorage();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Storage initialization failed:', error);
+    return false;
   }
-
-  // Create default courses if empty
-  if (Object.keys(existingCourses).length === 0) {
-    console.log('🛠 Creating default courses...');
-    saveCourses(getDefaultCourses());
-  }
-
-  // Initialize teacher wallets
-  initializeTeacherWallets();
-
-  console.log('✅ Storage initialization complete');
-  debugStorage();
 };
 
 const getDefaultCourses = () => {
@@ -259,25 +281,29 @@ const getDefaultCourses = () => {
 // ==================== TEACHER WALLET FUNCTIONS ====================
 
 export const initializeTeacherWallets = () => {
-  const wallets = getTeacherWallets();
-  const teachers = getAllTeachers();
+  try {
+    const wallets = getTeacherWallets();
+    const teachers = getAllTeachers();
 
-  teachers.forEach(teacher => {
-    if (!wallets[teacher.id]) {
-      wallets[teacher.id] = {
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        balance: 0,
-        totalEarnings: 0,
-        pendingWithdrawals: 0,
-        transactions: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-    }
-  });
+    teachers.forEach(teacher => {
+      if (!wallets[teacher.id]) {
+        wallets[teacher.id] = {
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+          balance: 0,
+          totalEarnings: 0,
+          pendingWithdrawals: 0,
+          transactions: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+    });
 
-  saveTeacherWallets(wallets);
+    saveTeacherWallets(wallets);
+  } catch (error) {
+    console.warn('⚠️ Could not initialize teacher wallets:', error.message);
+  }
 };
 
 export const getTeacherWallets = () => {
@@ -709,9 +735,15 @@ export const registerUser = (userData) => {
     newUser.level = userData.level || 'Beginner';
     newUser.progress = {};
     newUser.completedLessons = [];
+    newUser.completedCourses = [];
     newUser.points = 0;
     newUser.badges = [];
     newUser.enrolledCourses = [];
+    newUser.purchasedLessons = [];
+    newUser.paymentHistory = [];
+    newUser.quizResults = [];
+    newUser.certificates = [];
+    newUser.enrolledCoursesDate = {};
 
     const students = getStudents();
     const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
@@ -725,9 +757,15 @@ export const registerUser = (userData) => {
       level: userData.level || 'Beginner',
       progress: {},
       completedLessons: [],
+      completedCourses: [],
       points: 0,
       badges: [],
       enrolledCourses: [],
+      purchasedLessons: [],
+      paymentHistory: [],
+      quizResults: [],
+      certificates: [],
+      enrolledCoursesDate: {},
       isEmailConfirmed: false,
       joinedDate: new Date().toISOString()
     };
