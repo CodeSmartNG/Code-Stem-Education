@@ -21,7 +21,7 @@ export default defineConfig({
     },
   ],
   
-  // ✅ FIXED: Base path for GitHub Pages - use your actual repository name
+  // ✅ FIXED: Base path for GitHub Pages
   base: process.env.NODE_ENV === 'production' 
     ? '/Code-Stem-Education_system/' 
     : '/',
@@ -30,24 +30,13 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['framer-motion', 'react-hot-toast', 'react-hook-form'],
-          charts: ['recharts']
-        }
-      }
-    },
     chunkSizeWarningLimit: 1000
   },
   
   server: {
     port: 3000,
     open: true,
-    host: true,
-    strictPort: false,
-    cors: true
+    host: true
   },
   
   preview: {
