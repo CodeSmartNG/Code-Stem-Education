@@ -21,9 +21,9 @@ export default defineConfig({
     },
   ],
   
-  // Base path for GitHub Pages / Netlify - keep this as is
+  // ✅ FIXED: Base path for GitHub Pages - use your actual repository name
   base: process.env.NODE_ENV === 'production' 
-    ? '/Code-Stem-Education/' 
+    ? '/Code-Stem-Education_system/' 
     : '/',
   
   build: {
