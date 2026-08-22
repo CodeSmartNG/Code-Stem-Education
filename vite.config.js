@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   
-  // Base path for GitHub Pages
+  // Base path for GitHub Pages / Netlify
   base: process.env.NODE_ENV === 'production' 
     ? '/Code-Stem-Education/' 
     : '/',
@@ -19,7 +19,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
           ui: ['framer-motion', 'react-hot-toast', 'react-hook-form'],
           charts: ['recharts']
         }
@@ -43,9 +42,9 @@ export default defineConfig({
     open: true
   },
   
-  // Optimize dependencies
+  // Optimize dependencies (Firebase removed)
   optimizeDeps: {
-    include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore']
+    include: ['react', 'react-dom']
   },
   
   // Define environment variables
@@ -65,7 +64,7 @@ export default defineConfig({
     }
   },
   
-  // Resolve aliases
+  // Resolve aliases (Firebase alias removed)
   resolve: {
     alias: {
       '@': '/src',
@@ -73,8 +72,7 @@ export default defineConfig({
       '@pages': '/src/pages',
       '@utils': '/src/utils',
       '@styles': '/src/styles',
-      '@assets': '/src/assets',
-      '@firebase': '/src/firebase'
+      '@assets': '/src/assets'
     }
   }
 });
