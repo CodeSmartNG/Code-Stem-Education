@@ -1,11 +1,27 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Custom plugin to create 404.html for GitHub Pages
+    {
+      name: 'copy-index-to-404',
+      closeBundle() {
+        const indexHtmlPath = path.resolve(__dirname, 'dist', 'index.html');
+        const fourOhFourPath = path.resolve(__dirname, 'dist', '404.html');
+        if (fs.existsSync(indexHtmlPath)) {
+          fs.copyFileSync(indexHtmlPath, fourOhFourPath);
+          console.log('✅ Created 404.html from index.html for GitHub Pages');
+        }
+      },
+    },
+  ],
   
-  // Base path for GitHub Pages / Netlify
+  // Base path for GitHub Pages / Netlify - keep this as is
   base: process.env.NODE_ENV === 'production' 
     ? '/Code-Stem-Education/' 
     : '/',
@@ -14,7 +30,6 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
-    // Optimize chunk splitting
     rollupOptions: {
       output: {
         manualChunks: {
@@ -24,7 +39,6 @@ export default defineConfig({
         }
       }
     },
-    // Generate chunk size warning limit
     chunkSizeWarningLimit: 1000
   },
   
@@ -33,7 +47,6 @@ export default defineConfig({
     open: true,
     host: true,
     strictPort: false,
-    // CORS for local development
     cors: true
   },
   
@@ -42,29 +55,20 @@ export default defineConfig({
     open: true
   },
   
-  // Optimize dependencies (Firebase removed)
   optimizeDeps: {
     include: ['react', 'react-dom']
   },
   
-  // Define environment variables
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
   },
   
-  // CSS options
   css: {
     modules: {
       localsConvention: 'camelCase'
-    },
-    preprocessorOptions: {
-      css: {
-        // Additional CSS options
-      }
     }
   },
   
-  // Resolve aliases (Firebase alias removed)
   resolve: {
     alias: {
       '@': '/src',
