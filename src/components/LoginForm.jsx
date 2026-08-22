@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './AuthForms.css';
 
 const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isLoading: parentLoading }) => {
@@ -10,9 +10,11 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
 
   // Check for saved credentials on mount
-  React.useEffect(() => {
+  useEffect(() => {
     const savedEmail = localStorage.getItem('remembered_email');
     if (savedEmail) {
       setFormData(prev => ({ ...prev, email: savedEmail }));
@@ -24,6 +26,13 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
     e.preventDefault();
     setError('');
 
+    // Check if account is locked
+    if (isLocked) {
+      setError('Account temporarily locked. Please wait 30 seconds before trying again.');
+      return;
+    }
+
+    // Validate fields
     if (!formData.email || !formData.password) {
       setError('Please fill in all fields');
       return;
@@ -40,7 +49,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
 
     try {
       const success = await onLogin(formData.email, formData.password);
-      
+
       if (success) {
         // Save email if "Remember Me" is checked
         if (rememberMe) {
@@ -49,11 +58,38 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
           localStorage.removeItem('remembered_email');
         }
         setError('');
+        // Reset login attempts on success
+        setLoginAttempts(0);
       } else {
-        setError('Invalid email or password. Please try again.');
+        // Increment failed attempts
+        const newAttempts = loginAttempts + 1;
+        setLoginAttempts(newAttempts);
+        
+        // Lock account after 5 failed attempts
+        if (newAttempts >= 5) {
+          setIsLocked(true);
+          setError('Too many failed attempts. Account locked for 30 seconds.');
+          setTimeout(() => {
+            setIsLocked(false);
+            setLoginAttempts(0);
+            setError('');
+          }, 30000);
+        } else {
+          setError(`Invalid email or password. ${5 - newAttempts} attempts remaining.`);
+        }
       }
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
+      // Increment failed attempts on error too
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setIsLocked(true);
+        setTimeout(() => {
+          setIsLocked(false);
+          setLoginAttempts(0);
+        }, 30000);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +105,11 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
   };
 
   const handleDemoLogin = (role) => {
+    // Clear any previous errors
+    setError('');
+    setLoginAttempts(0);
+    setIsLocked(false);
+
     const credentials = {
       admin: { email: 'codesmartng1@gmail.com', password: 'Kb1217@#$%&' },
       teacher: { email: 'kabir@teacher.com', password: '121712' },
@@ -76,11 +117,13 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
     };
 
     const cred = credentials[role];
-    if (!cred) return;
+    if (!cred) {
+      setError('Invalid demo role selected');
+      return;
+    }
 
     setFormData({ email: cred.email, password: cred.password });
-    setError('');
-    
+
     // Auto-submit after a short delay
     setTimeout(() => {
       const submitEvent = new Event('submit', { cancelable: true, bubbles: true });
@@ -94,8 +137,15 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
 
   const handleForgotPassword = () => {
     // You can implement password reset functionality here
-    alert('Password reset functionality will be available soon.');
+    setError('Password reset functionality will be available soon. Please contact support.');
   };
+
+  const clearError = () => {
+    setError('');
+  };
+
+  // Check if form is disabled
+  const isDisabled = isLoading || parentLoading || isLocked;
 
   return (
     <div className="auth-container">
@@ -105,14 +155,31 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
           <div className="auth-icon">🔐</div>
           <h2>Welcome Back</h2>
           <p>Sign in to your STEM Platform account</p>
+          {loginAttempts > 0 && loginAttempts < 5 && (
+            <div className="attempts-warning">
+              ⚠️ {5 - loginAttempts} login attempts remaining
+            </div>
+          )}
+          {isLocked && (
+            <div className="lock-warning">
+              🔒 Account temporarily locked
+            </div>
+          )}
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="error-message">
-            <span className="error-icon">⚠️</span>
+          <div className={`error-message ${isLocked ? 'lock-error' : ''}`}>
+            <span className="error-icon">{isLocked ? '🔒' : '⚠️'}</span>
             <span className="error-text">{error}</span>
-            <button className="error-close" onClick={() => setError('')}>×</button>
+            <button 
+              type="button" 
+              className="error-close" 
+              onClick={clearError}
+              aria-label="Close error"
+            >
+              ×
+            </button>
           </div>
         )}
 
@@ -128,9 +195,10 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
               onChange={handleChange}
               placeholder="Enter your email address"
               required
-              disabled={isLoading || parentLoading}
-              className="form-input"
+              disabled={isDisabled}
+              className={`form-input ${error && !formData.email ? 'input-error' : ''}`}
               autoComplete="email"
+              aria-invalid={!!error && !formData.email}
             />
           </div>
 
@@ -145,15 +213,16 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
                 onChange={handleChange}
                 placeholder="Enter your password"
                 required
-                disabled={isLoading || parentLoading}
-                className="form-input"
+                disabled={isDisabled}
+                className={`form-input ${error && !formData.password ? 'input-error' : ''}`}
                 autoComplete="current-password"
+                aria-invalid={!!error && !formData.password}
               />
               <button
                 type="button"
                 className="password-toggle"
                 onClick={toggleShowPassword}
-                disabled={isLoading || parentLoading}
+                disabled={isDisabled}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? '🙈' : '👁️'}
@@ -167,7 +236,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isLoading || parentLoading}
+                disabled={isDisabled}
               />
               <span>Remember me</span>
             </label>
@@ -175,7 +244,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
               type="button"
               className="forgot-password"
               onClick={handleForgotPassword}
-              disabled={isLoading || parentLoading}
+              disabled={isDisabled}
             >
               Forgot password?
             </button>
@@ -183,13 +252,13 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
 
           <button 
             type="submit" 
-            className={`btn-primary login-btn ${(isLoading || parentLoading) ? 'loading' : ''}`}
-            disabled={isLoading || parentLoading}
+            className={`btn-primary login-btn ${isDisabled ? 'loading' : ''}`}
+            disabled={isDisabled}
           >
-            {(isLoading || parentLoading) ? (
+            {isDisabled ? (
               <>
                 <div className="spinner"></div>
-                Signing In...
+                {isLocked ? 'Account Locked...' : 'Signing In...'}
               </>
             ) : (
               'Sign In'
@@ -207,7 +276,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
               type="button" 
               className="demo-btn admin-demo"
               onClick={() => handleDemoLogin('admin')}
-              disabled={isLoading || parentLoading}
+              disabled={isDisabled}
             >
               <span className="demo-icon">👑</span>
               Admin Demo
@@ -216,7 +285,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
               type="button" 
               className="demo-btn teacher-demo"
               onClick={() => handleDemoLogin('teacher')}
-              disabled={isLoading || parentLoading}
+              disabled={isDisabled}
             >
               <span className="demo-icon">👨‍🏫</span>
               Teacher Demo
@@ -225,7 +294,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
               type="button" 
               className="demo-btn student-demo"
               onClick={() => handleDemoLogin('student')}
-              disabled={isLoading || parentLoading}
+              disabled={isDisabled}
             >
               <span className="demo-icon">👨‍🎓</span>
               Student Demo
@@ -242,7 +311,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
                 type="button" 
                 className="btn-outline student-register-btn"
                 onClick={onSwitchToRegister}
-                disabled={isLoading || parentLoading}
+                disabled={isDisabled}
               >
                 <span className="btn-icon">👨‍🎓</span>
                 Sign up as Student
@@ -254,7 +323,7 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
                 type="button" 
                 className="btn-teacher teacher-register-btn"
                 onClick={onSwitchToTeacherRegister}
-                disabled={isLoading || parentLoading}
+                disabled={isDisabled}
               >
                 <span className="btn-icon">👨‍🏫</span>
                 Apply as Teacher
