@@ -134,6 +134,7 @@ function App() {
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [initError, setInitError] = useState(null); // ✅ Added for initialization errors
 
   // Refs for timer management
   const logoutTimerRef = useRef(null);
@@ -154,6 +155,7 @@ function App() {
     setMessage('');
     setShowConfirmationInfo(false);
     setShowInactivityWarning(false);
+    setInitError(null);
     localStorage.removeItem('hausaStem_currentView');
   }, []);
 
@@ -193,24 +195,30 @@ function App() {
     }
   }, [currentUser, resetInactivityTimer, showInactivityWarning]);
 
-  // ✅ UPDATED: Initialize storage and load data with async/await
+  // ✅ UPDATED: Initialize storage and load data with async/await and better error handling
   useEffect(() => {
     const initApp = async () => {
       try {
         console.log('🔄 Initializing storage...');
 
-        await initializeStorage();
+        // ✅ Try to initialize storage with timeout
+        const initPromise = initializeStorage();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Storage initialization timeout')), 10000);
+        });
+        
+        await Promise.race([initPromise, timeoutPromise]);
 
         const loadedStudents = getStudents() || [];
         const loadedCurrentUser = getCurrentUser();
 
-        console.log('✅ Loaded students:', loadedStudents);
-        console.log('✅ Loaded current user:', loadedCurrentUser);
+        console.log('✅ Loaded students:', loadedStudents.length);
+        console.log('✅ Loaded current user:', loadedCurrentUser ? loadedCurrentUser.name : 'None');
 
         setStudentsState(loadedStudents);
 
         if (loadedCurrentUser) {
-          console.log('👤 Restoring logged-in user:', loadedCurrentUser);
+          console.log('👤 Restoring logged-in user:', loadedCurrentUser.name);
 
           setCurrentUserState(loadedCurrentUser);
 
@@ -227,9 +235,11 @@ function App() {
           setCurrentView('login');
         }
 
+        setInitError(null);
+
       } catch (error) {
         console.error('❌ Error initializing app:', error);
-
+        setInitError(error.message || 'Failed to initialize app');
         setCurrentUserState(null);
         setCurrentView('login');
       } finally {
@@ -277,6 +287,7 @@ function App() {
   const handleLogin = useCallback((email, password) => {
     try {
       setIsLoading(true);
+      setInitError(null);
       const user = authenticateUser(email, password);
       if (user) {
         const { password: _, ...userWithoutPassword } = user;
@@ -311,6 +322,7 @@ function App() {
   const handleStudentRegister = useCallback(async (name, email, password) => {
     try {
       setIsLoading(true);
+      setInitError(null);
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'student-register').find(([key, user]) => user.email === email);
 
@@ -356,6 +368,7 @@ function App() {
   const handleTeacherRegister = useCallback(async (teacherData) => {
     try {
       setIsLoading(true);
+      setInitError(null);
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'teacher-register').find(([key, user]) => user.email === teacherData.email);
 
@@ -614,7 +627,7 @@ function App() {
   // Render view
   const renderView = useCallback(() => {
     console.log('🎯 renderView called with currentView:', currentView);
-    console.log('🎯 currentUser:', currentUser);
+    console.log('🎯 currentUser:', currentUser ? currentUser.name : 'None');
 
     if (!currentUser) {
       console.log('👤 No current user, showing login/register views');
@@ -878,6 +891,70 @@ function App() {
     pendingUser,
     isLoading
   ]);
+
+  // ✅ Show error if initialization failed
+  if (initError) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '40px',
+          borderRadius: '16px',
+          maxWidth: '500px',
+          width: '100%',
+          textAlign: 'center',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚨</div>
+          <h2 style={{ color: '#dc3545', marginBottom: '0.5rem' }}>Failed to Load App</h2>
+          <p style={{ color: '#666', marginBottom: '1.5rem' }}>{initError}</p>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button 
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '10px 24px',
+                background: '#667eea',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 Refresh
+            </button>
+            <button 
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              style={{
+                padding: '10px 24px',
+                background: '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              🗑️ Clear Data
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isInitialized) {
     return (
