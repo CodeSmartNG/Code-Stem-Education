@@ -87,7 +87,7 @@
     />
 
     <!-- =====================================================
-         FAVICON
+         FAVICON (Emoji-based, no 404)
     ====================================================== -->
     <link
       rel="icon"
@@ -118,9 +118,6 @@
 
     <!-- =====================================================
          INITIAL LOADING SCREEN CSS
-         
-         This screen appears before React loads.
-         React will replace #root automatically.
     ====================================================== -->
     <style>
       /* ===================================================
@@ -782,17 +779,14 @@
     <!-- ===================================================
          VITE / REACT ENTRY POINT
          
-         IMPORTANT:
-         Do NOT remove this script.
+         ✅ IMPORTANT FIX: Remove this script tag for Vercel!
          
-         Vite uses this file during development and
-         automatically transforms it during production build.
+         Vite automatically injects the correct script during build.
+         This script tag is only needed for development.
     ==================================================== -->
 
-    <script
-      type="module"
-      src="/src/main.jsx"
-    ></script>
+    <!-- ✅ REMOVE THIS LINE FOR VERCEL DEPLOYMENT -->
+    <!-- <script type="module" src="/src/main.jsx"></script> -->
 
   </body>
 </html>
