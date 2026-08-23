@@ -1,18 +1,16 @@
 {
-  "name": "codesmartng-stem-Education_system",
+  "name": "codesmartng-stem-education-system",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": ".",
+  "homepage": "https://codesmartng.github.io/Code-Stem-Education_system/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --fix",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "vite build && gh-pages -d dist",
-    "netlify-build": "npm run build",
-    "netlify-deploy": "npm run build && netlify deploy --prod"
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -33,17 +31,5 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }
