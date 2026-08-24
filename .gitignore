@@ -1,4 +1,6 @@
-# Logs
+# =====================================================
+# LOGS
+# =====================================================
 logs
 *.log
 npm-debug.log*
@@ -6,19 +8,231 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log.*
+debug.log
+error.log
 
+# =====================================================
+# DEPENDENCIES
+# =====================================================
 node_modules
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-debug.log
+
+# =====================================================
+# BUILD OUTPUT
+# =====================================================
 dist
 dist-ssr
+build
+build-ssr
 *.local
+.eslintcache
+.coverage
+coverage
+.vercel
+.vite
+*.tsbuildinfo
 
-# Editor directories and files
+# =====================================================
+# EDITOR DIRECTORIES AND FILES
+# =====================================================
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.temp
+
+# =====================================================
+# ENVIRONMENT VARIABLES
+# =====================================================
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+.env.staging
+*.env
+
+# =====================================================
+# OS FILES
+# =====================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Thumbs.db:encryptable
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# =====================================================
+# TESTING
+# =====================================================
+coverage/
+.nyc_output/
+test-results/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+*.snap
+*.snapshots
+
+# =====================================================
+# DEBUGGING
+# =====================================================
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.d.ts.map
+*.js.map
+*.css.map
+*.map
+
+# =====================================================
+# VERCEL
+# =====================================================
+.vercel
+.vercel_output
+.vercel_cache
+
+# =====================================================
+# NETLIFY
+# =====================================================
+.netlify
+
+# =====================================================
+# GITHUB
+# =====================================================
+.github/*.md
+!.github/workflows
+
+# =====================================================
+# MISC
+# =====================================================
+*.7z
+*.rar
+*.zip
+*.gz
+*.tgz
+*.tar
+*.xz
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.patch
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.tmp
+*.temp
+*~
+*.cache
+*.dump
+
+# =====================================================
+# PROJECT SPECIFIC
+# =====================================================
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# ESLint
+.eslintcache
+.eslintrc.cache
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Temporary files
+tmp/
+temp/
+*.swp
+*.swo
+*~
+
+# =====================================================
+# SECURITY
+# =====================================================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.truststore
+*.secret
+*.secrets
+*.env
+*.env.local
+*.env.*.local
+.env.*
+!.env.example
+
+# =====================================================
+# BACKUP FILES
+# =====================================================
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.patch
+
+# =====================================================
+# COMPRESSED FILES
+# =====================================================
+*.7z
+*.rar
+*.zip
+*.gz
+*.tgz
+*.tar
+*.xz
+*.bz2
+
+# =====================================================
+# DATABASE
+# =====================================================
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
