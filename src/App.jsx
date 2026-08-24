@@ -26,21 +26,16 @@ import {
   initializeStorage, 
   getStudents, 
   getCurrentUser, 
-  setCurrentUser,
   updateStudent, 
-  addStudent,
   authenticateUser,
   logoutUser,
-  registerTeacher,
   getUsers,
   registerUser,
   confirmUserEmail,
   resendEmailConfirmation,
   canAccessLesson,
   purchaseLesson,
-  getTeacherWhatsAppUrl,
-  getCourses,
-  getLessons
+  getTeacherWhatsAppUrl
 } from './utils/storage';
 
 // Constants moved outside component
@@ -48,7 +43,25 @@ const USER_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 't
 const INACTIVITY_WARNING_TIME = 55 * 60 * 1000;
 const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
 
-// Safe object utility functions with detailed logging
+// Debug function to check admin status
+const debugAdminStatus = () => {
+  console.log('=== ADMIN STATUS DEBUG ===');
+  const users = JSON.parse(localStorage.getItem('hausaStem_users') || '{}');
+  const currentUser = JSON.parse(localStorage.getItem('hausaStem_currentUser') || 'null');
+  
+  console.log('All users:', Object.keys(users));
+  console.log('Admin exists:', !!users['admin1']);
+  console.log('Admin email:', users['admin1']?.email);
+  console.log('Admin role:', users['admin1']?.role);
+  console.log('Admin isEmailConfirmed:', users['admin1']?.isEmailConfirmed);
+  console.log('Current user:', currentUser);
+  console.log('Current user role:', currentUser?.role);
+  console.log('=== END DEBUG ===');
+  
+  return { users, currentUser };
+};
+
+// Safe object utility function
 const safeObjectEntries = (obj, location = 'unknown') => {
   console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
   try {
@@ -73,22 +86,6 @@ const safeObjectEntries = (obj, location = 'unknown') => {
   }
 };
 
-const safeObjectKeys = (obj, location = 'unknown') => {
-  console.log(`🔧 safeObjectKeys called from: ${location}`, obj);
-  try {
-    if (!obj || typeof obj !== 'object') {
-      console.log(`❌ ${location}: Invalid object for keys`);
-      return [];
-    }
-    const keys = Object.keys(obj);
-    console.log(`✅ ${location}: Object.keys success, count:`, keys.length);
-    return keys;
-  } catch (error) {
-    console.error(`❌ ${location}: Error in safeObjectKeys:`, error);
-    return [];
-  }
-};
-
 function App() {
   const [currentView, setCurrentView] = useState('login');
   const [currentUser, setCurrentUserState] = useState(null);
@@ -104,11 +101,29 @@ function App() {
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
 
+  // Define handleLogout first so it can be used in other hooks
+  const handleLogout = useCallback(() => {
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+    }
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+    }
+    
+    logoutUser();
+    setCurrentUserState(null);
+    setCurrentView('login');
+    setMessage('');
+    setShowConfirmationInfo(false);
+    setShowInactivityWarning(false);
+    localStorage.removeItem('hausaStem_currentView');
+  }, []);
+
   // Auto-logout handler
   const handleAutoLogout = useCallback(() => {
     setMessage('You have been automatically logged out due to inactivity.');
     handleLogout();
-  }, []);
+  }, [handleLogout]);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
@@ -140,6 +155,27 @@ function App() {
     }
   }, [currentUser, resetInactivityTimer, showInactivityWarning]);
 
+  // Define handleEmailConfirmation before it's used in useEffect
+  const handleEmailConfirmation = useCallback(async (token) => {
+    try {
+      const user = await confirmUserEmail(token);
+      
+      setMessage('Email confirmed successfully! You can now log in.');
+      setCurrentView('login');
+      setPendingUser(null);
+      setConfirmationToken('');
+      setShowConfirmationInfo(false);
+      
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      return true;
+    } catch (error) {
+      console.error('Email confirmation error:', error);
+      setMessage(error.message || 'Email confirmation failed. Please try again.');
+      return false;
+    }
+  }, []);
+
   // Initialize storage and load data
   useEffect(() => {
     const initApp = () => {
@@ -152,12 +188,14 @@ function App() {
         
         console.log('Loaded students:', loadedStudents);
         console.log('Loaded current user:', loadedCurrentUser);
+        console.log('Loaded current user role:', loadedCurrentUser?.role);
         
         setStudentsState(loadedStudents);
         
         if (loadedCurrentUser) {
           setCurrentUserState(loadedCurrentUser);
-          // ✅ FIX: Determine correct view based on role
+          
+          // Determine correct view based on role
           const role = loadedCurrentUser.role;
           console.log('🔍 User role detected:', role);
           
@@ -174,7 +212,13 @@ function App() {
             console.warn('⚠️ Unknown role:', role);
             setCurrentView('dashboard');
           }
+        } else {
+          console.log('👤 No current user, showing login');
+          setCurrentView('login');
         }
+        
+        // Debug admin status
+        debugAdminStatus();
         
         setIsInitialized(true);
       } catch (error) {
@@ -216,40 +260,52 @@ function App() {
     if (token) {
       handleEmailConfirmation(token);
     }
-  }, []);
+  }, [handleEmailConfirmation]);
 
-  // ✅ FIX: Corrected login handler
-  const handleLogin = useCallback((email, password) => {
+  // Login handler
+  const handleLogin = useCallback(async (email, password) => {
     try {
-      const user = authenticateUser(email, password);
+      console.log('🔐 Attempting login with email:', email);
+      
+      const user = await authenticateUser(email, password);
+      console.log('🔐 authenticateUser returned:', user);
+      
       if (user) {
+        console.log('✅ Login successful!');
+        console.log('User role:', user.role);
+        console.log('User email:', user.email);
+        
+        // Remove password before storing in state
         const { password: _, ...userWithoutPassword } = user;
         setCurrentUserState(userWithoutPassword);
         
         resetInactivityTimer();
         
-        // ✅ FIX: Set view based on role
-        console.log('🔐 Login successful, user role:', user.role);
-        
+        // Set view based on role
         if (user.role === 'admin') {
           console.log('👑 Navigating to admin dashboard');
           setCurrentView('admin');
+          localStorage.setItem('hausaStem_currentView', 'admin');
         } else if (user.role === 'teacher') {
           console.log('👨‍🏫 Navigating to teacher dashboard');
           setCurrentView('teacher');
+          localStorage.setItem('hausaStem_currentView', 'teacher');
         } else {
           console.log('👨‍🎓 Navigating to student dashboard');
           setCurrentView('dashboard');
+          localStorage.setItem('hausaStem_currentView', 'dashboard');
         }
         
         setMessage('');
         return true;
+      } else {
+        console.log('❌ Login failed: No user returned');
+        setMessage('Invalid email or password. Please check your credentials.');
+        return false;
       }
-      setMessage('Invalid email or password');
-      return false;
     } catch (error) {
-      console.error('Login error:', error);
-      setMessage(error.message);
+      console.error('❌ Login error:', error);
+      setMessage(error.message || 'Login failed. Please try again.');
       return false;
     }
   }, [resetInactivityTimer]);
@@ -257,7 +313,9 @@ function App() {
   const handleStudentRegister = useCallback(async (name, email, password) => {
     try {
       const users = getUsers();
-      const existingUser = safeObjectEntries(users, 'student-register').find(([key, user]) => user.email === email);
+      const existingUser = safeObjectEntries(users, 'student-register').find(
+        ([, user]) => user.email === email
+      );
       
       if (existingUser || students.find(s => s.email === email)) {
         setMessage('Email already exists. Please use a different email or login.');
@@ -291,7 +349,9 @@ function App() {
   const handleTeacherRegister = useCallback(async (teacherData) => {
     try {
       const users = getUsers();
-      const existingUser = safeObjectEntries(users, 'teacher-register').find(([key, user]) => user.email === teacherData.email);
+      const existingUser = safeObjectEntries(users, 'teacher-register').find(
+        ([, user]) => user.email === teacherData.email
+      );
       
       if (existingUser) {
         setMessage('Email already exists. Please use a different email or login.');
@@ -320,26 +380,6 @@ function App() {
     }
   }, []);
 
-  const handleEmailConfirmation = useCallback(async (token) => {
-    try {
-      const user = await confirmUserEmail(token);
-      
-      setMessage('Email confirmed successfully! You can now log in.');
-      setCurrentView('login');
-      setPendingUser(null);
-      setConfirmationToken('');
-      setShowConfirmationInfo(false);
-      
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      return true;
-    } catch (error) {
-      console.error('Email confirmation error:', error);
-      setMessage(error.message || 'Email confirmation failed. Please try again.');
-      return false;
-    }
-  }, []);
-
   const handleResendConfirmation = useCallback(async () => {
     if (pendingUser) {
       try {
@@ -351,22 +391,6 @@ function App() {
       }
     }
   }, [pendingUser]);
-
-  const handleLogout = useCallback(() => {
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-    }
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
-    }
-    
-    logoutUser();
-    setCurrentUserState(null);
-    setCurrentView('login');
-    setMessage('');
-    setShowConfirmationInfo(false);
-    setShowInactivityWarning(false);
-  }, []);
 
   const updateStudentData = useCallback((updatedStudent) => {
     try {
@@ -593,7 +617,7 @@ function App() {
       }
     }
 
-    // ✅ FIX: Get role with proper fallback
+    // Get role with proper fallback
     const userRole = currentUser?.role || 'student';
     const isAdmin = userRole === 'admin';
     const isTeacher = userRole === 'teacher';
@@ -602,7 +626,7 @@ function App() {
     console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
     console.log('🎯 Current view:', currentView);
 
-    // ✅ FIX: Check if currentView matches user role, if not, redirect
+    // Check if currentView matches user role, if not, redirect
     if (isAdmin && currentView !== 'admin' && currentView !== 'admin-courses') {
       console.log('👑 Admin user, ensuring admin view');
       setCurrentView('admin');
@@ -661,20 +685,19 @@ function App() {
         break;
     }
 
-    // ✅ FIX: Admin dashboard - explicit check
+    // Admin dashboard - explicit check
     if (isAdmin) {
       console.log('🎯 Rendering admin dashboard');
       if (currentView === 'admin') {
         return <AdminDashboard currentUser={currentUser} setCurrentView={setCurrentView} />;
       } else if (currentView === 'dashboard' || currentView === 'profile') {
-        // Redirect admin to admin dashboard
         console.log('🔄 Redirecting admin to admin dashboard');
         setTimeout(() => setCurrentView('admin'), 0);
         return null;
       }
     }
 
-    // ✅ FIX: Teacher dashboard
+    // Teacher dashboard
     if (isTeacher) {
       console.log('🎯 Rendering teacher dashboard');
       if (currentView === 'teacher') {
@@ -686,7 +709,7 @@ function App() {
       }
     }
 
-    // ✅ FIX: Student views
+    // Student views
     if (isStudent) {
       console.log('🎯 Rendering student views for:', currentView);
       switch(currentView) {
@@ -715,7 +738,7 @@ function App() {
       }
     }
 
-    // ✅ FIX: Default fallback - if no view matched, show appropriate dashboard
+    // Default fallback - if no view matched, show appropriate dashboard
     console.warn('⚠️ No specific view matched, showing default dashboard');
     if (isAdmin) {
       return <AdminDashboard currentUser={currentUser} setCurrentView={setCurrentView} />;
