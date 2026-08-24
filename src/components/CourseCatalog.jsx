@@ -16,6 +16,7 @@ const CourseCatalog = ({ student, setStudent }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load courses from storage
   useEffect(() => {
@@ -25,12 +26,13 @@ const CourseCatalog = ({ student, setStudent }) => {
   const loadCourses = () => {
     try {
       const coursesData = getCourses();
-      console.log('Loaded courses:', coursesData);
-      // Ensure coursesData is always an object
+      console.log('✅ Loaded courses:', Object.keys(coursesData || {}).length);
       setCourses(coursesData || {});
+      setError(null);
     } catch (err) {
-      console.error('Error loading courses:', err);
+      console.error('❌ Error loading courses:', err);
       setCourses({});
+      setError('Failed to load courses. Please refresh the page.');
     }
   };
 
@@ -137,7 +139,7 @@ const CourseCatalog = ({ student, setStudent }) => {
     setCurrentQuiz(null);
   };
 
-  // NEW: Check if student can access lesson
+  // Check if student can access lesson
   const canAccessLessonContent = (courseKey, lessonId) => {
     const currentUser = getCurrentUser();
     if (!currentUser) return false;
@@ -145,12 +147,14 @@ const CourseCatalog = ({ student, setStudent }) => {
     return canAccessLesson(currentUser.id, courseKey, lessonId);
   };
 
-  // NEW: Handle lesson purchase
+  // Handle lesson purchase
   const handlePurchaseLesson = async (courseKey, lessonIndex) => {
     try {
+      setIsLoading(true);
       const currentUser = getCurrentUser();
       if (!currentUser) {
         alert('Please log in to purchase lessons');
+        setIsLoading(false);
         return;
       }
 
@@ -159,30 +163,31 @@ const CourseCatalog = ({ student, setStudent }) => {
       
       if (!lesson) {
         console.error('Lesson not found');
+        setIsLoading(false);
         return;
       }
 
       if (window.confirm(`Are you sure you want to purchase "${lesson.title}" for ₦${lesson.price}?`)) {
         const paymentResult = await purchaseLesson(currentUser.id, courseKey, lesson.id);
         
-        if (paymentResult) {
+        if (paymentResult?.success) {
           alert('✅ Payment successful! You now have access to this lesson.');
-          // Reload courses to reflect the purchase
           loadCourses();
-          // Start the lesson
           setSelectedCourse(courseKey);
           setCurrentLesson(lessonIndex);
         } else {
           alert('❌ Payment failed. Please try again.');
         }
       }
+      setIsLoading(false);
     } catch (error) {
       console.error('Error purchasing lesson:', error);
       alert('❌ Error processing payment: ' + error.message);
+      setIsLoading(false);
     }
   };
 
-  // UPDATED: Handle starting a lesson with new payment system
+  // Handle starting a lesson with new payment system
   const handleStartLesson = (courseKey, lessonIndex) => {
     try {
       if (!courses || !courses[courseKey]) return;
@@ -201,15 +206,14 @@ const CourseCatalog = ({ student, setStudent }) => {
         return;
       }
 
-      // NEW: Check if lesson is paid and if student has access
+      // Check if lesson is paid and if student has access
       if (!lesson.isFree && !canAccessLesson(currentUser.id, courseKey, lesson.id)) {
-        // Show payment modal for paid lessons without access
         setSelectedLesson({ 
           courseKey, 
           lessonIndex, 
           lesson: { 
             ...lesson, 
-            title: lesson.title || 'Untitled Lesson', // SAFETY CHECK ADDED
+            title: lesson.title || 'Untitled Lesson',
             courseId: courseKey,
             price: lesson.price || 500,
             teacherId: course.teacherId || 'default_teacher',
@@ -220,14 +224,14 @@ const CourseCatalog = ({ student, setStudent }) => {
         return;
       }
 
-      // OLD: Check if lesson is locked (backward compatibility)
+      // Check if lesson is locked (backward compatibility)
       if (lesson.isLocked && !canAccessLesson(currentUser.id, courseKey, lesson.id)) {
         setSelectedLesson({ 
           courseKey, 
           lessonIndex, 
           lesson: { 
             ...lesson, 
-            title: lesson.title || 'Untitled Lesson', // SAFETY CHECK ADDED
+            title: lesson.title || 'Untitled Lesson',
             courseId: courseKey,
             price: lesson.price || 500,
             teacherId: course.teacherId || 'default_teacher',
@@ -244,46 +248,50 @@ const CourseCatalog = ({ student, setStudent }) => {
       window.scrollTo(0, 0);
     } catch (err) {
       console.error('Error starting lesson:', err);
+      setError('Failed to start lesson. Please try again.');
     }
   };
 
-  // UPDATED: Handle payment success
+  // Handle payment success
   const handlePaymentSuccess = async (paymentData) => {
     try {
-      console.log('Payment successful:', paymentData);
+      setIsLoading(true);
+      console.log('✅ Payment successful:', paymentData);
       
       if (selectedLesson) {
-        // 1. Process teacher payment and payout
+        // Process teacher payment and payout
         const teacherPaymentSuccess = await processTeacherPayment(
           paymentData, 
           selectedLesson.lesson, 
           student
         );
 
-        // 2. Reload courses to reflect the purchase
+        // Reload courses to reflect the purchase
         loadCourses();
         
-        // 3. Start the lesson
+        // Start the lesson
         setSelectedCourse(selectedLesson.courseKey);
         setCurrentLesson(selectedLesson.lessonIndex);
         setShowPaymentModal(false);
         setSelectedLesson(null);
         
-        // 4. Show appropriate success message
+        // Show appropriate success message
         if (teacherPaymentSuccess) {
           alert('🎉 Payment successful! Lesson unlocked and teacher payment processed.');
         } else {
           alert('🎉 Payment successful! Lesson unlocked. Teacher payment is being processed.');
         }
       }
+      setIsLoading(false);
     } catch (error) {
-      console.error('Error processing teacher payment:', error);
+      console.error('❌ Error processing teacher payment:', error);
       
       // Still proceed with lesson access
       setSelectedCourse(selectedLesson?.courseKey);
       setCurrentLesson(selectedLesson?.lessonIndex);
       setShowPaymentModal(false);
       setSelectedLesson(null);
+      setIsLoading(false);
       
       alert('🎉 Payment successful! Lesson unlocked. There was an issue with teacher payout - support will handle it.');
     }
@@ -327,7 +335,7 @@ const CourseCatalog = ({ student, setStudent }) => {
     }
   };
 
-  // NEW: Get teacher WhatsApp URL
+  // Get teacher WhatsApp URL
   const getTeacherContactUrl = (teacherId) => {
     return getTeacherWhatsAppUrl(teacherId);
   };
@@ -338,9 +346,17 @@ const CourseCatalog = ({ student, setStudent }) => {
     return (
       <div className="course-catalog">
         <h2>STEM Courses</h2>
-        <div className="no-courses">
-          <p>No courses available. Please check back later.</p>
-        </div>
+        {error && (
+          <div className="error-message">
+            <p>{error}</p>
+            <button onClick={loadCourses} className="retry-btn">Retry</button>
+          </div>
+        )}
+        {!error && (
+          <div className="no-courses">
+            <p>No courses available. Please check back later.</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -375,9 +391,8 @@ const CourseCatalog = ({ student, setStudent }) => {
         </button>
 
         <div className="lesson-header">
-          <h2>{lesson.title || 'Untitled Lesson'}</h2> {/* SAFETY CHECK ADDED */}
+          <h2>{lesson.title || 'Untitled Lesson'}</h2>
           {isCompleted && <span className="completion-badge">Completed ✓</span>}
-          {/* NEW: Show price if paid lesson */}
           {!lesson.isFree && (
             <span className={`price-badge ${hasAccess ? 'purchased' : ''}`}>
               {hasAccess ? '✅ Purchased' : `₦${lesson.price}`}
@@ -388,7 +403,6 @@ const CourseCatalog = ({ student, setStudent }) => {
         {course.teacherName && (
           <div className="teacher-info">
             <strong>Instructor:</strong> {course.teacherName}
-            {/* NEW: WhatsApp contact button */}
             {course.teacherId && getTeacherContactUrl(course.teacherId) && (
               <a 
                 href={getTeacherContactUrl(course.teacherId)}
@@ -402,7 +416,7 @@ const CourseCatalog = ({ student, setStudent }) => {
           </div>
         )}
 
-        {/* NEW: Access control for lesson content */}
+        {/* Access control for lesson content */}
         {!hasAccess && !lesson.isFree ? (
           <div className="payment-required">
             <div className="payment-prompt">
@@ -412,13 +426,13 @@ const CourseCatalog = ({ student, setStudent }) => {
               <button 
                 onClick={() => handlePurchaseLesson(selectedCourse, currentLesson)}
                 className="purchase-access-btn"
+                disabled={isLoading}
               >
-                Purchase Access
+                {isLoading ? 'Processing...' : 'Purchase Access'}
               </button>
             </div>
           </div>
         ) : (
-          /* Lesson Content - Only show if user has access */
           <>
             {lesson.multimedia && lesson.multimedia.length > 0 && (
               <div className="multimedia-container">
@@ -496,8 +510,8 @@ const CourseCatalog = ({ student, setStudent }) => {
 
       {error && (
         <div className="error-message">
-          <p>Error loading courses: {error.message}</p>
-          <button onClick={loadCourses}>Retry</button>
+          <p>{error}</p>
+          <button onClick={loadCourses} className="retry-btn">Retry</button>
         </div>
       )}
 
@@ -512,11 +526,10 @@ const CourseCatalog = ({ student, setStudent }) => {
               <div className="course-header">
                 <span className="course-thumbnail">{course.thumbnail}</span>
                 <div className="course-title-section">
-                  <h3>{course.title || 'Untitled Course'}</h3> {/* SAFETY CHECK ADDED */}
+                  <h3>{course.title || 'Untitled Course'}</h3>
                   {course.teacherName && (
                     <div className="course-teacher">
                       <small>By: {course.teacherName}</small>
-                      {/* NEW: WhatsApp contact for teacher */}
                       {course.teacherId && getTeacherContactUrl(course.teacherId) && (
                         <a 
                           href={getTeacherContactUrl(course.teacherId)}
@@ -540,11 +553,10 @@ const CourseCatalog = ({ student, setStudent }) => {
 
               <p className="course-description">{course.description}</p>
 
-              {/* NEW: Course pricing summary */}
               <div className="course-pricing-summary">
-                <span className="free-lessons">{freeLessonsCount} Free</span>
+                <span className="free-lessons">📖 {freeLessonsCount} Free</span>
                 {paidLessonsCount > 0 && (
-                  <span className="paid-lessons">{paidLessonsCount} Paid</span>
+                  <span className="paid-lessons">💰 {paidLessonsCount} Paid</span>
                 )}
               </div>
 
@@ -589,7 +601,7 @@ const CourseCatalog = ({ student, setStudent }) => {
                         <div className="lesson-info">
                           <div className="lesson-main-info">
                             <span className="lesson-title">
-                              {lesson.title || 'Untitled Lesson'} {/* SAFETY CHECK ADDED */}
+                              {lesson.title || 'Untitled Lesson'}
                               {isPaidLesson && !hasAccess && <span className="lock-icon"> 🔒</span>}
                               {isPaidLesson && (
                                 <span className={`lesson-price ${hasAccess ? 'purchased' : ''}`}>
@@ -617,7 +629,7 @@ const CourseCatalog = ({ student, setStudent }) => {
                         <div className="lesson-actions">
                           <button 
                             onClick={() => handleStartLesson(key, index)}
-                            disabled={isLessonCompleted}
+                            disabled={isLessonCompleted || isLoading}
                             className={
                               isLessonCompleted ? 'completed-btn' : 
                               isPaidLesson && !hasAccess ? 'purchase-btn' : 'start-btn'
@@ -637,12 +649,12 @@ const CourseCatalog = ({ student, setStudent }) => {
         })}
       </div>
 
-      {/* UPDATED: PaymentModal with safety checks */}
+      {/* PaymentModal with safety checks */}
       <PaymentModal
-        isOpen={showPaymentModal && selectedLesson?.lesson} // VALIDATION ADDED
+        isOpen={showPaymentModal && selectedLesson?.lesson}
         onClose={() => {
           setShowPaymentModal(false);
-          setSelectedLesson(null); // Reset on close
+          setSelectedLesson(null);
         }}
         lesson={selectedLesson?.lesson}
         student={student}
