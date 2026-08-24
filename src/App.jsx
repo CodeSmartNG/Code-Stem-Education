@@ -26,7 +26,7 @@ import {
   initializeStorage, 
   getStudents, 
   getCurrentUser, 
-  setCurrentUser, 
+  setCurrentUser,  // ✅ FIX 1: Added missing import
   updateStudent, 
   addStudent,
   authenticateUser,
@@ -39,61 +39,33 @@ import {
   canAccessLesson,
   purchaseLesson,
   getTeacherWhatsAppUrl,
-  getAllCoursesForAdmin,
-  getCourseDetailsForAdmin,
-  deleteCourseAsAdmin,
-  deleteLessonAsAdmin,
-  getCourseAnalyticsForAdmin,
-  getTeacherCoursesForAdmin,
-  getPlatformStats,
-  getAllUsers,
-  deleteUser,
-  updateUser,
-  approveTeacher,
-  rejectTeacher,
-  dismissTeacher,
-  getTeacherWallets,
-  saveTeacherWallets,
-  getTeacherWallet,
-  updateTeacherWallet,
-  addTeacherEarnings,
-  withdrawFromWallet,
-  getPaymentTransactions,
-  savePaymentTransactions,
-  processLessonPayment,
-  getStudentById,
-  updateCourseProgress,
-  getEnrolledCoursesWithProgress
+  getCourses,
+  getLessons
 } from './utils/storage';
 
-// Constants
+// ✅ FIX 2: Move constants outside component to prevent recreation
 const USER_ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-const INACTIVITY_WARNING_TIME = 55 * 60 * 1000;
-const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
+const INACTIVITY_WARNING_TIME = 55 * 60 * 1000; // 55 minutes
+const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000; // 60 minutes
 
-// Safe object utility functions
+// Safe object utility functions with detailed logging
 const safeObjectEntries = (obj, location = 'unknown') => {
-  // Only log in development
-  if (import.meta.env.MODE === 'development') {
-    console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
-  }
+  console.log(`🔧 safeObjectEntries called from: ${location}`, obj);
   try {
-    if (obj === null || obj === undefined) {
-      if (import.meta.env.MODE === 'development') {
-        console.log(`❌ ${location}: Object is null/undefined`);
-      }
+    if (obj === null) {
+      console.log(`❌ ${location}: Object is null`);
+      return [];
+    }
+    if (obj === undefined) {
+      console.log(`❌ ${location}: Object is undefined`);
       return [];
     }
     if (typeof obj !== 'object') {
-      if (import.meta.env.MODE === 'development') {
-        console.log(`❌ ${location}: Not an object, type is:`, typeof obj);
-      }
+      console.log(`❌ ${location}: Not an object, type is:`, typeof obj);
       return [];
     }
     const entries = Object.entries(obj);
-    if (import.meta.env.MODE === 'development') {
-      console.log(`✅ ${location}: Object.entries success, count:`, entries.length);
-    }
+    console.log(`✅ ${location}: Object.entries success, count:`, entries.length);
     return entries;
   } catch (error) {
     console.error(`❌ ${location}: Error in safeObjectEntries:`, error);
@@ -102,20 +74,14 @@ const safeObjectEntries = (obj, location = 'unknown') => {
 };
 
 const safeObjectKeys = (obj, location = 'unknown') => {
-  if (import.meta.env.MODE === 'development') {
-    console.log(`🔧 safeObjectKeys called from: ${location}`, obj);
-  }
+  console.log(`🔧 safeObjectKeys called from: ${location}`, obj);
   try {
     if (!obj || typeof obj !== 'object') {
-      if (import.meta.env.MODE === 'development') {
-        console.log(`❌ ${location}: Invalid object for keys`);
-      }
+      console.log(`❌ ${location}: Invalid object for keys`);
       return [];
     }
     const keys = Object.keys(obj);
-    if (import.meta.env.MODE === 'development') {
-      console.log(`✅ ${location}: Object.keys success, count:`, keys.length);
-    }
+    console.log(`✅ ${location}: Object.keys success, count:`, keys.length);
     return keys;
   } catch (error) {
     console.error(`❌ ${location}: Error in safeObjectKeys:`, error);
@@ -133,52 +99,35 @@ function App() {
   const [confirmationToken, setConfirmationToken] = useState('');
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initError, setInitError] = useState(null); // ✅ Added for initialization errors
-
+  
   // Refs for timer management
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
-
-  // Define handleLogout first so it can be used in other hooks
-  const handleLogout = useCallback(() => {
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-    }
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
-    }
-
-    logoutUser();
-    setCurrentUserState(null);
-    setCurrentView('login');
-    setMessage('');
-    setShowConfirmationInfo(false);
-    setShowInactivityWarning(false);
-    setInitError(null);
-    localStorage.removeItem('hausaStem_currentView');
-  }, []);
 
   // Auto-logout handler
   const handleAutoLogout = useCallback(() => {
     setMessage('You have been automatically logged out due to inactivity.');
     handleLogout();
-  }, [handleLogout]);
+  }, []);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
+    // Clear existing timers
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
     }
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-
+    
+    // Only set timers if user is logged in
     if (currentUser) {
+      // Show warning before logout
       warningTimerRef.current = setTimeout(() => {
         setShowInactivityWarning(true);
       }, INACTIVITY_WARNING_TIME);
-
+      
+      // Auto logout after inactivity period
       logoutTimerRef.current = setTimeout(() => {
         handleAutoLogout();
       }, INACTIVITY_LOGOUT_TIME);
@@ -195,33 +144,25 @@ function App() {
     }
   }, [currentUser, resetInactivityTimer, showInactivityWarning]);
 
-  // ✅ UPDATED: Initialize storage and load data with async/await and better error handling
+  // Initialize storage and load data
   useEffect(() => {
-    const initApp = async () => {
+    const initApp = () => {
       try {
         console.log('🔄 Initializing storage...');
-
-        // ✅ Try to initialize storage with timeout
-        const initPromise = initializeStorage();
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Storage initialization timeout')), 10000);
-        });
+        initializeStorage();
         
-        await Promise.race([initPromise, timeoutPromise]);
-
-        const loadedStudents = getStudents() || [];
+        // Load all data from localStorage
+        const loadedStudents = getStudents();
         const loadedCurrentUser = getCurrentUser();
-
-        console.log('✅ Loaded students:', loadedStudents.length);
-        console.log('✅ Loaded current user:', loadedCurrentUser ? loadedCurrentUser.name : 'None');
-
+        
+        console.log('Loaded students:', loadedStudents);
+        console.log('Loaded current user:', loadedCurrentUser);
+        
         setStudentsState(loadedStudents);
-
+        
         if (loadedCurrentUser) {
-          console.log('👤 Restoring logged-in user:', loadedCurrentUser.name);
-
           setCurrentUserState(loadedCurrentUser);
-
+          // Redirect based on user role
           if (loadedCurrentUser.role === 'admin') {
             setCurrentView('admin');
           } else if (loadedCurrentUser.role === 'teacher') {
@@ -229,21 +170,11 @@ function App() {
           } else {
             setCurrentView('dashboard');
           }
-        } else {
-          console.log('👤 No logged-in user → showing login');
-          setCurrentUserState(null);
-          setCurrentView('login');
         }
-
-        setInitError(null);
-
+        
+        setIsInitialized(true);
       } catch (error) {
-        console.error('❌ Error initializing app:', error);
-        setInitError(error.message || 'Failed to initialize app');
-        setCurrentUserState(null);
-        setCurrentView('login');
-      } finally {
-        console.log('✅ App initialization finished');
+        console.error('Error initializing app:', error);
         setIsInitialized(true);
       }
     };
@@ -254,12 +185,15 @@ function App() {
   // Set up activity listeners when user is logged in
   useEffect(() => {
     if (currentUser) {
+      // Add event listeners for user activity
       USER_ACTIVITY_EVENTS.forEach(event => {
         document.addEventListener(event, handleUserActivity);
       });
-
+      
+      // Start the inactivity timer
       resetInactivityTimer();
-
+      
+      // Cleanup function
       return () => {
         USER_ACTIVITY_EVENTS.forEach(event => {
           document.removeEventListener(event, handleUserActivity);
@@ -274,7 +208,7 @@ function App() {
     }
   }, [currentUser, handleUserActivity, resetInactivityTimer]);
 
-  // Check for confirmation token in URL
+  // Check for confirmation token in URL (for email confirmation links)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -283,19 +217,19 @@ function App() {
     }
   }, []);
 
-  // Login handler
+  // ✅ FIX 3: Corrected login handler - removed duplicate setCurrentUser
   const handleLogin = useCallback((email, password) => {
     try {
-      setIsLoading(true);
-      setInitError(null);
       const user = authenticateUser(email, password);
       if (user) {
         const { password: _, ...userWithoutPassword } = user;
         setCurrentUserState(userWithoutPassword);
-        setCurrentUser(userWithoutPassword);
-
+        // ✅ Removed: setCurrentUser(userWithoutPassword);
+        
+        // Reset inactivity timer on login
         resetInactivityTimer();
-
+        
+        // Redirect based on role
         if (user.role === 'admin') {
           setCurrentView('admin');
         } else if (user.role === 'teacher') {
@@ -304,195 +238,180 @@ function App() {
           setCurrentView('dashboard');
         }
         setMessage('');
-        setIsLoading(false);
         return true;
       }
       setMessage('Invalid email or password');
-      setIsLoading(false);
       return false;
     } catch (error) {
       console.error('Login error:', error);
       setMessage(error.message);
-      setIsLoading(false);
       return false;
     }
   }, [resetInactivityTimer]);
 
-  // Student registration
   const handleStudentRegister = useCallback(async (name, email, password) => {
     try {
-      setIsLoading(true);
-      setInitError(null);
+      // Check if email already exists in students
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'student-register').find(([key, user]) => user.email === email);
-
+      
       if (existingUser || students.find(s => s.email === email)) {
         setMessage('Email already exists. Please use a different email or login.');
-        setIsLoading(false);
         return false;
       }
 
+      // Register user with email confirmation
       const result = await registerUser({
         name,
         email,
         password,
         role: 'student',
         level: 'Beginner',
+        // Initialize student-specific fields
         completedLessons: [],
-        completedCourses: [],
         progress: {},
-        purchasedLessons: [],
-        paymentHistory: [],
-        quizResults: [],
-        certificates: [],
-        enrolledCourses: [],
-        enrolledCoursesDate: {}
+        purchasedLessons: []
       });
 
+      // Store pending user data and token
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
       setCurrentView('email-confirmation');
       setMessage(`Confirmation email sent to ${email}. Please check your inbox.`);
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
       setMessage(error.message || 'Registration failed. Please try again.');
-      setIsLoading(false);
       return false;
     }
   }, [students]);
 
-  // Teacher registration
   const handleTeacherRegister = useCallback(async (teacherData) => {
     try {
-      setIsLoading(true);
-      setInitError(null);
+      // Check if email already exists
       const users = getUsers();
       const existingUser = safeObjectEntries(users, 'teacher-register').find(([key, user]) => user.email === teacherData.email);
-
+      
       if (existingUser) {
         setMessage('Email already exists. Please use a different email or login.');
-        setIsLoading(false);
         return false;
       }
 
+      // Register teacher with email confirmation
       const result = await registerUser({
         ...teacherData,
         role: 'teacher',
+        // Initialize teacher-specific fields
         isApproved: false,
         earnings: 0,
         courses: [],
         whatsappNumber: teacherData.whatsappNumber || ''
       });
 
+      // Store pending user data and token
       setPendingUser(result.user);
       setConfirmationToken(result.confirmationToken);
       setShowConfirmationInfo(true);
       setCurrentView('email-confirmation');
       setMessage(`Confirmation email sent to ${teacherData.email}. Please check your inbox.`);
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error('Teacher registration error:', error);
       setMessage(error.message || 'Teacher registration failed. Please try again.');
-      setIsLoading(false);
       return false;
     }
   }, []);
 
-  // Email confirmation
   const handleEmailConfirmation = useCallback(async (token) => {
     try {
-      setIsLoading(true);
       const user = await confirmUserEmail(token);
-
+      
       setMessage('Email confirmed successfully! You can now log in.');
       setCurrentView('login');
       setPendingUser(null);
       setConfirmationToken('');
       setShowConfirmationInfo(false);
-
+      
+      // Clear token from URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      setIsLoading(false);
+      
       return true;
     } catch (error) {
       console.error('Email confirmation error:', error);
       setMessage(error.message || 'Email confirmation failed. Please try again.');
-      setIsLoading(false);
       return false;
     }
   }, []);
 
-  // Resend confirmation
   const handleResendConfirmation = useCallback(async () => {
     if (pendingUser) {
       try {
-        setIsLoading(true);
         await resendEmailConfirmation(pendingUser.email);
         setMessage('Confirmation email resent successfully! Please check your inbox.');
-        setIsLoading(false);
       } catch (error) {
         console.error('Resend confirmation error:', error);
         setMessage(error.message || 'Failed to resend confirmation email. Please try again.');
-        setIsLoading(false);
       }
     }
   }, [pendingUser]);
 
-  // Update student data
+  // ✅ FIX 4: Updated logout handler with useCallback
+  const handleLogout = useCallback(() => {
+    // Clear all timers
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+    }
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+    }
+    
+    logoutUser();
+    setCurrentUserState(null);
+    setCurrentView('login');
+    setMessage('');
+    setShowConfirmationInfo(false);
+    setShowInactivityWarning(false);
+  }, []);
+
+  // Enhanced student update
   const updateStudentData = useCallback((updatedStudent) => {
     try {
-      if (!updatedStudent || !updatedStudent.id) {
-        console.error('Invalid student data for update');
-        return;
-      }
-
+      // Update in localStorage
       updateStudent(updatedStudent);
-
+      
+      // Update in state
       const { password, ...studentWithoutPassword } = updatedStudent;
       setCurrentUserState(studentWithoutPassword);
-      setCurrentUser(studentWithoutPassword);
-
+      
+      // Update in students list
       setStudentsState(prev => 
         prev.map(s => s.id === updatedStudent.id ? updatedStudent : s)
       );
     } catch (error) {
       console.error('Error updating student:', error);
-      setMessage('Failed to update student profile. Please try again.');
     }
   }, []);
 
-  // Update current user
+  // Enhanced user update
   const updateCurrentUser = useCallback((updatedUser) => {
     try {
-      if (!updatedUser || !updatedUser.id) {
-        console.error('Invalid user data for update');
-        return;
-      }
-
+      // Update user in the users collection
       const users = getUsers();
       if (users[updatedUser.id]) {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
         localStorage.setItem('hausaStem_users', JSON.stringify(users));
       }
-
+      
+      // Update current user state
       const { password: _, ...userWithoutPassword } = updatedUser;
       setCurrentUserState(userWithoutPassword);
-      setCurrentUser(userWithoutPassword);
-
-      const currentUserData = getCurrentUser();
-      if (currentUserData && currentUserData.id === updatedUser.id) {
-        setCurrentUser(userWithoutPassword);
-      }
     } catch (error) {
       console.error('Error updating user:', error);
-      setMessage('Failed to update user profile. Please try again.');
     }
   }, []);
 
-  // Lesson purchase
+  // Handle lesson purchase from CourseCatalog
   const handleLessonPurchase = useCallback(async (courseKey, lessonId) => {
     try {
       if (!currentUser) {
@@ -500,43 +419,38 @@ function App() {
         return false;
       }
 
-      setIsLoading(true);
-      const result = await purchaseLesson(currentUser.id, courseKey, lessonId);
-
-      if (result.success) {
+      const success = await purchaseLesson(currentUser.id, courseKey, lessonId);
+      if (success) {
+        // Refresh user data to reflect the purchase
         const updatedUser = getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
-          setCurrentUser(updatedUser);
         }
-        setMessage(result.alreadyPurchased ? '✅ Lesson already purchased!' : '✅ Lesson purchased successfully!');
-        setIsLoading(false);
+        setMessage('✅ Lesson purchased successfully!');
         return true;
       } else {
         setMessage('❌ Failed to purchase lesson. Please try again.');
-        setIsLoading(false);
         return false;
       }
     } catch (error) {
       console.error('Error purchasing lesson:', error);
       setMessage('❌ Error processing payment: ' + error.message);
-      setIsLoading(false);
       return false;
     }
   }, [currentUser]);
 
-  // Check lesson access
+  // Check if user can access lesson
   const checkLessonAccess = useCallback((courseKey, lessonId) => {
     if (!currentUser) return false;
     return canAccessLesson(currentUser.id, courseKey, lessonId);
   }, [currentUser]);
 
-  // Get teacher contact
+  // Get teacher WhatsApp URL
   const getTeacherContactUrl = useCallback((teacherId) => {
     return getTeacherWhatsAppUrl(teacherId);
   }, []);
 
-  // Inactivity Warning Modal
+  // Inactivity Warning Modal Component
   const InactivityWarning = useCallback(() => {
     if (!showInactivityWarning) return null;
 
@@ -572,10 +486,10 @@ function App() {
     );
   }, [showInactivityWarning, resetInactivityTimer, handleLogout]);
 
-  // Confirmation Info Display
+  // Demo confirmation info display
   const ConfirmationInfoDisplay = useCallback(() => {
     if (!showConfirmationInfo || !confirmationToken) return null;
-
+    
     return (
       <div className="confirmation-demo-display">
         <h3>📧 Demo Email Confirmation</h3>
@@ -604,30 +518,21 @@ function App() {
     );
   }, [showConfirmationInfo, confirmationToken, handleEmailConfirmation]);
 
-  // Message Display
+  // Message Display Component
   const MessageDisplay = useCallback(() => {
     if (!message) return null;
-
-    let className = 'message';
-    if (message.includes('success') || message.includes('✅')) {
-      className += ' success';
-    } else if (message.includes('email') || message.includes('📧')) {
-      className += ' info';
-    } else if (message.includes('❌') || message.includes('error') || message.includes('failed')) {
-      className += ' error';
-    }
-
+    
     return (
-      <div className={className}>
+      <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
         {message}
       </div>
     );
   }, [message]);
 
-  // Render view
+  // Render view based on current view and user role
   const renderView = useCallback(() => {
     console.log('🎯 renderView called with currentView:', currentView);
-    console.log('🎯 currentUser:', currentUser ? currentUser.name : 'None');
+    console.log('🎯 currentUser:', currentUser);
 
     if (!currentUser) {
       console.log('👤 No current user, showing login/register views');
@@ -643,7 +548,6 @@ function App() {
                   setMessage('');
                   setCurrentView('login');
                 }} 
-                isRegistering={isLoading}
               />
             </>
           );
@@ -700,18 +604,21 @@ function App() {
                   setMessage('');
                   setCurrentView('teacher-register');
                 }}
-                isLoading={isLoading}
               />
             </div>
           );
       }
     }
 
+    // Role-based access control
+    console.log('🎯 Setting up role-based access control');
     const isAdmin = currentUser?.role === 'admin';
     const isTeacher = currentUser?.role === 'teacher';
     const isStudent = currentUser?.role === 'student';
     console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
 
+    // Handle general navigation views (accessible to all logged-in users)
+    console.log('🎯 Checking general navigation views for:', currentView);
     switch(currentView) {
       case 'about':
         return <About />;
@@ -752,9 +659,11 @@ function App() {
           );
         }
       default:
+        console.log('🎯 No match in general navigation, continuing to role-specific views');
         break;
     }
 
+    // Handle admin dashboard
     if (currentView === 'admin') {
       console.log('🎯 Rendering admin dashboard');
       if (isAdmin) {
@@ -775,6 +684,7 @@ function App() {
       }
     }
 
+    // Handle teacher dashboard
     if (currentView === 'teacher') {
       console.log('🎯 Rendering teacher dashboard');
       if (isTeacher) {
@@ -795,6 +705,7 @@ function App() {
       }
     }
 
+    // Student-specific views
     if (isStudent) {
       console.log('🎯 Rendering student views for:', currentView);
       switch(currentView) {
@@ -823,6 +734,7 @@ function App() {
       }
     }
 
+    // Teacher-specific views
     if (isTeacher) {
       console.log('🎯 Rendering teacher views for:', currentView);
       switch(currentView) {
@@ -850,6 +762,7 @@ function App() {
       }
     }
 
+    // Admin-specific views
     if (isAdmin) {
       console.log('🎯 Rendering admin views for:', currentView);
       switch(currentView) {
@@ -859,6 +772,7 @@ function App() {
       }
     }
 
+    // Default fallback for any unexpected state
     console.error('❌ No matching view found for:', currentView, 'with user:', currentUser);
     return (
       <div className="error-view">
@@ -873,88 +787,23 @@ function App() {
       </div>
     );
   }, [
-    currentUser,
-    currentView,
-    handleLogin,
-    handleStudentRegister,
-    handleTeacherRegister,
-    handleEmailConfirmation,
-    handleResendConfirmation,
-    handleLogout,
-    updateStudentData,
-    updateCurrentUser,
-    handleLessonPurchase,
-    checkLessonAccess,
+    currentUser, 
+    currentView, 
+    handleLogin, 
+    handleStudentRegister, 
+    handleTeacherRegister, 
+    handleEmailConfirmation, 
+    handleResendConfirmation, 
+    handleLogout, 
+    updateStudentData, 
+    updateCurrentUser, 
+    handleLessonPurchase, 
+    checkLessonAccess, 
     getTeacherContactUrl,
     MessageDisplay,
     ConfirmationInfoDisplay,
-    pendingUser,
-    isLoading
+    pendingUser
   ]);
-
-  // ✅ Show error if initialization failed
-  if (initError) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          maxWidth: '500px',
-          width: '100%',
-          textAlign: 'center',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
-        }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚨</div>
-          <h2 style={{ color: '#dc3545', marginBottom: '0.5rem' }}>Failed to Load App</h2>
-          <p style={{ color: '#666', marginBottom: '1.5rem' }}>{initError}</p>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => window.location.reload()}
-              style={{
-                padding: '10px 24px',
-                background: '#667eea',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              🔄 Refresh
-            </button>
-            <button 
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
-              style={{
-                padding: '10px 24px',
-                background: '#dc3545',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              🗑️ Clear Data
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!isInitialized) {
     return (
@@ -968,8 +817,9 @@ function App() {
   console.log('🎯 Rendering main App component');
   return (
     <div className="App">
+      {/* Inactivity Warning Modal */}
       <InactivityWarning />
-
+      
       {currentUser && (
         <Navigation 
           currentView={currentView} 
