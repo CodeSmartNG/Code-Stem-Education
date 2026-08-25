@@ -13,21 +13,21 @@ const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions';
 const DATA_VERSION_KEY = 'hausaStem_data_version';
 const DATA_VERSION = '2.0';
 
-// ==================== FIREBASE IMPORTS ====================
 
-// ✅ Import Firebase functions
+// src/utils/storage.jsx
+
+// ✅ Import Firebase functions directly from your firebase.js
 import { 
-  getAuth,
-  createUserWithEmailAndPassword, 
-  sendEmailVerification,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail,
-  reload,
-  sendEmailVerification as resendVerification
-} from 'firebase/auth';
-import { auth } from './firebase.js';
+  auth,
+  registerUserWithFirebase,
+  checkEmailVerification,
+  resendVerificationEmail,
+  loginWithFirebase,
+  logoutFromFirebase,
+  getCurrentFirebaseUser,
+  syncUserDataToLocal,
+  updateUserDataInFirestore
+} from './firebase.js';
 
 // ==================== SIMPLE HASH FUNCTION ====================
 
@@ -257,136 +257,6 @@ const initializeStorage = () => {
   debugStorage();
 };
 
-// ==================== DEFAULT COURSES ====================
-
-const getDefaultCourses = () => {
-  return {
-    webDevelopment: {
-      title: "Web Development",
-      description: "Learn how to build websites using HTML, CSS and JavaScript",
-      thumbnail: "🌐",
-      teacherId: "teacher1",
-      teacherName: "Kabir Teacher",
-      isPublished: true,
-      approvedDate: new Date().toISOString(),
-      lessons: [
-        {
-          id: 1,
-          title: "Introduction to HTML",
-          content: "HTML is the first part of a website. It provides the structure of web pages.",
-          duration: "30 minutes",
-          completed: false,
-          isLocked: false,
-          isFree: true,
-          price: 0,
-          multimedia: [
-            {
-              id: 1,
-              type: "video",
-              url: "https://www.youtube.com/embed/dD2EISBDjWM",
-              title: "Video: How to use HTML",
-              description: "This video will teach you everything you need to know about HTML"
-            }
-          ],
-          quiz: {
-            title: "HTML Questions",
-            passingScore: 70,
-            questions: [
-              {
-                id: 1,
-                question: "What does HTML stand for?",
-                type: "text",
-                options: [
-                  "Hyper Text Markup Language",
-                  "High Tech Modern Language",
-                  "Hyper Transfer Markup Language",
-                  "Home Tool Markup Language"
-                ],
-                correctAnswer: 0
-              }
-            ]
-          }
-        }
-      ]
-    },
-    python: {
-      title: "Python Programming",
-      description: "Learn how to program software with the Python language",
-      thumbnail: "🐍",
-      teacherId: "teacher1",
-      teacherName: "Kabir Teacher",
-      isPublished: true,
-      approvedDate: new Date().toISOString(),
-      lessons: [
-        {
-          id: 1,
-          title: "Python Basics",
-          content: "Start learning about the basic components in Python: variables, data types, and basic operations.",
-          duration: "40 minutes",
-          completed: false,
-          isLocked: false,
-          isFree: false,
-          price: 1500,
-          multimedia: [],
-          quiz: {
-            title: "Python Questions",
-            passingScore: 70,
-            questions: [
-              {
-                id: 1,
-                question: "How do you create a variable in Python?",
-                type: "text",
-                options: [
-                  "x = 5",
-                  "variable x = 5",
-                  "let x = 5",
-                  "var x = 5"
-                ],
-                correctAnswer: 0
-              }
-            ]
-          }
-        }
-      ]
-    },
-    mathematics: {
-      title: "Mathematics",
-      description: "Learn mathematics from basics to advanced levels",
-      thumbnail: "📊",
-      teacherId: "teacher1",
-      teacherName: "Kabir Teacher",
-      isPublished: true,
-      approvedDate: new Date().toISOString(),
-      lessons: [
-        {
-          id: 1,
-          title: "Algebra Basics",
-          content: "Start learning about algebra and how to use it to solve problems.",
-          duration: "35 minutes",
-          completed: false,
-          isLocked: false,
-          isFree: true,
-          price: 0,
-          multimedia: [],
-          quiz: {
-            title: "Algebra Questions",
-            passingScore: 70,
-            questions: [
-              {
-                id: 1,
-                question: "What is x in the equation 2x + 5 = 15?",
-                type: "text",
-                options: ["5", "10", "15", "20"],
-                correctAnswer: 0
-              }
-            ]
-          }
-        }
-      ]
-    }
-  };
-};
-
 // ==================== USER MANAGEMENT ====================
 
 const getUsers = () => {
@@ -417,7 +287,7 @@ const getUserById = (userId) => {
   return users[userId] || null;
 };
 
-// ==================== AUTHENTICATION ====================
+// ==================== AUTHENTICATION (with Firebase) ====================
 
 const authenticateUser = async (email, password) => {
   const users = getUsers() || {};
@@ -562,7 +432,7 @@ const logoutUser = async () => {
   console.log('✅ Local logout successful');
 };
 
-// ==================== USER REGISTRATION ====================
+// ==================== USER REGISTRATION (with Firebase) ====================
 
 const registerUser = async (userData) => {
   // Validate input
@@ -590,13 +460,17 @@ const registerUser = async (userData) => {
   }
 
   try {
-    // ✅ Register with Firebase (sends real verification email)
+    // ✅ Register with Firebase using your firebase.js function
     console.log('📧 Registering with Firebase...');
-    const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-    const firebaseUser = userCredential.user;
-    
-    // ✅ Send verification email
-    await sendEmailVerification(firebaseUser);
+    const firebaseUser = await registerUserWithFirebase(
+      userData.email,
+      userData.password,
+      {
+        name: userData.name,
+        role: userData.role || 'student',
+        level: userData.level || 'Beginner'
+      }
+    );
     console.log('📧 Verification email sent to:', userData.email);
 
     // Hash password for local storage
@@ -612,7 +486,7 @@ const registerUser = async (userData) => {
       email: userData.email,
       password: hashedPassword,
       role: userData.role,
-      isEmailConfirmed: false, // Will be confirmed via Firebase
+      isEmailConfirmed: false,
       joinedDate: new Date().toISOString()
     };
 
@@ -677,7 +551,6 @@ const registerUser = async (userData) => {
   } catch (firebaseError) {
     console.error('Firebase registration error:', firebaseError);
     
-    // Clean up if Firebase fails
     if (firebaseError.code === 'auth/email-already-in-use') {
       throw new Error('Email already registered in Firebase. Please login instead.');
     } else {
@@ -688,23 +561,25 @@ const registerUser = async (userData) => {
 
 // ==================== EMAIL CONFIRMATION (Firebase) ====================
 
+// ✅ Re-export Firebase functions from storage.jsx
+// This way, other parts of your app import from storage.jsx only
+
 const confirmUserEmail = async (token) => {
-  // Firebase handles verification via email link
-  // This function checks the current user's verification status
   try {
-    const currentFirebaseUser = auth.currentUser;
-    if (!currentFirebaseUser) {
+    // Get current Firebase user
+    const user = await getCurrentFirebaseUser();
+    if (!user) {
       throw new Error('No user found. Please log in again.');
     }
-
-    // Reload user to get latest emailVerified status
-    await currentFirebaseUser.reload();
     
-    if (currentFirebaseUser.emailVerified) {
+    // Check verification status
+    const isVerified = await checkEmailVerification(user);
+    
+    if (isVerified) {
       // Update local user status
       const users = getUsers() || {};
       const localUser = Object.values(users).find(
-        u => u.firebaseUid === currentFirebaseUser.uid
+        u => u.firebaseUid === user.uid
       );
       if (localUser) {
         localUser.isEmailConfirmed = true;
@@ -713,7 +588,7 @@ const confirmUserEmail = async (token) => {
         // Also update in students array if student
         if (localUser.role === 'student') {
           const students = getStudents() || [];
-          const studentIndex = students.findIndex(s => s.userId === localUser.id || s.firebaseUid === currentFirebaseUser.uid);
+          const studentIndex = students.findIndex(s => s.userId === localUser.id || s.firebaseUid === user.uid);
           if (studentIndex !== -1) {
             students[studentIndex].isEmailConfirmed = true;
             saveStudents(students);
@@ -722,7 +597,7 @@ const confirmUserEmail = async (token) => {
       }
       return { success: true, message: 'Email verified successfully!' };
     } else {
-      throw new Error('Email not verified yet. Please check your inbox and click the verification link.');
+      return { success: false, message: 'Email not verified yet. Please check your inbox.' };
     }
   } catch (error) {
     console.error('Error confirming email:', error);
@@ -732,14 +607,17 @@ const confirmUserEmail = async (token) => {
 
 const resendEmailConfirmation = async (email) => {
   try {
-    const currentFirebaseUser = auth.currentUser;
-    if (!currentFirebaseUser) {
+    const user = await getCurrentFirebaseUser();
+    if (!user) {
       throw new Error('No user found. Please log in again.');
     }
     
-    await sendEmailVerification(currentFirebaseUser);
-    console.log('✅ Verification email resent to:', email);
-    return { success: true, message: 'Verification email resent successfully!' };
+    const result = await resendVerificationEmail(user);
+    if (result) {
+      return { success: true, message: 'Verification email resent successfully!' };
+    } else {
+      throw new Error('Failed to resend verification email.');
+    }
   } catch (error) {
     console.error('Error resending verification email:', error);
     throw error;
@@ -780,6 +658,7 @@ const getStudentById = (id) => {
 };
 
 const updateStudent = (updatedStudent) => {
+  // Update in users
   const users = getUsers() || {};
   const userId = updatedStudent.userId || updatedStudent.id;
 
@@ -789,6 +668,7 @@ const updateStudent = (updatedStudent) => {
     saveUsers(users);
   }
 
+  // Update in students array for backward compatibility
   const students = getStudents() || [];
   const updatedStudents = students.map(student =>
     student.id === updatedStudent.id || student.userId === userId
@@ -797,6 +677,7 @@ const updateStudent = (updatedStudent) => {
   );
   saveStudents(updatedStudents);
 
+  // Update current user if it's the same student
   const currentUser = getCurrentUser();
   if (currentUser && (currentUser.id === userId || currentUser.id === updatedStudent.id)) {
     setCurrentUser(updatedStudent);
@@ -2831,7 +2712,7 @@ const debugStorage = () => {
   console.log('=== END DEBUG INFO ===');
 };
 
-  // ==================== SINGLE EXPORT ====================
+// ==================== SINGLE EXPORT ====================
 
 export {
   // Validation
@@ -2942,11 +2823,9 @@ export {
   getTimeUntilWarning,
   getSessionStats,
 
-  // ✅ KEEP ONLY THESE Firebase email functions
-confirmUserEmail,
-resendEmailConfirmation,
-
-  
+  // ✅ Email Confirmation (re-exported from Firebase)
+  confirmUserEmail,
+  resendEmailConfirmation,
 
   // Multimedia Management
   addMultimediaToLesson,
@@ -2998,3 +2877,12 @@ resendEmailConfirmation,
   // Debug
   debugStorage
 };
+
+              
+  
+
+      
+
+
+    
+  
