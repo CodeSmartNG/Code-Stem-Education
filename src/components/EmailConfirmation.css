@@ -1,92 +1,85 @@
+/* Email Confirmation Styles */
 .email-confirmation-container {
+  min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
-  min-height: 80vh;
-  padding: 20px;
+  justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
 }
 
 .email-confirmation-card {
   background: white;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   padding: 40px;
-  max-width: 500px;
   width: 100%;
-  animation: slideUp 0.5s ease-out;
+  max-width: 500px;
+  margin: 20px auto;
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* Header */
 .confirmation-header {
   text-align: center;
   margin-bottom: 30px;
 }
 
 .confirmation-icon {
-  font-size: 3rem;
-  margin-bottom: 15px;
+  font-size: 56px;
+  margin-bottom: 12px;
+  display: block;
 }
 
 .confirmation-header h2 {
-  color: #333;
+  color: #2d3748;
+  font-size: 26px;
+  font-weight: 700;
   margin: 0;
-  font-size: 1.8rem;
-  font-weight: 600;
 }
 
+/* Content */
 .confirmation-content {
-  margin-bottom: 30px;
+  margin-bottom: 25px;
 }
 
 .confirmation-instructions {
+  color: #4a5568;
+  font-size: 16px;
   text-align: center;
-  color: #666;
-  margin-bottom: 10px;
-  font-size: 1.1rem;
+  margin-bottom: 8px;
 }
 
 .confirmation-email {
-  text-align: center;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #4a5568;
   background: #f7fafc;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 25px;
+  padding: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
+  text-align: center;
+  font-weight: 600;
+  color: #2b6cb0;
+  word-break: break-all;
+  margin-bottom: 20px;
 }
 
+/* Steps */
 .confirmation-steps {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
+  background: #f7fafc;
   padding: 20px;
-  margin-bottom: 25px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
 }
 
 .confirmation-steps h3 {
-  color: #0369a1;
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1.1rem;
+  color: #2d3748;
+  font-size: 16px;
+  margin: 0 0 12px 0;
 }
 
 .confirmation-steps ol {
   margin: 0;
   padding-left: 20px;
-  color: #475569;
+  color: #4a5568;
 }
 
 .confirmation-steps li {
@@ -94,41 +87,151 @@
   line-height: 1.5;
 }
 
-.manual-confirmation {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
+.confirmation-steps li:last-child {
+  margin-bottom: 0;
+}
+
+/* ✅ Firebase Steps */
+.firebase-steps {
+  background: #ebf8ff;
+  border-color: #bee3f8;
+}
+
+.firebase-steps h3 {
+  color: #2b6cb0;
+}
+
+.firebase-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #ebf8ff;
+  border-radius: 6px;
+  border-left: 4px solid #3182ce;
+}
+
+.note-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.firebase-note p {
+  margin: 0;
+  font-size: 14px;
+  color: #2b6cb0;
+}
+
+/* ✅ Firebase Status */
+.firebase-status {
+  background: #f7fafc;
+  padding: 16px;
   border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 25px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot.pending {
+  background: #d69e2e;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot.checking {
+  background: #4299e1;
+  animation: spin 1s linear infinite;
+}
+
+.status-dot.verified {
+  background: #38a169;
+}
+
+.status-dot.error {
+  background: #e53e3e;
+}
+
+.status-text {
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.check-verification-btn {
+  padding: 8px 16px;
+  background: #4299e1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.check-verification-btn:hover:not(:disabled) {
+  background: #3182ce;
+  transform: translateY(-1px);
+}
+
+.check-verification-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Manual Confirmation */
+.manual-confirmation {
+  background: #fffaf0;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #fbd38d;
+  margin-bottom: 20px;
 }
 
 .manual-confirmation h4 {
-  color: #c2410c;
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1rem;
+  color: #744210;
+  margin: 0 0 8px 0;
+  font-size: 15px;
 }
 
 .demo-note {
-  color: #92400e;
-  font-size: 0.9rem;
-  margin-bottom: 15px;
-  line-height: 1.4;
+  color: #744210;
+  font-size: 13px;
+  margin-bottom: 12px;
+  opacity: 0.9;
 }
 
 .token-input-group {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
 }
 
 .token-input {
   flex: 1;
-  padding: 12px;
+  padding: 10px 14px;
   border: 2px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 1rem;
-  transition: border-color 0.3s ease;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: monospace;
+  transition: all 0.3s ease;
 }
 
 .token-input:focus {
@@ -138,95 +241,112 @@
 }
 
 .confirm-token-btn {
-  padding: 12px 20px;
-  background: #48bb78;
+  padding: 10px 20px;
+  background: #38a169;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.2s;
   white-space: nowrap;
 }
 
 .confirm-token-btn:hover:not(:disabled) {
-  background: #38a169;
+  background: #2f855a;
+  transform: translateY(-1px);
 }
 
 .confirm-token-btn:disabled {
-  background: #a0aec0;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none !important;
 }
 
+/* Resend Section */
 .resend-section {
   text-align: center;
-  margin-bottom: 25px;
+  padding: 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
 }
 
 .resend-section p {
-  color: #666;
-  margin-bottom: 15px;
+  margin: 0 0 12px 0;
+  color: #4a5568;
 }
 
 .resend-btn {
-  padding: 12px 24px;
-  background: #4299e1;
+  padding: 10px 24px;
+  background: #ed8936;
   color: white;
   border: none;
   border-radius: 6px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.2s;
 }
 
 .resend-btn:hover:not(:disabled) {
-  background: #3182ce;
+  background: #dd6b20;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
 }
 
 .resend-btn:disabled {
-  background: #a0aec0;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none !important;
 }
 
 .resend-message {
-  margin-top: 10px;
+  margin-top: 12px;
   padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 0.9rem;
+  border-radius: 6px;
+  font-size: 14px;
 }
 
 .resend-message.success {
-  background: #c6f6d5;
-  color: #22543d;
-  border: 1px solid #9ae6b4;
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 }
 
 .resend-message.error {
-  background: #fed7d7;
-  color: #742a2a;
-  border: 1px solid #feb2b2;
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
 }
 
+.resend-message.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+/* Help Tips */
 .help-tips {
   background: #f7fafc;
-  border: 1px solid #e2e8f0;
+  padding: 16px;
   border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 25px;
+  border: 1px solid #e2e8f0;
 }
 
 .help-tips h4 {
-  color: #4a5568;
-  margin-top: 0;
-  margin-bottom: 15px;
-  font-size: 1rem;
+  color: #2d3748;
+  margin: 0 0 10px 0;
+  font-size: 15px;
 }
 
 .help-tips ul {
   margin: 0;
   padding-left: 20px;
-  color: #718096;
-  font-size: 0.9rem;
+  color: #4a5568;
+  font-size: 14px;
 }
 
 .help-tips li {
@@ -234,29 +354,41 @@
   line-height: 1.4;
 }
 
+.help-tips li:last-child {
+  margin-bottom: 0;
+}
+
+/* Actions */
 .confirmation-actions {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
 }
 
 .cancel-btn {
-  padding: 12px 30px;
-  background: #718096;
-  color: white;
+  padding: 10px 30px;
+  background: #e2e8f0;
+  color: #4a5568;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.2s;
 }
 
 .cancel-btn:hover {
-  background: #4a5568;
+  background: #cbd5e0;
+  transform: translateY(-1px);
 }
 
+/* Demo Info */
 .demo-info {
-  margin-top: 25px;
-  padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
 }
 
 .demo-info details {
@@ -264,51 +396,67 @@
 }
 
 .demo-info summary {
-  color: #718096;
-  font-size: 0.9rem;
+  font-size: 14px;
   font-weight: 600;
-  outline: none;
+  color: #4a5568;
 }
 
 .demo-info summary:hover {
-  color: #4a5568;
-}
-
-.demo-content {
-  margin-top: 10px;
-  padding: 15px;
-  background: #f7fafc;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: #4a5568;
-}
-
-.demo-content strong {
   color: #2d3748;
 }
 
+.demo-content {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.demo-content p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #4a5568;
+}
+
 .demo-content ul {
-  margin: 10px 0 0 0;
+  margin: 8px 0 0 0;
   padding-left: 20px;
+  font-size: 14px;
+  color: #4a5568;
 }
 
 .demo-content li {
-  margin-bottom: 5px;
-  line-height: 1.4;
+  margin-bottom: 4px;
 }
 
-/* Responsive Design */
-@media (max-width: 600px) {
-  .email-confirmation-container {
-    padding: 10px;
-  }
+.security-note {
+  margin-top: 12px !important;
+  padding: 8px 12px;
+  background: #d4edda;
+  border-radius: 6px;
+  color: #155724 !important;
+  font-size: 13px !important;
+}
 
+/* Animations */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 480px) {
   .email-confirmation-card {
-    padding: 25px 20px;
+    padding: 24px 16px;
+    margin: 10px;
   }
 
   .confirmation-header h2 {
-    font-size: 1.5rem;
+    font-size: 22px;
   }
 
   .token-input-group {
@@ -317,41 +465,169 @@
 
   .confirm-token-btn {
     width: 100%;
+    justify-content: center;
+  }
+
+  .confirmation-steps ol {
+    padding-left: 16px;
+  }
+
+  .firebase-status {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .status-indicator {
+    justify-content: center;
+  }
+
+  .check-verification-btn {
+    width: 100%;
+  }
+
+  .resend-btn {
+    width: 100%;
   }
 }
 
-/* Dark mode support */
+/* Dark Mode */
 @media (prefers-color-scheme: dark) {
   .email-confirmation-card {
-    background: #2d3748;
-    color: #e2e8f0;
+    background: #1a202c;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   }
 
   .confirmation-header h2 {
     color: #e2e8f0;
   }
 
-  .confirmation-instructions {
+  .confirmation-email {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #63b3ed;
+  }
+
+  .confirmation-steps {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .confirmation-steps h3 {
+    color: #e2e8f0;
+  }
+
+  .confirmation-steps li {
     color: #cbd5e0;
   }
 
-  .confirmation-email {
-    color: #e2e8f0;
-    background: #4a5568;
-    border-color: #718096;
+  .firebase-steps {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .firebase-steps h3 {
+    color: #63b3ed;
+  }
+
+  .firebase-note {
+    background: #2d3748;
+  }
+
+  .firebase-note p {
+    color: #63b3ed;
+  }
+
+  .manual-confirmation {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .manual-confirmation h4 {
+    color: #fbd38d;
+  }
+
+  .demo-note {
+    color: #fbd38d;
   }
 
   .token-input {
-    background: #4a5568;
-    border-color: #718096;
+    background: #1a202c;
+    border-color: #4a5568;
     color: #e2e8f0;
-  }
-
-  .token-input::placeholder {
-    color: #a0aec0;
   }
 
   .token-input:focus {
     border-color: #4299e1;
+  }
+
+  .resend-section {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .resend-section p {
+    color: #cbd5e0;
+  }
+
+  .help-tips {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .help-tips h4 {
+    color: #e2e8f0;
+  }
+
+  .help-tips ul {
+    color: #cbd5e0;
+  }
+
+  .cancel-btn {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+
+  .cancel-btn:hover {
+    background: #718096;
+  }
+
+  .demo-info {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .demo-info summary {
+    color: #cbd5e0;
+  }
+
+  .demo-info summary:hover {
+    color: #e2e8f0;
+  }
+
+  .demo-content {
+    border-top-color: #4a5568;
+  }
+
+  .demo-content p {
+    color: #cbd5e0;
+  }
+
+  .demo-content ul {
+    color: #cbd5e0;
+  }
+
+  .firebase-status {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+
+  .status-text {
+    color: #cbd5e0;
+  }
+
+  .security-note {
+    background: #22543d;
+    color: #9ae6b4 !important;
   }
 }
