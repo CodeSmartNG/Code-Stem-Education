@@ -18,14 +18,15 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 
-// ✅ Your Firebase config (replace with your actual config)
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCQ_sNo4XG16JS7waJ_TEkCrK8sc1A4gq0",
+  authDomain: "stem-education-9c439.firebaseapp.com",
+  projectId: "stem-education-9c439",
+  storageBucket: "stem-education-9c439.firebasestorage.app",
+  messagingSenderId: "562966005597",
+  appId: "1:562966005597:web:7757e059521a5cb8dc4ab4",
+  measurementId: "G-QJDV0V79YD"
 };
 
 // Initialize Firebase
