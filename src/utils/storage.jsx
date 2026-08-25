@@ -2831,7 +2831,7 @@ const debugStorage = () => {
   console.log('=== END DEBUG INFO ===');
 };
 
-// ==================== SINGLE EXPORT ====================
+  // ==================== SINGLE EXPORT ====================
 
 export {
   // Validation
@@ -2942,11 +2942,13 @@ export {
   getTimeUntilWarning,
   getSessionStats,
 
-  // Email Confirmation (Firebase)
-  getEmailConfirmations,
-  createEmailConfirmation,
-  verifyEmailConfirmation,
-  sendEmailConfirmation,
+  // ✅ REMOVE THESE - No longer needed with Firebase
+  // getEmailConfirmations,
+  // createEmailConfirmation,
+  // verifyEmailConfirmation,
+  // sendEmailConfirmation,
+
+  // ✅ KEEP THESE - Firebase email functions
   confirmUserEmail,
   resendEmailConfirmation,
 
