@@ -1,13 +1,13 @@
-// src/main.jsx - Minimal Test Version
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App.jsx';
-import './index.css';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
+import './index.css'
 
-// ✅ CRITICAL: Add these logs
-console.log('🚀 main.jsx is loading!');
-console.log('📍 Looking for root element...');
+// ✅ Add debug logs
+console.log('🚀 main.jsx loaded successfully!');
 
+// ✅ Check if root element exists
 const rootElement = document.getElementById('root');
 console.log('📍 Root element:', rootElement);
 
@@ -17,19 +17,22 @@ if (!rootElement) {
     <div style="padding:20px;text-align:center;font-family:sans-serif;background:#f5f5f5;min-height:100vh;">
       <h1 style="color:#dc2626;">❌ Error</h1>
       <p>Root element not found. Please check your index.html.</p>
+      <p style="font-size:12px;color:#666;">If you're seeing this, the script is loading but the root div is missing.</p>
     </div>
   `;
 } else {
   console.log('✅ Root element found!');
-  console.log('🔄 Creating React root...');
   
   try {
+    console.log('🔄 Creating React root...');
     const root = ReactDOM.createRoot(rootElement);
-    console.log('🔄 Rendering React app...');
     
+    console.log('🔄 Rendering React app...');
     root.render(
       <React.StrictMode>
-        <App />
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </React.StrictMode>
     );
     
