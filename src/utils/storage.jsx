@@ -195,13 +195,17 @@ const initializeStorage = () => {
       level: "Beginner",
       progress: {},
       completedLessons: [],
+      completedCourses: [],
       points: 0,
       badges: [],
       enrolledCourses: [],
       isEmailConfirmed: true,
       joinedDate: new Date().toISOString(),
       purchasedLessons: [],
-      paymentHistory: []
+      paymentHistory: [],
+      quizResults: [],
+      certificates: [],
+      enrolledCoursesDate: {}
     };
     needsSave = true;
   }
@@ -225,13 +229,17 @@ const initializeStorage = () => {
         level: "Beginner",
         progress: {},
         completedLessons: [],
+        completedCourses: [],
         points: 0,
         badges: [],
         enrolledCourses: [],
         isEmailConfirmed: true,
         joinedDate: new Date().toISOString(),
         purchasedLessons: [],
-        paymentHistory: []
+        paymentHistory: [],
+        quizResults: [],
+        certificates: [],
+        enrolledCoursesDate: {}
       }
     ];
     saveStudents(defaultStudents);
@@ -395,6 +403,16 @@ const saveUsers = (users) => {
   }
 };
 
+const getAllUsers = () => {
+  const users = getUsers() || {};
+  return Object.values(users);
+};
+
+const getUserById = (userId) => {
+  const users = getUsers() || {};
+  return users[userId] || null;
+};
+
 // ==================== AUTHENTICATION ====================
 
 const authenticateUser = async (email, password) => {
@@ -526,11 +544,15 @@ const registerUser = async (userData) => {
     newUser.level = userData.level || 'Beginner';
     newUser.progress = {};
     newUser.completedLessons = [];
+    newUser.completedCourses = [];
     newUser.points = 0;
     newUser.badges = [];
     newUser.enrolledCourses = [];
     newUser.purchasedLessons = [];
     newUser.paymentHistory = [];
+    newUser.quizResults = [];
+    newUser.certificates = [];
+    newUser.enrolledCoursesDate = {};
 
     // Also add to students array for backward compatibility
     const students = getStudents() || [];
@@ -545,13 +567,17 @@ const registerUser = async (userData) => {
       level: userData.level || 'Beginner',
       progress: {},
       completedLessons: [],
+      completedCourses: [],
       points: 0,
       badges: [],
       enrolledCourses: [],
       isEmailConfirmed: false,
       joinedDate: new Date().toISOString(),
       purchasedLessons: [],
-      paymentHistory: []
+      paymentHistory: [],
+      quizResults: [],
+      certificates: [],
+      enrolledCoursesDate: {}
     };
     saveStudents([...students, newStudent]);
   }
@@ -566,6 +592,61 @@ const registerUser = async (userData) => {
 
   console.log('✅ New user registered (email confirmation sent):', userId);
   return { user: newUser, confirmationToken };
+};
+
+const deleteUser = (userId) => {
+  const users = getUsers() || {};
+  const currentUser = getCurrentUser();
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  if (currentUser && currentUser.id === userId) {
+    throw new Error('Cannot delete your own account');
+  }
+
+  if (users[userId].role === 'admin') {
+    throw new Error('Cannot delete admin users');
+  }
+
+  const userRole = users[userId].role;
+  delete users[userId];
+  saveUsers(users);
+
+  if (userRole === 'student') {
+    const students = getStudents() || [];
+    const updatedStudents = students.filter(student => student.userId !== userId && student.id !== userId);
+    saveStudents(updatedStudents);
+  }
+
+  if (userRole === 'teacher') {
+    const wallets = getTeacherWallets();
+    if (wallets[userId]) {
+      delete wallets[userId];
+      saveTeacherWallets(wallets);
+    }
+  }
+
+  console.log('🗑 User deleted:', userId);
+  return true;
+};
+
+const updateUser = (userId, userData) => {
+  const users = getUsers() || {};
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  users[userId] = {
+    ...users[userId],
+    ...userData,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveUsers(users);
+  return users[userId];
 };
 
 // ==================== STUDENT MANAGEMENT ====================
@@ -645,145 +726,6 @@ const addStudent = (newStudent) => {
   return studentWithId;
 };
 
-// ==================== EMAIL CONFIRMATION ====================
-
-const getEmailConfirmations = () => {
-  try {
-    const confirmations = localStorage.getItem(EMAIL_CONFIRMATIONS_KEY);
-    return confirmations ? JSON.parse(confirmations) : {};
-  } catch (error) {
-    console.error('Error loading email confirmations:', error);
-    return {};
-  }
-};
-
-const saveEmailConfirmations = (confirmations) => {
-  try {
-    localStorage.setItem(EMAIL_CONFIRMATIONS_KEY, JSON.stringify(confirmations));
-  } catch (error) {
-    console.error('Error saving email confirmations:', error);
-  }
-};
-
-const generateEmailConfirmationToken = () => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-};
-
-const createEmailConfirmation = (userId, email) => {
-  const confirmations = getEmailConfirmations();
-  const token = generateEmailConfirmationToken();
-
-  const confirmation = {
-    userId,
-    email,
-    token,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    isUsed: false
-  };
-
-  confirmations[token] = confirmation;
-  saveEmailConfirmations(confirmations);
-
-  console.log(`📧 Email confirmation created for user ${userId}`);
-  return token;
-};
-
-const verifyEmailConfirmation = (token) => {
-  const confirmations = getEmailConfirmations();
-  const confirmation = confirmations[token];
-
-  if (!confirmation) {
-    throw new Error('Invalid confirmation token');
-  }
-
-  if (confirmation.isUsed) {
-    throw new Error('Confirmation token already used');
-  }
-
-  if (new Date(confirmation.expiresAt) < new Date()) {
-    throw new Error('Confirmation token has expired');
-  }
-
-  // Mark token as used
-  confirmation.isUsed = true;
-  confirmation.confirmedAt = new Date().toISOString();
-  confirmations[token] = confirmation;
-  saveEmailConfirmations(confirmations);
-
-  return confirmation;
-};
-
-const sendEmailConfirmation = (email, token) => {
-  const confirmationLink = `${window.location.origin}/confirm-email?token=${token}`;
-
-  console.log('📧 Email Confirmation Details:');
-  console.log('To:', email);
-  console.log('Confirmation Link:', confirmationLink);
-  console.log('Token (for testing):', token);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('✅ Confirmation email sent successfully');
-      resolve(true);
-    }, 1000);
-  });
-};
-
-const confirmUserEmail = (token) => {
-  try {
-    const confirmation = verifyEmailConfirmation(token);
-    const users = getUsers() || {};
-
-    if (!users[confirmation.userId]) {
-      throw new Error('User not found');
-    }
-
-    // Update user email confirmation status
-    users[confirmation.userId].isEmailConfirmed = true;
-    users[confirmation.userId].emailConfirmedAt = new Date().toISOString();
-
-    // Also update in students array if it's a student
-    if (users[confirmation.userId].role === 'student') {
-      const students = getStudents() || [];
-      const studentIndex = students.findIndex(s => s.userId === confirmation.userId || s.email === confirmation.email);
-      if (studentIndex !== -1) {
-        students[studentIndex].isEmailConfirmed = true;
-        students[studentIndex].emailConfirmedAt = new Date().toISOString();
-        saveStudents(students);
-      }
-    }
-
-    saveUsers(users);
-
-    console.log('✅ Email confirmed for user:', confirmation.userId);
-    return users[confirmation.userId];
-  } catch (error) {
-    console.error('Error confirming email:', error);
-    throw error;
-  }
-};
-
-const resendEmailConfirmation = (email) => {
-  const users = getUsers() || {};
-  const user = Object.values(users).find(u => u.email === email);
-
-  if (!user) {
-    throw new Error('User not found with this email');
-  }
-
-  if (user.isEmailConfirmed) {
-    throw new Error('Email is already confirmed');
-  }
-
-  // Create and send new email confirmation
-  const confirmationToken = createEmailConfirmation(user.id, email);
-  sendEmailConfirmation(email, confirmationToken);
-
-  console.log('✅ Confirmation email resent to:', email);
-  return { success: true, message: 'Confirmation email sent successfully' };
-};
-
 // ==================== TEACHER MANAGEMENT ====================
 
 const registerTeacher = (teacherData) => {
@@ -830,11 +772,10 @@ const rejectTeacher = (teacherId) => {
     throw new Error('Teacher not found');
   }
 
-  // Remove teacher from users
   delete users[teacherId];
   saveUsers(users);
 
-  console.log('❌ Teacher rejected and removed:', teacherId);
+  console.log('❌ Teacher rejected:', teacherId);
   return true;
 };
 
@@ -867,10 +808,16 @@ const updateTeacherProfile = (teacherId, profileData) => {
   };
 
   saveUsers(users);
+  
+  // Update current user if it's the same teacher
+  const currentUser = getCurrentUser();
+  if (currentUser && currentUser.id === teacherId) {
+    setCurrentUser(users[teacherId]);
+  }
+  
   return users[teacherId];
 };
 
-// ✅ ADD THIS MISSING FUNCTION
 const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
   const users = getUsers() || {};
   
@@ -909,6 +856,20 @@ const getTeacherById = (teacherId) => {
   }
 
   return teacher;
+};
+
+const getTeacherWhatsAppUrl = (teacherId) => {
+  const users = getUsers() || {};
+  const teacher = users[teacherId];
+
+  if (!teacher || !teacher.whatsappNumber) {
+    return null;
+  }
+
+  const whatsappNumber = teacher.whatsappNumber.replace(/\D/g, '');
+  const message = `Hello ${teacher.name}! I found you on the STEM Learning Platform and would like to learn more about your courses.`;
+
+  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
 };
 
 const getTeacherCourses = (teacherId) => {
@@ -1247,16 +1208,18 @@ const purchaseLesson = async (studentId, courseKey, lessonId, paymentData = null
       user.purchasedLessons.push(purchaseKey);
     }
 
-    // Add to payment history
-    user.paymentHistory.push({
-      paymentId: paymentData?.paymentId || `manual_${Date.now()}`,
-      amount: paymentData?.amount || 0,
-      lessonId: lessonId,
-      courseKey: courseKey,
-      gateway: paymentData?.gateway || 'manual',
-      timestamp: paymentData?.timestamp || new Date().toISOString(),
-      status: 'completed'
-    });
+    // Add to payment history if payment data is provided
+    if (paymentData) {
+      user.paymentHistory.push({
+        paymentId: paymentData.id || `manual_${Date.now()}`,
+        amount: paymentData.amount || 0,
+        lessonId: lessonId,
+        courseKey: courseKey,
+        gateway: paymentData.gateway || 'manual',
+        timestamp: paymentData.date || new Date().toISOString(),
+        status: 'completed'
+      });
+    }
 
     // Update user in storage
     users[studentId] = user;
@@ -1291,6 +1254,15 @@ const canAccessLesson = (studentId, courseKey, lessonId) => {
       return true;
     }
 
+    // Check if lesson is free
+    const course = getCourseByKey(courseKey);
+    if (course) {
+      const lesson = course.lessons.find(l => l.id === lessonId);
+      if (lesson && lesson.isFree) {
+        return true;
+      }
+    }
+
     // Check if lesson is purchased
     const purchaseKey = `${courseKey}_${lessonId}`;
     return user.purchasedLessons && user.purchasedLessons.includes(purchaseKey);
@@ -1307,7 +1279,7 @@ const hasStudentPurchasedLesson = (studentId, courseKey, lessonId) => {
     return false;
   }
 
-  const purchaseKey = `${courseKey}-${lessonId}`;
+  const purchaseKey = `${courseKey}_${lessonId}`;
   return student.purchasedLessons.includes(purchaseKey);
 };
 
@@ -1546,20 +1518,6 @@ const getTeacherPaymentStats = (teacherId) => {
   };
 };
 
-const getTeacherWhatsAppUrl = (teacherId) => {
-  const users = getUsers() || {};
-  const teacher = users[teacherId];
-
-  if (!teacher || !teacher.whatsappNumber) {
-    return null;
-  }
-
-  const whatsappNumber = teacher.whatsappNumber.replace(/\D/g, '');
-  const message = `Hello ${teacher.name}! I found you on the STEM Learning Platform and would like to learn more about your courses.`;
-
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-};
-
 // ==================== PAYMENT TRANSACTIONS ====================
 
 const getPaymentTransactions = () => {
@@ -1605,6 +1563,7 @@ const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount)
       studentId: studentId
     });
 
+    // Purchase the lesson for the student
     purchaseLesson(studentId, courseKey, lessonId, paymentTransaction);
 
     return paymentTransaction;
@@ -1612,6 +1571,145 @@ const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount)
     console.error('Error processing payment:', error);
     throw error;
   }
+};
+
+// ==================== EMAIL CONFIRMATION ====================
+
+const getEmailConfirmations = () => {
+  try {
+    const confirmations = localStorage.getItem(EMAIL_CONFIRMATIONS_KEY);
+    return confirmations ? JSON.parse(confirmations) : {};
+  } catch (error) {
+    console.error('Error loading email confirmations:', error);
+    return {};
+  }
+};
+
+const saveEmailConfirmations = (confirmations) => {
+  try {
+    localStorage.setItem(EMAIL_CONFIRMATIONS_KEY, JSON.stringify(confirmations));
+  } catch (error) {
+    console.error('Error saving email confirmations:', error);
+  }
+};
+
+const generateEmailConfirmationToken = () => {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+};
+
+const createEmailConfirmation = (userId, email) => {
+  const confirmations = getEmailConfirmations();
+  const token = generateEmailConfirmationToken();
+
+  const confirmation = {
+    userId,
+    email,
+    token,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    isUsed: false
+  };
+
+  confirmations[token] = confirmation;
+  saveEmailConfirmations(confirmations);
+
+  console.log(`📧 Email confirmation created for user ${userId}`);
+  return token;
+};
+
+const verifyEmailConfirmation = (token) => {
+  const confirmations = getEmailConfirmations();
+  const confirmation = confirmations[token];
+
+  if (!confirmation) {
+    throw new Error('Invalid confirmation token');
+  }
+
+  if (confirmation.isUsed) {
+    throw new Error('Confirmation token already used');
+  }
+
+  if (new Date(confirmation.expiresAt) < new Date()) {
+    throw new Error('Confirmation token has expired');
+  }
+
+  // Mark token as used
+  confirmation.isUsed = true;
+  confirmation.confirmedAt = new Date().toISOString();
+  confirmations[token] = confirmation;
+  saveEmailConfirmations(confirmations);
+
+  return confirmation;
+};
+
+const sendEmailConfirmation = (email, token) => {
+  const confirmationLink = `${window.location.origin}/confirm-email?token=${token}`;
+
+  console.log('📧 Email Confirmation Details:');
+  console.log('To:', email);
+  console.log('Confirmation Link:', confirmationLink);
+  console.log('Token (for testing):', token);
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log('✅ Confirmation email sent successfully');
+      resolve(true);
+    }, 1000);
+  });
+};
+
+const confirmUserEmail = (token) => {
+  try {
+    const confirmation = verifyEmailConfirmation(token);
+    const users = getUsers() || {};
+
+    if (!users[confirmation.userId]) {
+      throw new Error('User not found');
+    }
+
+    // Update user email confirmation status
+    users[confirmation.userId].isEmailConfirmed = true;
+    users[confirmation.userId].emailConfirmedAt = new Date().toISOString();
+
+    // Also update in students array if it's a student
+    if (users[confirmation.userId].role === 'student') {
+      const students = getStudents() || [];
+      const studentIndex = students.findIndex(s => s.userId === confirmation.userId || s.email === confirmation.email);
+      if (studentIndex !== -1) {
+        students[studentIndex].isEmailConfirmed = true;
+        students[studentIndex].emailConfirmedAt = new Date().toISOString();
+        saveStudents(students);
+      }
+    }
+
+    saveUsers(users);
+
+    console.log('✅ Email confirmed for user:', confirmation.userId);
+    return users[confirmation.userId];
+  } catch (error) {
+    console.error('Error confirming email:', error);
+    throw error;
+  }
+};
+
+const resendEmailConfirmation = (email) => {
+  const users = getUsers() || {};
+  const user = Object.values(users).find(u => u.email === email);
+
+  if (!user) {
+    throw new Error('User not found with this email');
+  }
+
+  if (user.isEmailConfirmed) {
+    throw new Error('Email is already confirmed');
+  }
+
+  // Create and send new email confirmation
+  const confirmationToken = createEmailConfirmation(user.id, email);
+  sendEmailConfirmation(email, confirmationToken);
+
+  console.log('✅ Confirmation email resent to:', email);
+  return { success: true, message: 'Confirmation email sent successfully' };
 };
 
 // ==================== COURSE ENROLLMENT ====================
@@ -1695,6 +1793,7 @@ const getEnrolledCoursesWithProgress = (studentId) => {
 
   return student.enrolledCourses.map(courseKey => {
     const course = courses[courseKey];
+    if (!course) return null;
     return {
       key: courseKey,
       ...course,
@@ -1870,73 +1969,6 @@ const getSessionStats = () => {
     autoLogoutEnabled: sessionData.autoLogoutEnabled,
     willWarnSoon: timeUntilWarning !== null && timeUntilWarning <= 5 * 60 * 1000
   };
-};
-
-// ==================== USER MANAGEMENT ====================
-
-const deleteUser = (userId) => {
-  const users = getUsers() || {};
-  const currentUser = getCurrentUser();
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  if (currentUser && currentUser.id === userId) {
-    throw new Error('Cannot delete your own account');
-  }
-
-  if (users[userId].role === 'admin') {
-    throw new Error('Cannot delete admin users');
-  }
-
-  const userRole = users[userId].role;
-  delete users[userId];
-  saveUsers(users);
-
-  if (userRole === 'student') {
-    const students = getStudents() || [];
-    const updatedStudents = students.filter(student => student.userId !== userId && student.id !== userId);
-    saveStudents(updatedStudents);
-  }
-
-  if (userRole === 'teacher') {
-    const wallets = getTeacherWallets();
-    if (wallets[userId]) {
-      delete wallets[userId];
-      saveTeacherWallets(wallets);
-    }
-  }
-
-  console.log('🗑 User deleted:', userId);
-  return true;
-};
-
-const updateUser = (userId, userData) => {
-  const users = getUsers() || {};
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  users[userId] = {
-    ...users[userId],
-    ...userData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveUsers(users);
-  return users[userId];
-};
-
-const getAllUsers = () => {
-  const users = getUsers() || {};
-  return Object.values(users);
-};
-
-const getUserById = (userId) => {
-  const users = getUsers() || {};
-  return users[userId] || null;
 };
 
 // ==================== MULTIMEDIA MANAGEMENT ====================
@@ -2687,10 +2719,12 @@ const getPlatformStats = () => {
     totalUsers: users.length,
     recentStudents,
     studentProgress: students.map(student => ({
-      name: student.name,
-      progress: Object.values(student.progress).reduce((a, b) => a + b, 0) / 3,
-      completedLessons: student.completedLessons.length,
-      joinedDate: student.joinedDate
+      name: student.name || 'Unknown Student',
+      progress: student.progress && Object.values(student.progress).length > 0 
+        ? Object.values(student.progress).reduce((a, b) => a + b, 0) / 3 
+        : 0,
+      completedLessons: student.completedLessons?.length || 0,
+      joinedDate: student.joinedDate || new Date().toISOString()
     })),
     ...quizAnalytics
   };
@@ -2845,7 +2879,7 @@ export {
   rejectTeacher,
   dismissTeacher,
   updateTeacherProfile,
-  updateTeacherProfileWithWhatsApp, // ✅ Now this function exists!
+  updateTeacherProfileWithWhatsApp,
   getTeacherById,
   getTeacherCourses,
   getTeacherStats,
