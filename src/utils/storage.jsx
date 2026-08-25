@@ -2942,15 +2942,11 @@ export {
   getTimeUntilWarning,
   getSessionStats,
 
-  // ✅ REMOVE THESE - No longer needed with Firebase
-  // getEmailConfirmations,
-  // createEmailConfirmation,
-  // verifyEmailConfirmation,
-  // sendEmailConfirmation,
+  // ✅ KEEP ONLY THESE Firebase email functions
+confirmUserEmail,
+resendEmailConfirmation,
 
-  // ✅ KEEP THESE - Firebase email functions
-  confirmUserEmail,
-  resendEmailConfirmation,
+  
 
   // Multimedia Management
   addMultimediaToLesson,
