@@ -1,5 +1,5 @@
 // Local Storage utilities for STEM Platform
-// Version: 2.0 - Security & Bug Fixes
+// Version: 2.0 - Security & Bug Fixes with Firebase Integration
 
 // Keys for localStorage
 const STUDENT_KEY = 'hausaStem_students';
@@ -13,7 +13,23 @@ const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions';
 const DATA_VERSION_KEY = 'hausaStem_data_version';
 const DATA_VERSION = '2.0';
 
-// ==================== SIMPLE HASH FUNCTION (No bcryptjs needed) ====================
+// ==================== FIREBASE IMPORTS ====================
+
+// ✅ Import Firebase functions
+import { 
+  getAuth,
+  createUserWithEmailAndPassword, 
+  sendEmailVerification,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  reload,
+  sendEmailVerification as resendVerification
+} from 'firebase/auth';
+import { auth } from './firebase.js';
+
+// ==================== SIMPLE HASH FUNCTION ====================
 
 // Simple hash function for demo purposes
 // NOTE: This is NOT cryptographically secure. Use bcryptjs in production.
@@ -22,9 +38,8 @@ const simpleHash = (password) => {
   for (let i = 0; i < password.length; i++) {
     const char = password.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
-  // Convert to string with salt
   const salt = 'STEM_SALT_2024';
   const salted = password + salt + hash.toString();
   let finalHash = '';
@@ -35,17 +50,14 @@ const simpleHash = (password) => {
   return finalHash;
 };
 
-// Simple hash function for initialization
 const hashPasswordSync = (password) => {
   return simpleHash(password);
 };
 
-// Asynchronous hash function for registration
 const hashPassword = async (password) => {
   return simpleHash(password);
 };
 
-// Asynchronous compare function for authentication
 const comparePassword = async (password, hashedPassword) => {
   const hash = simpleHash(password);
   return hash === hashedPassword;
@@ -59,7 +71,6 @@ const validateEmail = (email) => {
 };
 
 const validatePassword = (password) => {
-  // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
   const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
   return re.test(password);
 };
@@ -72,15 +83,11 @@ const validateName = (name) => {
 
 const migrateData = () => {
   const currentVersion = localStorage.getItem(DATA_VERSION_KEY);
-
   if (currentVersion !== DATA_VERSION) {
     console.log('🔄 Migrating data from version', currentVersion, 'to', DATA_VERSION);
-
-    // Version 1.0 to 2.0 migration
     if (!currentVersion || currentVersion === '1.0') {
       migrateFromV1ToV2();
     }
-
     localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
     console.log('✅ Data migration complete');
   }
@@ -88,23 +95,18 @@ const migrateData = () => {
 
 const migrateFromV1ToV2 = () => {
   try {
-    // Get existing data
     const users = getUsers() || {};
     const students = getStudents() || [];
 
-    // Ensure all users have email confirmation status
     Object.values(users).forEach(user => {
       if (!user.hasOwnProperty('isEmailConfirmed')) {
-        user.isEmailConfirmed = true; // Default to true for existing users
+        user.isEmailConfirmed = true;
       }
-
-      // Ensure all students have userId reference
       if (user.role === 'student' && !user.userId) {
         user.userId = user.id;
       }
     });
 
-    // Migrate student data to users if not already there
     students.forEach(student => {
       if (!users[student.id] && student.role === 'student') {
         users[student.id] = {
@@ -126,8 +128,6 @@ const migrateFromV1ToV2 = () => {
 
 const initializeStorage = () => {
   console.log('🔄 Initializing Storage...');
-
-  // Run data migration first
   migrateData();
 
   const existingStudents = getStudents() || [];
@@ -138,11 +138,10 @@ const initializeStorage = () => {
   console.log('Existing students:', existingStudents.length);
   console.log('Existing courses:', Object.keys(existingCourses).length);
 
-  // Always ensure admin user exists
   const users = getUsers() || {};
   let needsSave = false;
 
-  // Check and create admin if missing
+  // Create admin user if missing
   if (!users['admin1']) {
     console.log('🛠 Creating admin user...');
     users['admin1'] = {
@@ -162,7 +161,7 @@ const initializeStorage = () => {
     needsSave = true;
   }
 
-  // Check and create teacher if missing
+  // Create teacher user if missing
   if (!users['teacher1'] || users['teacher1'].email !== 'kabir@teacher.com') {
     console.log('🛠 Creating teacher user...');
     users['teacher1'] = {
@@ -183,7 +182,7 @@ const initializeStorage = () => {
     needsSave = true;
   }
 
-  // Check and create student if missing
+  // Create student user if missing
   if (!users['student1'] || users['student1'].email !== 'student@example.com') {
     console.log('🛠 Creating student user...');
     users['student1'] = {
@@ -248,132 +247,7 @@ const initializeStorage = () => {
   // Initialize courses
   if (Object.keys(existingCourses).length === 0) {
     console.log('🛠 Creating default courses...');
-    const defaultCourses = {
-      webDevelopment: {
-        title: "Web Development",
-        description: "Learn how to build websites using HTML, CSS and JavaScript",
-        thumbnail: "🌐",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Introduction to HTML",
-            content: "HTML is the first part of a website. It provides the structure of web pages.",
-            duration: "30 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: true,
-            price: 0,
-            multimedia: [
-              {
-                id: 1,
-                type: "video",
-                url: "https://www.youtube.com/embed/dD2EISBDjWM",
-                title: "Video: How to use HTML",
-                description: "This video will teach you everything you need to know about HTML"
-              }
-            ],
-            quiz: {
-              title: "HTML Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "What does HTML stand for?",
-                  type: "text",
-                  options: [
-                    "Hyper Text Markup Language",
-                    "High Tech Modern Language",
-                    "Hyper Transfer Markup Language",
-                    "Home Tool Markup Language"
-                  ],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      },
-      python: {
-        title: "Python Programming",
-        description: "Learn how to program software with the Python language",
-        thumbnail: "🐍",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Python Basics",
-            content: "Start learning about the basic components in Python: variables, data types, and basic operations.",
-            duration: "40 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: false,
-            price: 1500,
-            multimedia: [],
-            quiz: {
-              title: "Python Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "How do you create a variable in Python?",
-                  type: "text",
-                  options: [
-                    "x = 5",
-                    "variable x = 5",
-                    "let x = 5",
-                    "var x = 5"
-                  ],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      },
-      mathematics: {
-        title: "Mathematics",
-        description: "Learn mathematics from basics to advanced levels",
-        thumbnail: "📊",
-        teacherId: "teacher1",
-        teacherName: "Kabir Teacher",
-        isPublished: true,
-        approvedDate: new Date().toISOString(),
-        lessons: [
-          {
-            id: 1,
-            title: "Algebra Basics",
-            content: "Start learning about algebra and how to use it to solve problems.",
-            duration: "35 minutes",
-            completed: false,
-            isLocked: false,
-            isFree: true,
-            price: 0,
-            multimedia: [],
-            quiz: {
-              title: "Algebra Questions",
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  question: "What is x in the equation 2x + 5 = 15?",
-                  type: "text",
-                  options: ["5", "10", "15", "20"],
-                  correctAnswer: 0
-                }
-              ]
-            }
-          }
-        ]
-      }
-    };
-    saveCourses(defaultCourses);
+    saveCourses(getDefaultCourses());
   }
 
   // Initialize teacher wallets
@@ -381,6 +255,136 @@ const initializeStorage = () => {
 
   console.log('✅ Storage initialization complete');
   debugStorage();
+};
+
+// ==================== DEFAULT COURSES ====================
+
+const getDefaultCourses = () => {
+  return {
+    webDevelopment: {
+      title: "Web Development",
+      description: "Learn how to build websites using HTML, CSS and JavaScript",
+      thumbnail: "🌐",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Introduction to HTML",
+          content: "HTML is the first part of a website. It provides the structure of web pages.",
+          duration: "30 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: true,
+          price: 0,
+          multimedia: [
+            {
+              id: 1,
+              type: "video",
+              url: "https://www.youtube.com/embed/dD2EISBDjWM",
+              title: "Video: How to use HTML",
+              description: "This video will teach you everything you need to know about HTML"
+            }
+          ],
+          quiz: {
+            title: "HTML Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "What does HTML stand for?",
+                type: "text",
+                options: [
+                  "Hyper Text Markup Language",
+                  "High Tech Modern Language",
+                  "Hyper Transfer Markup Language",
+                  "Home Tool Markup Language"
+                ],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    python: {
+      title: "Python Programming",
+      description: "Learn how to program software with the Python language",
+      thumbnail: "🐍",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Python Basics",
+          content: "Start learning about the basic components in Python: variables, data types, and basic operations.",
+          duration: "40 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: false,
+          price: 1500,
+          multimedia: [],
+          quiz: {
+            title: "Python Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "How do you create a variable in Python?",
+                type: "text",
+                options: [
+                  "x = 5",
+                  "variable x = 5",
+                  "let x = 5",
+                  "var x = 5"
+                ],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    mathematics: {
+      title: "Mathematics",
+      description: "Learn mathematics from basics to advanced levels",
+      thumbnail: "📊",
+      teacherId: "teacher1",
+      teacherName: "Kabir Teacher",
+      isPublished: true,
+      approvedDate: new Date().toISOString(),
+      lessons: [
+        {
+          id: 1,
+          title: "Algebra Basics",
+          content: "Start learning about algebra and how to use it to solve problems.",
+          duration: "35 minutes",
+          completed: false,
+          isLocked: false,
+          isFree: true,
+          price: 0,
+          multimedia: [],
+          quiz: {
+            title: "Algebra Questions",
+            passingScore: 70,
+            questions: [
+              {
+                id: 1,
+                question: "What is x in the equation 2x + 5 = 15?",
+                type: "text",
+                options: ["5", "10", "15", "20"],
+                correctAnswer: 0
+              }
+            ]
+          }
+        }
+      ]
+    }
+  };
 };
 
 // ==================== USER MANAGEMENT ====================
@@ -420,42 +424,104 @@ const authenticateUser = async (email, password) => {
 
   console.log('🔐 Authentication Attempt:', { email });
 
-  // Find user by email
-  const user = Object.values(users).find(
-    user => user.email === email
-  );
+  try {
+    // ✅ Try Firebase login first (for users registered with Firebase)
+    let firebaseUser;
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      firebaseUser = userCredential.user;
+      console.log('✅ Firebase login successful:', firebaseUser.uid);
+    } catch (firebaseError) {
+      console.log('Firebase login failed, trying local login...');
+      firebaseUser = null;
+    }
 
-  if (!user) {
-    console.log('❌ Login Failed: User not found');
-    return null;
+    // If Firebase login succeeded, check local user
+    if (firebaseUser) {
+      // Check email verification
+      if (!firebaseUser.emailVerified) {
+        throw new Error('Please verify your email before logging in. Check your inbox for the confirmation link.');
+      }
+
+      // Find or create local user
+      let localUser = Object.values(users).find(
+        user => user.firebaseUid === firebaseUser.uid
+      );
+
+      if (!localUser) {
+        // Create local user record if not exists
+        const newUserId = `student_${Date.now()}`;
+        localUser = {
+          id: newUserId,
+          firebaseUid: firebaseUser.uid,
+          name: firebaseUser.displayName || 'Student',
+          email: firebaseUser.email,
+          role: 'student',
+          isEmailConfirmed: firebaseUser.emailVerified,
+          joinedDate: new Date().toISOString(),
+          level: 'Beginner',
+          progress: {},
+          completedLessons: [],
+          completedCourses: [],
+          points: 0,
+          badges: [],
+          enrolledCourses: [],
+          purchasedLessons: [],
+          paymentHistory: [],
+          quizResults: [],
+          certificates: [],
+          enrolledCoursesDate: {}
+        };
+        users[newUserId] = localUser;
+        saveUsers(users);
+      } else {
+        // Update email confirmation status
+        localUser.isEmailConfirmed = firebaseUser.emailVerified;
+        updateUser(localUser.id, localUser);
+      }
+
+      // Set current user
+      setCurrentUser(localUser);
+      resetSession();
+      console.log('✅ Login Successful (Firebase):', localUser.role);
+      return localUser;
+    }
+
+    // ✅ If Firebase fails, try local login (for admin/teacher accounts)
+    const localUser = Object.values(users).find(
+      user => user.email === email
+    );
+
+    if (!localUser) {
+      console.log('❌ Login Failed: User not found');
+      return null;
+    }
+
+    const isValidPassword = await comparePassword(password, localUser.password);
+    if (!isValidPassword) {
+      console.log('❌ Login Failed: Invalid password');
+      return null;
+    }
+
+    // Check email confirmation for local users
+    if (localUser.role !== 'admin' && !localUser.isEmailConfirmed) {
+      throw new Error('Please confirm your email before logging in. Check your inbox for the confirmation link.');
+    }
+
+    // Check teacher approval
+    if (localUser.role === 'teacher' && !localUser.isApproved) {
+      throw new Error('Your teacher account is pending admin approval.');
+    }
+
+    setCurrentUser(localUser);
+    resetSession();
+    console.log('✅ Login Successful (Local):', localUser.role);
+    return localUser;
+
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    throw error;
   }
-
-  // Compare password
-  const isValidPassword = await comparePassword(password, user.password);
-
-  if (!isValidPassword) {
-    console.log('❌ Login Failed: Invalid password');
-    return null;
-  }
-
-  // Check if email is confirmed (except for admin)
-  if (user.role !== 'admin' && !user.isEmailConfirmed) {
-    console.log('❌ Login blocked: Email not confirmed');
-    throw new Error('Please confirm your email address before logging in. Check your inbox for the confirmation link.');
-  }
-
-  // Check if user is a teacher and not approved
-  if (user.role === 'teacher' && !user.isApproved) {
-    console.log('❌ Teacher login blocked: Account not approved');
-    throw new Error('Your teacher account is pending admin approval. Please wait for approval before logging in.');
-  }
-
-  // Set current user and update session tracking
-  setCurrentUser(user);
-  resetSession();
-
-  console.log('✅ Login Successful:', user.role);
-  return user;
 };
 
 const getCurrentUser = () => {
@@ -471,7 +537,6 @@ const getCurrentUser = () => {
 const setCurrentUser = (user) => {
   try {
     if (user) {
-      // Remove password from user object before storing
       const { password, ...userWithoutPassword } = user;
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
       updateLastActivity();
@@ -483,9 +548,18 @@ const setCurrentUser = (user) => {
   }
 };
 
-const logoutUser = () => {
+const logoutUser = async () => {
+  try {
+    // ✅ Logout from Firebase
+    await signOut(auth);
+    console.log('✅ Firebase logout successful');
+  } catch (error) {
+    console.warn('Firebase logout warning:', error.message);
+  }
+  
   clearSession();
   localStorage.removeItem(CURRENT_USER_KEY);
+  console.log('✅ Local logout successful');
 };
 
 // ==================== USER REGISTRATION ====================
@@ -506,7 +580,7 @@ const registerUser = async (userData) => {
 
   const users = getUsers() || {};
 
-  // Check if email already exists
+  // Check if email already exists locally
   const existingUser = Object.values(users).find(
     user => user.email === userData.email
   );
@@ -515,138 +589,161 @@ const registerUser = async (userData) => {
     throw new Error('Email already registered');
   }
 
-  // Hash password
-  const hashedPassword = await hashPassword(userData.password);
+  try {
+    // ✅ Register with Firebase (sends real verification email)
+    console.log('📧 Registering with Firebase...');
+    const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+    const firebaseUser = userCredential.user;
+    
+    // ✅ Send verification email
+    await sendEmailVerification(firebaseUser);
+    console.log('📧 Verification email sent to:', userData.email);
 
-  // Generate unique user ID
-  const userId = `${userData.role}_${Date.now()}`;
+    // Hash password for local storage
+    const hashedPassword = await hashPassword(userData.password);
 
-  const newUser = {
-    id: userId,
-    name: userData.name,
-    email: userData.email,
-    password: hashedPassword,
-    role: userData.role,
-    isEmailConfirmed: false,
-    joinedDate: new Date().toISOString()
-  };
+    // Generate unique user ID
+    const userId = `${userData.role}_${Date.now()}`;
 
-  // Add role-specific fields
-  if (userData.role === 'teacher') {
-    newUser.specialization = userData.specialization || 'General';
-    newUser.bio = userData.bio || '';
-    newUser.courses = [];
-    newUser.isApproved = false;
-    newUser.profileImage = userData.profileImage || '';
-    newUser.whatsappNumber = userData.whatsappNumber || '';
-    newUser.earnings = 0;
-  } else if (userData.role === 'student') {
-    newUser.level = userData.level || 'Beginner';
-    newUser.progress = {};
-    newUser.completedLessons = [];
-    newUser.completedCourses = [];
-    newUser.points = 0;
-    newUser.badges = [];
-    newUser.enrolledCourses = [];
-    newUser.purchasedLessons = [];
-    newUser.paymentHistory = [];
-    newUser.quizResults = [];
-    newUser.certificates = [];
-    newUser.enrolledCoursesDate = {};
-
-    // Also add to students array for backward compatibility
-    const students = getStudents() || [];
-    const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-    const newStudent = {
-      id: newStudentId,
-      userId: userId,
+    const newUser = {
+      id: userId,
+      firebaseUid: firebaseUser.uid,
       name: userData.name,
       email: userData.email,
       password: hashedPassword,
-      role: 'student',
-      level: userData.level || 'Beginner',
-      progress: {},
-      completedLessons: [],
-      completedCourses: [],
-      points: 0,
-      badges: [],
-      enrolledCourses: [],
-      isEmailConfirmed: false,
-      joinedDate: new Date().toISOString(),
-      purchasedLessons: [],
-      paymentHistory: [],
-      quizResults: [],
-      certificates: [],
-      enrolledCoursesDate: {}
+      role: userData.role,
+      isEmailConfirmed: false, // Will be confirmed via Firebase
+      joinedDate: new Date().toISOString()
     };
-    saveStudents([...students, newStudent]);
-  }
 
-  // Add to users
-  users[userId] = newUser;
-  saveUsers(users);
+    // Add role-specific fields
+    if (userData.role === 'teacher') {
+      newUser.specialization = userData.specialization || 'General';
+      newUser.bio = userData.bio || '';
+      newUser.courses = [];
+      newUser.isApproved = false;
+      newUser.profileImage = userData.profileImage || '';
+      newUser.whatsappNumber = userData.whatsappNumber || '';
+      newUser.earnings = 0;
+    } else if (userData.role === 'student') {
+      newUser.level = userData.level || 'Beginner';
+      newUser.progress = {};
+      newUser.completedLessons = [];
+      newUser.completedCourses = [];
+      newUser.points = 0;
+      newUser.badges = [];
+      newUser.enrolledCourses = [];
+      newUser.purchasedLessons = [];
+      newUser.paymentHistory = [];
+      newUser.quizResults = [];
+      newUser.certificates = [];
+      newUser.enrolledCoursesDate = {};
 
-  // Create and send email confirmation
-  const confirmationToken = createEmailConfirmation(userId, userData.email);
-  sendEmailConfirmation(userData.email, confirmationToken);
+      // Also add to students array
+      const students = getStudents() || [];
+      const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
+      const newStudent = {
+        id: newStudentId,
+        userId: userId,
+        firebaseUid: firebaseUser.uid,
+        name: userData.name,
+        email: userData.email,
+        password: hashedPassword,
+        role: 'student',
+        level: userData.level || 'Beginner',
+        progress: {},
+        completedLessons: [],
+        completedCourses: [],
+        points: 0,
+        badges: [],
+        enrolledCourses: [],
+        isEmailConfirmed: false,
+        joinedDate: new Date().toISOString(),
+        purchasedLessons: [],
+        paymentHistory: [],
+        quizResults: [],
+        certificates: [],
+        enrolledCoursesDate: {}
+      };
+      saveStudents([...students, newStudent]);
+    }
 
-  console.log('✅ New user registered (email confirmation sent):', userId);
-  return { user: newUser, confirmationToken };
-};
+    // Add to users
+    users[userId] = newUser;
+    saveUsers(users);
 
-const deleteUser = (userId) => {
-  const users = getUsers() || {};
-  const currentUser = getCurrentUser();
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  if (currentUser && currentUser.id === userId) {
-    throw new Error('Cannot delete your own account');
-  }
-
-  if (users[userId].role === 'admin') {
-    throw new Error('Cannot delete admin users');
-  }
-
-  const userRole = users[userId].role;
-  delete users[userId];
-  saveUsers(users);
-
-  if (userRole === 'student') {
-    const students = getStudents() || [];
-    const updatedStudents = students.filter(student => student.userId !== userId && student.id !== userId);
-    saveStudents(updatedStudents);
-  }
-
-  if (userRole === 'teacher') {
-    const wallets = getTeacherWallets();
-    if (wallets[userId]) {
-      delete wallets[userId];
-      saveTeacherWallets(wallets);
+    console.log('✅ New user registered with Firebase and localStorage:', userId);
+    return { user: newUser, confirmationToken: 'firebase_verification_sent' };
+  } catch (firebaseError) {
+    console.error('Firebase registration error:', firebaseError);
+    
+    // Clean up if Firebase fails
+    if (firebaseError.code === 'auth/email-already-in-use') {
+      throw new Error('Email already registered in Firebase. Please login instead.');
+    } else {
+      throw new Error(firebaseError.message || 'Registration failed. Please try again.');
     }
   }
-
-  console.log('🗑 User deleted:', userId);
-  return true;
 };
 
-const updateUser = (userId, userData) => {
-  const users = getUsers() || {};
+// ==================== EMAIL CONFIRMATION (Firebase) ====================
 
-  if (!users[userId]) {
-    throw new Error('User not found');
+const confirmUserEmail = async (token) => {
+  // Firebase handles verification via email link
+  // This function checks the current user's verification status
+  try {
+    const currentFirebaseUser = auth.currentUser;
+    if (!currentFirebaseUser) {
+      throw new Error('No user found. Please log in again.');
+    }
+
+    // Reload user to get latest emailVerified status
+    await currentFirebaseUser.reload();
+    
+    if (currentFirebaseUser.emailVerified) {
+      // Update local user status
+      const users = getUsers() || {};
+      const localUser = Object.values(users).find(
+        u => u.firebaseUid === currentFirebaseUser.uid
+      );
+      if (localUser) {
+        localUser.isEmailConfirmed = true;
+        updateUser(localUser.id, localUser);
+        
+        // Also update in students array if student
+        if (localUser.role === 'student') {
+          const students = getStudents() || [];
+          const studentIndex = students.findIndex(s => s.userId === localUser.id || s.firebaseUid === currentFirebaseUser.uid);
+          if (studentIndex !== -1) {
+            students[studentIndex].isEmailConfirmed = true;
+            saveStudents(students);
+          }
+        }
+      }
+      return { success: true, message: 'Email verified successfully!' };
+    } else {
+      throw new Error('Email not verified yet. Please check your inbox and click the verification link.');
+    }
+  } catch (error) {
+    console.error('Error confirming email:', error);
+    throw error;
   }
+};
 
-  users[userId] = {
-    ...users[userId],
-    ...userData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveUsers(users);
-  return users[userId];
+const resendEmailConfirmation = async (email) => {
+  try {
+    const currentFirebaseUser = auth.currentUser;
+    if (!currentFirebaseUser) {
+      throw new Error('No user found. Please log in again.');
+    }
+    
+    await sendEmailVerification(currentFirebaseUser);
+    console.log('✅ Verification email resent to:', email);
+    return { success: true, message: 'Verification email resent successfully!' };
+  } catch (error) {
+    console.error('Error resending verification email:', error);
+    throw error;
+  }
 };
 
 // ==================== STUDENT MANAGEMENT ====================
@@ -683,18 +780,15 @@ const getStudentById = (id) => {
 };
 
 const updateStudent = (updatedStudent) => {
-  // Update in users
   const users = getUsers() || {};
   const userId = updatedStudent.userId || updatedStudent.id;
 
   if (users[userId] && users[userId].role === 'student') {
-    // Don't store password in users object
     const { password, ...userWithoutPassword } = updatedStudent;
     users[userId] = { ...users[userId], ...userWithoutPassword };
     saveUsers(users);
   }
 
-  // Update in students array for backward compatibility
   const students = getStudents() || [];
   const updatedStudents = students.map(student =>
     student.id === updatedStudent.id || student.userId === userId
@@ -703,7 +797,6 @@ const updateStudent = (updatedStudent) => {
   );
   saveStudents(updatedStudents);
 
-  // Update current user if it's the same student
   const currentUser = getCurrentUser();
   if (currentUser && (currentUser.id === userId || currentUser.id === updatedStudent.id)) {
     setCurrentUser(updatedStudent);
@@ -721,8 +814,7 @@ const addStudent = (newStudent) => {
     joinedDate: new Date().toISOString()
   };
 
-  const updatedStudents = [...students, studentWithId];
-  saveStudents(updatedStudents);
+  saveStudents([...students, studentWithId]);
   return studentWithId;
 };
 
@@ -809,7 +901,6 @@ const updateTeacherProfile = (teacherId, profileData) => {
 
   saveUsers(users);
   
-  // Update current user if it's the same teacher
   const currentUser = getCurrentUser();
   if (currentUser && currentUser.id === teacherId) {
     setCurrentUser(users[teacherId]);
@@ -825,7 +916,6 @@ const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
     throw new Error('Teacher not found');
   }
   
-  // Ensure WhatsApp number is properly formatted (remove non-digits)
   if (profileData.whatsappNumber) {
     profileData.whatsappNumber = profileData.whatsappNumber.replace(/\D/g, '');
   }
@@ -838,7 +928,6 @@ const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
   
   saveUsers(users);
   
-  // Update current user if it's the same teacher
   const currentUser = getCurrentUser();
   if (currentUser && currentUser.id === teacherId) {
     setCurrentUser(users[teacherId]);
@@ -1065,7 +1154,6 @@ const deleteCourse = (courseKey) => {
     throw new Error('Course not found');
   }
 
-  // Remove course from teacher's courses
   const teacherId = courses[courseKey].teacherId;
   if (teacherId) {
     const users = getUsers() || {};
@@ -1192,23 +1280,19 @@ const purchaseLesson = async (studentId, courseKey, lessonId, paymentData = null
       throw new Error('User not found');
     }
 
-    // Initialize purchasedLessons if it doesn't exist
     if (!user.purchasedLessons) {
       user.purchasedLessons = [];
     }
 
-    // Initialize paymentHistory if it doesn't exist
     if (!user.paymentHistory) {
       user.paymentHistory = [];
     }
 
-    // Add lesson to purchased lessons
     const purchaseKey = `${courseKey}_${lessonId}`;
     if (!user.purchasedLessons.includes(purchaseKey)) {
       user.purchasedLessons.push(purchaseKey);
     }
 
-    // Add to payment history if payment data is provided
     if (paymentData) {
       user.paymentHistory.push({
         paymentId: paymentData.id || `manual_${Date.now()}`,
@@ -1221,11 +1305,9 @@ const purchaseLesson = async (studentId, courseKey, lessonId, paymentData = null
       });
     }
 
-    // Update user in storage
     users[studentId] = user;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
 
-    // Update current user if it's the same user
     const currentUser = getCurrentUser();
     if (currentUser && currentUser.id === studentId) {
       setCurrentUser(user);
@@ -1356,12 +1438,10 @@ const isLessonAccessible = (studentId, courseKey, lessonId) => {
     return false;
   }
 
-  // If lesson is free, it's accessible
   if (lesson.isFree) {
     return true;
   }
 
-  // If lesson is paid, check if student has purchased it
   return hasStudentPurchasedLesson(studentId, courseKey, lessonId);
 };
 
@@ -1563,7 +1643,6 @@ const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount)
       studentId: studentId
     });
 
-    // Purchase the lesson for the student
     purchaseLesson(studentId, courseKey, lessonId, paymentTransaction);
 
     return paymentTransaction;
@@ -1571,145 +1650,6 @@ const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount)
     console.error('Error processing payment:', error);
     throw error;
   }
-};
-
-// ==================== EMAIL CONFIRMATION ====================
-
-const getEmailConfirmations = () => {
-  try {
-    const confirmations = localStorage.getItem(EMAIL_CONFIRMATIONS_KEY);
-    return confirmations ? JSON.parse(confirmations) : {};
-  } catch (error) {
-    console.error('Error loading email confirmations:', error);
-    return {};
-  }
-};
-
-const saveEmailConfirmations = (confirmations) => {
-  try {
-    localStorage.setItem(EMAIL_CONFIRMATIONS_KEY, JSON.stringify(confirmations));
-  } catch (error) {
-    console.error('Error saving email confirmations:', error);
-  }
-};
-
-const generateEmailConfirmationToken = () => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-};
-
-const createEmailConfirmation = (userId, email) => {
-  const confirmations = getEmailConfirmations();
-  const token = generateEmailConfirmationToken();
-
-  const confirmation = {
-    userId,
-    email,
-    token,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    isUsed: false
-  };
-
-  confirmations[token] = confirmation;
-  saveEmailConfirmations(confirmations);
-
-  console.log(`📧 Email confirmation created for user ${userId}`);
-  return token;
-};
-
-const verifyEmailConfirmation = (token) => {
-  const confirmations = getEmailConfirmations();
-  const confirmation = confirmations[token];
-
-  if (!confirmation) {
-    throw new Error('Invalid confirmation token');
-  }
-
-  if (confirmation.isUsed) {
-    throw new Error('Confirmation token already used');
-  }
-
-  if (new Date(confirmation.expiresAt) < new Date()) {
-    throw new Error('Confirmation token has expired');
-  }
-
-  // Mark token as used
-  confirmation.isUsed = true;
-  confirmation.confirmedAt = new Date().toISOString();
-  confirmations[token] = confirmation;
-  saveEmailConfirmations(confirmations);
-
-  return confirmation;
-};
-
-const sendEmailConfirmation = (email, token) => {
-  const confirmationLink = `${window.location.origin}/confirm-email?token=${token}`;
-
-  console.log('📧 Email Confirmation Details:');
-  console.log('To:', email);
-  console.log('Confirmation Link:', confirmationLink);
-  console.log('Token (for testing):', token);
-
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('✅ Confirmation email sent successfully');
-      resolve(true);
-    }, 1000);
-  });
-};
-
-const confirmUserEmail = (token) => {
-  try {
-    const confirmation = verifyEmailConfirmation(token);
-    const users = getUsers() || {};
-
-    if (!users[confirmation.userId]) {
-      throw new Error('User not found');
-    }
-
-    // Update user email confirmation status
-    users[confirmation.userId].isEmailConfirmed = true;
-    users[confirmation.userId].emailConfirmedAt = new Date().toISOString();
-
-    // Also update in students array if it's a student
-    if (users[confirmation.userId].role === 'student') {
-      const students = getStudents() || [];
-      const studentIndex = students.findIndex(s => s.userId === confirmation.userId || s.email === confirmation.email);
-      if (studentIndex !== -1) {
-        students[studentIndex].isEmailConfirmed = true;
-        students[studentIndex].emailConfirmedAt = new Date().toISOString();
-        saveStudents(students);
-      }
-    }
-
-    saveUsers(users);
-
-    console.log('✅ Email confirmed for user:', confirmation.userId);
-    return users[confirmation.userId];
-  } catch (error) {
-    console.error('Error confirming email:', error);
-    throw error;
-  }
-};
-
-const resendEmailConfirmation = (email) => {
-  const users = getUsers() || {};
-  const user = Object.values(users).find(u => u.email === email);
-
-  if (!user) {
-    throw new Error('User not found with this email');
-  }
-
-  if (user.isEmailConfirmed) {
-    throw new Error('Email is already confirmed');
-  }
-
-  // Create and send new email confirmation
-  const confirmationToken = createEmailConfirmation(user.id, email);
-  sendEmailConfirmation(email, confirmationToken);
-
-  console.log('✅ Confirmation email resent to:', email);
-  return { success: true, message: 'Confirmation email sent successfully' };
 };
 
 // ==================== COURSE ENROLLMENT ====================
@@ -1969,6 +1909,63 @@ const getSessionStats = () => {
     autoLogoutEnabled: sessionData.autoLogoutEnabled,
     willWarnSoon: timeUntilWarning !== null && timeUntilWarning <= 5 * 60 * 1000
   };
+};
+
+// ==================== USER MANAGEMENT ====================
+
+const deleteUser = (userId) => {
+  const users = getUsers() || {};
+  const currentUser = getCurrentUser();
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  if (currentUser && currentUser.id === userId) {
+    throw new Error('Cannot delete your own account');
+  }
+
+  if (users[userId].role === 'admin') {
+    throw new Error('Cannot delete admin users');
+  }
+
+  const userRole = users[userId].role;
+  delete users[userId];
+  saveUsers(users);
+
+  if (userRole === 'student') {
+    const students = getStudents() || [];
+    const updatedStudents = students.filter(student => student.userId !== userId && student.id !== userId);
+    saveStudents(updatedStudents);
+  }
+
+  if (userRole === 'teacher') {
+    const wallets = getTeacherWallets();
+    if (wallets[userId]) {
+      delete wallets[userId];
+      saveTeacherWallets(wallets);
+    }
+  }
+
+  console.log('🗑 User deleted:', userId);
+  return true;
+};
+
+const updateUser = (userId, userData) => {
+  const users = getUsers() || {};
+
+  if (!users[userId]) {
+    throw new Error('User not found');
+  }
+
+  users[userId] = {
+    ...users[userId],
+    ...userData,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveUsers(users);
+  return users[userId];
 };
 
 // ==================== MULTIMEDIA MANAGEMENT ====================
@@ -2945,7 +2942,7 @@ export {
   getTimeUntilWarning,
   getSessionStats,
 
-  // Email Confirmation
+  // Email Confirmation (Firebase)
   getEmailConfirmations,
   createEmailConfirmation,
   verifyEmailConfirmation,
