@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import './AuthForms.css';
 
-const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isLoading: parentLoading }) => {
+const LoginForm = ({ 
+  onLogin, 
+  onSwitchToRegister, 
+  onSwitchToTeacherRegister, 
+  isLoading: parentLoading,
+  onResendVerification // ✅ New prop for resending verification email
+}) => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -12,6 +18,8 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
   const [rememberMe, setRememberMe] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [resendMessage, setResendMessage] = useState('');
 
   // Check for saved credentials on mount
   useEffect(() => {
@@ -25,6 +33,8 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setShowResendVerification(false);
+    setResendMessage('');
 
     // Check if account is locked
     if (isLocked) {
@@ -48,9 +58,17 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
     setIsLoading(true);
 
     try {
-      const success = await onLogin(formData.email, formData.password);
+      const result = await onLogin(formData.email, formData.password);
 
-      if (success) {
+      // Check if login returned a special "email_not_verified" status
+      if (result === 'email_not_verified') {
+        setError('Please verify your email before logging in.');
+        setShowResendVerification(true);
+        setIsLoading(false);
+        return;
+      }
+
+      if (result === true || result === 'success') {
         // Save email if "Remember Me" is checked
         if (rememberMe) {
           localStorage.setItem('remembered_email', formData.email);
@@ -58,8 +76,8 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
           localStorage.removeItem('remembered_email');
         }
         setError('');
-        // Reset login attempts on success
         setLoginAttempts(0);
+        setShowResendVerification(false);
       } else {
         // Increment failed attempts
         const newAttempts = loginAttempts + 1;
@@ -79,7 +97,14 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
         }
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      // Check if error is about email verification
+      if (err.message && err.message.toLowerCase().includes('verify your email')) {
+        setError('Please verify your email before logging in. Check your inbox for the confirmation link.');
+        setShowResendVerification(true);
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
+      
       // Increment failed attempts on error too
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
@@ -95,6 +120,29 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
     }
   };
 
+  const handleResendVerification = async () => {
+    try {
+      setIsLoading(true);
+      setResendMessage('');
+      
+      if (onResendVerification) {
+        const result = await onResendVerification(formData.email);
+        if (result && result.success) {
+          setResendMessage('✅ Verification email resent successfully! Please check your inbox.');
+          setShowResendVerification(false);
+        } else {
+          setResendMessage('❌ Failed to resend verification email. Please try again.');
+        }
+      } else {
+        setResendMessage('❌ Resend verification is not available. Please contact support.');
+      }
+    } catch (error) {
+      setResendMessage('❌ ' + (error.message || 'Failed to resend verification email.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -102,6 +150,8 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
       [name]: value
     }));
     setError('');
+    setShowResendVerification(false);
+    setResendMessage('');
   };
 
   const handleDemoLogin = (role) => {
@@ -109,6 +159,8 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
     setError('');
     setLoginAttempts(0);
     setIsLocked(false);
+    setShowResendVerification(false);
+    setResendMessage('');
 
     const credentials = {
       admin: { email: 'codesmartng1@gmail.com', password: 'Kb1217@#$%&' },
@@ -136,12 +188,13 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
   };
 
   const handleForgotPassword = () => {
-    // You can implement password reset functionality here
     setError('Password reset functionality will be available soon. Please contact support.');
   };
 
   const clearError = () => {
     setError('');
+    setShowResendVerification(false);
+    setResendMessage('');
   };
 
   // Check if form is disabled
@@ -180,6 +233,29 @@ const LoginForm = ({ onLogin, onSwitchToRegister, onSwitchToTeacherRegister, isL
             >
               ×
             </button>
+          </div>
+        )}
+
+        {/* Resend Verification Section */}
+        {showResendVerification && (
+          <div className="resend-verification-section">
+            <div className="resend-info">
+              <span className="resend-icon">📧</span>
+              <p>Didn't receive the verification email? Click the button below to resend.</p>
+            </div>
+            <button
+              type="button"
+              className="resend-btn"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Sending...' : '📧 Resend Verification Email'}
+            </button>
+            {resendMessage && (
+              <div className={`resend-message ${resendMessage.includes('✅') ? 'success' : 'error'}`}>
+                {resendMessage}
+              </div>
+            )}
           </div>
         )}
 
