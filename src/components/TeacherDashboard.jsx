@@ -14,7 +14,10 @@ import {
   withdrawFromWallet,
   updateTeacherProfileWithWhatsApp,
   getTeacherWhatsAppUrl,
-  getCurrentUser
+  getCurrentUser,
+  // ✅ Firebase-specific functions
+  uploadFile,
+  getFileUrl
 } from '../utils/storage';
 import './TeacherDashboard.css';
 
@@ -93,7 +96,18 @@ const TeacherDashboard = () => {
     accountName: ''
   });
 
-  // ✅ Convert file to base64 for storage (local storage)
+  // ✅ Upload file to Firebase Storage
+  const uploadFileToFirebase = async (file, path) => {
+    try {
+      const fileUrl = await uploadFile(file, path);
+      return fileUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
+  // ✅ Convert file to base64 (fallback for small files)
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -123,17 +137,17 @@ const TeacherDashboard = () => {
     loadTeacherProfile();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
-      const currentUser = getCurrentUser();
-      if (!currentUser || !currentUser.id) {
+      const currentUser = await getCurrentUser();
+      if (!currentUser || !currentUser.uid) {
         console.error('No user logged in');
         return;
       }
 
-      const teacherStats = getTeacherStats(currentUser.id);
-      const teacherCourses = getTeacherCourses(currentUser.id);
-      const walletData = getTeacherWallet(currentUser.id);
+      const teacherStats = await getTeacherStats(currentUser.uid);
+      const teacherCourses = await getTeacherCourses(currentUser.uid);
+      const walletData = await getTeacherWallet(currentUser.uid);
 
       setStats(teacherStats);
       setCoursesState(teacherCourses);
@@ -143,9 +157,9 @@ const TeacherDashboard = () => {
     }
   };
 
-  const loadTeacherProfile = () => {
+  const loadTeacherProfile = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (currentUser) {
         setTeacherProfile(currentUser);
         setWhatsappNumber(currentUser.whatsappNumber || '');
@@ -156,28 +170,28 @@ const TeacherDashboard = () => {
   };
 
   // ✅ Save WhatsApp number
-  const saveWhatsAppNumber = () => {
+  const saveWhatsAppNumber = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
         alert('Please log in first');
         return;
       }
 
-      updateTeacherProfileWithWhatsApp(currentUser.id, {
+      await updateTeacherProfileWithWhatsApp(currentUser.uid, {
         whatsappNumber: whatsappNumber
       });
       alert('✅ WhatsApp number saved successfully!');
-      loadTeacherProfile();
+      await loadTeacherProfile();
     } catch (error) {
       alert('❌ Error saving WhatsApp number: ' + error.message);
     }
   };
 
   // ✅ Process withdrawal
-  const handleWithdrawal = () => {
+  const handleWithdrawal = async () => {
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
         alert('Please log in first');
         return;
@@ -194,7 +208,7 @@ const TeacherDashboard = () => {
       }
 
       if (window.confirm(`Are you sure you want to withdraw ₦${withdrawalAmount}?`)) {
-        const updatedWallet = withdrawFromWallet(currentUser.id, parseFloat(withdrawalAmount), bankDetails);
+        const updatedWallet = await withdrawFromWallet(currentUser.uid, parseFloat(withdrawalAmount), bankDetails);
         setWallet(updatedWallet);
         setWithdrawalAmount('');
         setBankDetails({ bankName: '', accountNumber: '', accountName: '' });
@@ -206,10 +220,10 @@ const TeacherDashboard = () => {
   };
 
   // Course Management Functions
-  const handleAddCourse = (e) => {
+  const handleAddCourse = async (e) => {
     e.preventDefault();
     try {
-      const currentUser = getCurrentUser();
+      const currentUser = await getCurrentUser();
       if (!currentUser) {
         alert('Please log in first');
         return;
@@ -217,13 +231,13 @@ const TeacherDashboard = () => {
 
       const courseData = {
         ...newCourseForm,
-        teacherId: currentUser.id,
-        teacherName: currentUser.name,
+        teacherId: currentUser.uid,
+        teacherName: currentUser.name || 'Teacher',
         createdAt: new Date().toISOString(),
         lessons: []
       };
 
-      addNewCourse(courseData);
+      await addNewCourse(courseData);
       alert('Course added successfully!');
       setNewCourseForm({
         title: '',
@@ -231,7 +245,7 @@ const TeacherDashboard = () => {
         thumbnail: '📚',
         key: ''
       });
-      loadData();
+      await loadData();
       setActiveTab('my-courses');
     } catch (error) {
       alert('Error adding course: ' + error.message);
@@ -253,25 +267,25 @@ const TeacherDashboard = () => {
     setEditCourseForm({});
   };
 
-  const handleUpdateCourse = (e) => {
+  const handleUpdateCourse = async (e) => {
     e.preventDefault();
     try {
-      updateCourse(editingCourse, editCourseForm);
+      await updateCourse(editingCourse, editCourseForm);
       alert('Course updated successfully!');
       setEditingCourse(null);
       setEditCourseForm({});
-      loadData();
+      await loadData();
     } catch (error) {
       alert('Error updating course: ' + error.message);
     }
   };
 
-  const handleDeleteCourse = (courseKey) => {
+  const handleDeleteCourse = async (courseKey) => {
     if (window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
       try {
-        deleteCourse(courseKey);
+        await deleteCourse(courseKey);
         alert('Course deleted successfully!');
-        loadData();
+        await loadData();
       } catch (error) {
         alert('Error deleting course: ' + error.message);
       }
@@ -360,7 +374,7 @@ const TeacherDashboard = () => {
         return;
       }
 
-      // Validate file size (max 100MB)
+      // Validate file size (max 100MB for Firebase)
       if (file.size > 100 * 1024 * 1024) {
         alert('Video file size must be less than 100MB');
         return;
@@ -392,7 +406,7 @@ const TeacherDashboard = () => {
         return;
       }
 
-      // Validate file size (max 50MB)
+      // Validate file size (max 50MB for Firebase)
       if (file.size > 50 * 1024 * 1024) {
         alert('File size must be less than 50MB');
         return;
@@ -406,7 +420,7 @@ const TeacherDashboard = () => {
     }
   };
 
-  // ✅ Add lesson with file upload
+  // ✅ Add lesson with file upload to Firebase
   const handleAddLesson = async (e) => {
     e.preventDefault();
     setIsUploading(true);
@@ -427,18 +441,22 @@ const TeacherDashboard = () => {
         isLocked: !newLessonForm.isFree
       };
 
-      // ✅ Add video file if provided
+      // ✅ Upload video file to Firebase Storage
       if (newLessonForm.videoFile) {
-        const base64Data = await fileToBase64(newLessonForm.videoFile);
+        const currentUser = await getCurrentUser();
+        const filePath = `teachers/${currentUser.uid}/videos/${Date.now()}_${newLessonForm.videoFileName}`;
+        const fileUrl = await uploadFileToFirebase(newLessonForm.videoFile, filePath);
+        
         lessonData.multimedia.push({
           type: 'video',
-          url: base64Data,
+          url: fileUrl,
           title: newLessonForm.videoTitle || newLessonForm.videoFileName || 'Lesson Video',
           description: newLessonForm.videoDescription || 'Video content for this lesson',
           fileName: newLessonForm.videoFileName,
           fileSize: newLessonForm.videoFile.size,
           fileType: newLessonForm.videoFile.type,
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          firebasePath: filePath
         });
       }
 
@@ -451,7 +469,7 @@ const TeacherDashboard = () => {
         };
       }
 
-      addLessonToCourse(newLessonForm.courseKey, lessonData);
+      await addLessonToCourse(newLessonForm.courseKey, lessonData);
       alert('Lesson added successfully!');
 
       clearInterval(progressInterval);
@@ -472,7 +490,7 @@ const TeacherDashboard = () => {
         isLocked: false
       });
       resetQuizForm();
-      loadData();
+      await loadData();
       setIsUploading(false);
     } catch (error) {
       console.error('Error adding lesson:', error);
@@ -502,7 +520,7 @@ const TeacherDashboard = () => {
     setEditLessonForm({});
   };
 
-  const handleUpdateLesson = (e) => {
+  const handleUpdateLesson = async (e) => {
     e.preventDefault();
     try {
       const updatedData = {
@@ -510,29 +528,29 @@ const TeacherDashboard = () => {
         isLocked: !editLessonForm.isFree
       };
 
-      updateLesson(editingLesson.courseKey, editingLesson.lessonId, updatedData);
+      await updateLesson(editingLesson.courseKey, editingLesson.lessonId, updatedData);
       alert('Lesson updated successfully!');
       setEditingLesson(null);
       setEditLessonForm({});
-      loadData();
+      await loadData();
     } catch (error) {
       alert('Error updating lesson: ' + error.message);
     }
   };
 
-  const handleDeleteLesson = (courseKey, lessonId, lessonTitle) => {
+  const handleDeleteLesson = async (courseKey, lessonId, lessonTitle) => {
     if (window.confirm(`Are you sure you want to delete the lesson "${lessonTitle}"?`)) {
       try {
-        deleteLesson(courseKey, lessonId);
+        await deleteLesson(courseKey, lessonId);
         alert('Lesson deleted successfully!');
-        loadData();
+        await loadData();
       } catch (error) {
         alert('Error deleting lesson: ' + error.message);
       }
     }
   };
 
-  // ✅ Handle multimedia file upload
+  // ✅ Handle multimedia file upload to Firebase
   const handleAddMultimedia = async (e) => {
     e.preventDefault();
     setIsUploading(true);
@@ -543,14 +561,18 @@ const TeacherDashboard = () => {
       const multimediaData = { ...newMultimediaForm };
 
       if (newMultimediaForm.file) {
-        const base64Data = await fileToBase64(newMultimediaForm.file);
-        multimediaData.url = base64Data;
+        const currentUser = await getCurrentUser();
+        const filePath = `teachers/${currentUser.uid}/media/${Date.now()}_${newMultimediaForm.fileName}`;
+        const fileUrl = await uploadFileToFirebase(newMultimediaForm.file, filePath);
+        
+        multimediaData.url = fileUrl;
         multimediaData.fileName = newMultimediaForm.fileName;
         multimediaData.fileSize = newMultimediaForm.file.size;
         multimediaData.fileType = newMultimediaForm.file.type;
+        multimediaData.firebasePath = filePath;
       }
 
-      addMultimediaToLesson(
+      await addMultimediaToLesson(
         managingMultimedia.courseKey,
         managingMultimedia.lesson.id,
         multimediaData
@@ -567,7 +589,7 @@ const TeacherDashboard = () => {
         title: '',
         description: ''
       });
-      loadData();
+      await loadData();
       setIsUploading(false);
     } catch (error) {
       console.error('Error adding multimedia:', error);
@@ -576,16 +598,16 @@ const TeacherDashboard = () => {
     }
   };
 
-  const handleDeleteMultimedia = (multimediaId, multimediaTitle) => {
+  const handleDeleteMultimedia = async (multimediaId, multimediaTitle) => {
     if (window.confirm(`Are you sure you want to delete "${multimediaTitle}"?`)) {
       try {
-        deleteMultimediaFromLesson(
+        await deleteMultimediaFromLesson(
           managingMultimedia.courseKey,
           managingMultimedia.lesson.id,
           multimediaId
         );
         alert('Multimedia content deleted successfully!');
-        loadData();
+        await loadData();
       } catch (error) {
         alert('Error deleting multimedia: ' + error.message);
       }
@@ -623,7 +645,7 @@ const TeacherDashboard = () => {
               {uploadProgress}%
             </div>
           </div>
-          <p>Uploading video... Please wait.</p>
+          <p>Uploading to Firebase... Please wait.</p>
         </div>
       )}
 
@@ -655,7 +677,7 @@ const TeacherDashboard = () => {
       </div>
 
       <div className="teacher-content">
-        {/* Overview Tab */}
+        {/* Overview Tab - Same as before */}
         {activeTab === 'overview' && (
           <div className="overview-tab">
             {wallet && (
@@ -703,11 +725,10 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Earnings Tab */}
+        {/* Earnings Tab - Same as before */}
         {activeTab === 'earnings' && (
           <div className="earnings-tab">
             <h3>💰 Earnings & Withdrawals</h3>
-
             {wallet ? (
               <div className="earnings-content">
                 <div className="balance-card">
@@ -806,7 +827,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* WhatsApp Tab */}
+        {/* WhatsApp Tab - Same as before */}
         {activeTab === 'whatsapp' && (
           <div className="whatsapp-tab">
             <h3>📱 WhatsApp Contact</h3>
@@ -848,7 +869,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* My Courses Tab */}
+        {/* My Courses Tab - Updated for Firebase */}
         {activeTab === 'my-courses' && (
           <div className="courses-tab">
             <h3>My Courses</h3>
@@ -917,7 +938,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Manage Lessons Tab */}
+        {/* Manage Lessons Tab - Updated for Firebase */}
         {activeTab === 'manage-lessons' && (
           <div className="manage-lessons-tab">
             <h3>
@@ -1076,7 +1097,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Add Course Tab */}
+        {/* Add Course Tab - Updated for Firebase */}
         {activeTab === 'add-course' && (
           <div className="add-course-tab">
             <h3>Add New Course</h3>
@@ -1109,7 +1130,8 @@ const TeacherDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Course Key (auto-generated if empty)</label>
-                <input                  type="text"
+                <input
+                  type="text"
                   value={newCourseForm.key}
                   onChange={(e) => setNewCourseForm({...newCourseForm, key: e.target.value})}
                   placeholder="webDevelopment"
@@ -1120,7 +1142,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* ✅ Add Lesson Tab with File Upload */}
+        {/* Add Lesson Tab - Updated for Firebase with File Upload */}
         {activeTab === 'add-lesson' && (
           <div className="add-lesson-tab">
             <h3>Add New Lesson</h3>
@@ -1215,7 +1237,7 @@ const TeacherDashboard = () => {
                 />
               </div>
 
-              {/* ✅ Video Upload Section */}
+              {/* Video Upload Section - Firebase Storage */}
               <div className="video-upload-section">
                 <h4>📹 Upload Video (Optional)</h4>
                 <div className="form-group">
@@ -1238,7 +1260,7 @@ const TeacherDashboard = () => {
                     </label>
                   </div>
                   <small className="help-text">
-                    Max file size: 100MB • Supported formats: MP4, WebM, OGG, MOV, AVI
+                    Max file size: 100MB • Uploads to Firebase Storage
                   </small>
                 </div>
 
@@ -1275,7 +1297,7 @@ const TeacherDashboard = () => {
                 </div>
               </div>
 
-              {/* Quiz Section */}
+              {/* Quiz Section - Same as before */}
               <div className="quiz-section">
                 <div className="section-header">
                   <h4>Quiz Content (Optional)</h4>
@@ -1290,6 +1312,7 @@ const TeacherDashboard = () => {
 
                 {showQuizForm && (
                   <div className="quiz-form">
+                    {/* Quiz form content - same as before */}
                     <div className="form-group">
                       <label>Quiz Title</label>
                       <input
@@ -1415,13 +1438,13 @@ const TeacherDashboard = () => {
               </div>
 
               <button type="submit" className="submit-btn" disabled={isUploading}>
-                {isUploading ? 'Uploading...' : 'Add Lesson'}
+                {isUploading ? 'Uploading to Firebase...' : 'Add Lesson'}
               </button>
             </form>
           </div>
         )}
 
-        {/* ✅ Manage Multimedia Tab with File Upload */}
+        {/* Manage Multimedia Tab - Updated for Firebase */}
         {activeTab === 'manage-multimedia' && (
           <div className="manage-multimedia-tab">
             <h3>
@@ -1471,7 +1494,7 @@ const TeacherDashboard = () => {
                   <h4>Managing: {managingMultimedia.lesson.title}</h4>
                 </div>
 
-                {/* Add New Multimedia Form with File Upload */}
+                {/* Add New Multimedia Form with Firebase Upload */}
                 <div className="add-multimedia-form">
                   <h5>Add New Multimedia Content</h5>
                   <form onSubmit={handleAddMultimedia} className="teacher-form compact">
@@ -1521,7 +1544,7 @@ const TeacherDashboard = () => {
                         </label>
                       </div>
                       <small className="help-text">
-                        Max file size: 50MB • Supported formats vary by type
+                        Max file size: 50MB • Uploads to Firebase Storage
                       </small>
                     </div>
 
@@ -1564,7 +1587,7 @@ const TeacherDashboard = () => {
                     </div>
 
                     <button type="submit" className="submit-btn" disabled={isUploading}>
-                      {isUploading ? 'Uploading...' : 'Add Media'}
+                      {isUploading ? 'Uploading to Firebase...' : 'Add Media'}
                     </button>
                   </form>
                 </div>
@@ -1586,6 +1609,9 @@ const TeacherDashboard = () => {
                               <span>Type: {media.type}</span>
                               {media.fileName && <span>File: {media.fileName}</span>}
                               {media.fileSize && <span>Size: {(media.fileSize / (1024 * 1024)).toFixed(2)} MB</span>}
+                              {media.firebasePath && (
+                                <span className="firebase-path">📁 {media.firebasePath}</span>
+                              )}
                               {media.type === 'video' && (
                                 <div className="media-preview-video">
                                   <video controls style={{ maxWidth: '200px', maxHeight: '150px' }}>
