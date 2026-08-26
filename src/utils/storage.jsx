@@ -16,7 +16,7 @@ import {
   getTeacherWhatsAppUrl,
   getCurrentUser
 } from '../utils/storage';
-import './TeacherDashboard.css';
+
 
 const TeacherDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
