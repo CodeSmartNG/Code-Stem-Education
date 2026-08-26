@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   getTeacherCourses,
@@ -16,6 +17,11 @@ import {
   getTeacherWhatsAppUrl,
   getCurrentUser
 } from '../utils/storage';
+import './TeacherDashboard.css'; // ✅ ADD THIS BACK
+
+
+  // ... rest of your code
+
 
 
 const TeacherDashboard = () => {
