@@ -15,10 +15,14 @@ import {
   setDoc, 
   getDoc, 
   updateDoc,
-  deleteDoc 
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  onSnapshot
 } from 'firebase/firestore';
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCQ_sNo4XG16JS7waJ_TEkCrK8sc1A4gq0",
   authDomain: "stem-education-9c439.firebaseapp.com",
@@ -29,111 +33,75 @@ const firebaseConfig = {
   measurementId: "G-QJDV0V79YD"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 // ========================================
-// EMAIL CONFIRMATION FUNCTIONS
+// AUTH FUNCTIONS
 // ========================================
 
-// Register user with Firebase (sends verification email)
-export const registerUserWithFirebase = async (email, password, userData) => {
+export const registerUser = async (email, password, userData) => {
   try {
-    // 1. Create user in Firebase Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-
-    // 2. Send verification email
     await sendEmailVerification(user);
-
-    // 3. Save user data to Firestore
+    
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       email: email,
       name: userData.name || '',
       role: userData.role || 'student',
+      level: userData.level || 'Beginner',
       createdAt: new Date().toISOString(),
       isEmailVerified: false,
       ...userData
     });
-
-    // 4. Return user data for localStorage
-    return {
-      uid: user.uid,
-      email: user.email,
-      isEmailVerified: false,
-      ...userData
-    };
+    
+    return { user, userData };
   } catch (error) {
-    console.error('Firebase registration error:', error);
     throw error;
   }
 };
 
-// Check if email is verified
-export const checkEmailVerification = async (user) => {
-  try {
-    await user.reload();
-    return user.emailVerified;
-  } catch (error) {
-    console.error('Error checking email verification:', error);
-    return false;
-  }
-};
-
-// Resend verification email
-export const resendVerificationEmail = async (user) => {
-  try {
-    await sendEmailVerification(user);
-    return true;
-  } catch (error) {
-    console.error('Error resending verification email:', error);
-    throw error;
-  }
-};
-
-// Login with Firebase
-export const loginWithFirebase = async (email, password) => {
+export const loginUser = async (email, password) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-
-    // Check if email is verified
+    
     if (!user.emailVerified) {
       throw new Error('Please verify your email before logging in.');
     }
-
-    // Get user data from Firestore
+    
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     const userData = userDoc.exists() ? userDoc.data() : {};
-
-    return {
-      uid: user.uid,
-      email: user.email,
-      isEmailVerified: user.emailVerified,
-      ...userData
-    };
+    
+    return { ...user, ...userData };
   } catch (error) {
-    console.error('Firebase login error:', error);
     throw error;
   }
 };
 
-// Logout from Firebase
-export const logoutFromFirebase = async () => {
+export const logoutUser = async () => {
   try {
     await signOut(auth);
-    return true;
   } catch (error) {
-    console.error('Firebase logout error:', error);
     throw error;
   }
 };
 
-// Get current Firebase user
-export const getCurrentFirebaseUser = () => {
+export const resendVerification = async () => {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      await sendEmailVerification(user);
+    }
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getCurrentUser = () => {
   return new Promise((resolve) => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       unsubscribe();
@@ -143,33 +111,100 @@ export const getCurrentFirebaseUser = () => {
 };
 
 // ========================================
-// FIRESTORE DATA SYNC FUNCTIONS
+// FIRESTORE CRUD FUNCTIONS
 // ========================================
 
-// Sync user data from Firestore to localStorage
-export const syncUserDataToLocal = async (uid) => {
+export const getUserData = async (uid) => {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data();
-    }
-    return null;
+    const docRef = doc(db, 'users', uid);
+    const docSnap = await getDoc(docRef);
+    return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
-    console.error('Error syncing user data:', error);
-    return null;
+    throw error;
   }
 };
 
-// Update user data in Firestore
-export const updateUserDataInFirestore = async (uid, data) => {
+export const updateUserData = async (uid, data) => {
   try {
     await updateDoc(doc(db, 'users', uid), {
       ...data,
       updatedAt: new Date().toISOString()
     });
-    return true;
   } catch (error) {
-    console.error('Error updating user data in Firestore:', error);
+    throw error;
+  }
+};
+
+export const saveCourse = async (courseData) => {
+  try {
+    const docRef = doc(collection(db, 'courses'));
+    await setDoc(docRef, {
+      ...courseData,
+      id: docRef.id,
+      createdAt: new Date().toISOString()
+    });
+    return docRef.id;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getCourses = async (teacherId = null) => {
+  try {
+    let q = collection(db, 'courses');
+    if (teacherId) {
+      q = query(q, where('teacherId', '==', teacherId));
+    }
+    const querySnapshot = await getDocs(q);
+    const courses = [];
+    querySnapshot.forEach(doc => {
+      courses.push({ id: doc.id, ...doc.data() });
+    });
+    return courses;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const saveLesson = async (courseId, lessonData) => {
+  try {
+    const docRef = doc(collection(db, 'lessons'));
+    await setDoc(docRef, {
+      ...lessonData,
+      id: docRef.id,
+      courseId: courseId,
+      createdAt: new Date().toISOString()
+    });
+    return docRef.id;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getLessons = async (courseId) => {
+  try {
+    const q = query(collection(db, 'lessons'), where('courseId', '==', courseId));
+    const querySnapshot = await getDocs(q);
+    const lessons = [];
+    querySnapshot.forEach(doc => {
+      lessons.push({ id: doc.id, ...doc.data() });
+    });
+    return lessons;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const saveProgress = async (studentId, courseId, progressData) => {
+  try {
+    const docRef = doc(db, 'progress', `${studentId}_${courseId}`);
+    await setDoc(docRef, {
+      studentId,
+      courseId,
+      ...progressData,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
     throw error;
   }
 };
