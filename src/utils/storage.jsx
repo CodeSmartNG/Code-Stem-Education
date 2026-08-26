@@ -1,2888 +1,1630 @@
-// Local Storage utilities for STEM Platform
-// Version: 2.0 - Security & Bug Fixes with Firebase Integration
-
-// Keys for localStorage
-const STUDENT_KEY = 'hausaStem_students';
-const CURRENT_USER_KEY = 'hausaStem_currentUser';
-const COURSES_KEY = 'hausaStem_courses';
-const USERS_KEY = 'hausaStem_users';
-const EMAIL_CONFIRMATIONS_KEY = 'hausaStem_email_confirmations';
-const SESSION_TRACKING_KEY = 'hausaStem_session_tracking';
-const TEACHER_WALLETS_KEY = 'hausaStem_teacher_wallets';
-const PAYMENT_TRANSACTIONS_KEY = 'hausaStem_payment_transactions';
-const DATA_VERSION_KEY = 'hausaStem_data_version';
-const DATA_VERSION = '2.0';
-
-
-// src/utils/storage.jsx
-
-// ✅ Import Firebase functions directly from your firebase.js
+import React, { useState, useEffect } from 'react';
 import { 
-  auth,
-  registerUserWithFirebase,
-  checkEmailVerification,
-  resendVerificationEmail,
-  loginWithFirebase,
-  logoutFromFirebase,
-  getCurrentFirebaseUser,
-  syncUserDataToLocal,
-  updateUserDataInFirestore
-} from './firebase.js';
-
-// ==================== SIMPLE HASH FUNCTION ====================
-
-// Simple hash function for demo purposes
-// NOTE: This is NOT cryptographically secure. Use bcryptjs in production.
-const simpleHash = (password) => {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  const salt = 'STEM_SALT_2024';
-  const salted = password + salt + hash.toString();
-  let finalHash = '';
-  for (let i = 0; i < salted.length; i++) {
-    const code = salted.charCodeAt(i);
-    finalHash += code.toString(16);
-  }
-  return finalHash;
-};
-
-const hashPasswordSync = (password) => {
-  return simpleHash(password);
-};
-
-const hashPassword = async (password) => {
-  return simpleHash(password);
-};
-
-const comparePassword = async (password, hashedPassword) => {
-  const hash = simpleHash(password);
-  return hash === hashedPassword;
-};
-
-// ==================== VALIDATION FUNCTIONS ====================
-
-const validateEmail = (email) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-};
-
-const validatePassword = (password) => {
-  const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
-  return re.test(password);
-};
-
-const validateName = (name) => {
-  return name && name.trim().length >= 2;
-};
-
-// ==================== DATA MIGRATION ====================
-
-const migrateData = () => {
-  const currentVersion = localStorage.getItem(DATA_VERSION_KEY);
-  if (currentVersion !== DATA_VERSION) {
-    console.log('🔄 Migrating data from version', currentVersion, 'to', DATA_VERSION);
-    if (!currentVersion || currentVersion === '1.0') {
-      migrateFromV1ToV2();
-    }
-    localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
-    console.log('✅ Data migration complete');
-  }
-};
-
-const migrateFromV1ToV2 = () => {
-  try {
-    const users = getUsers() || {};
-    const students = getStudents() || [];
-
-    Object.values(users).forEach(user => {
-      if (!user.hasOwnProperty('isEmailConfirmed')) {
-        user.isEmailConfirmed = true;
-      }
-      if (user.role === 'student' && !user.userId) {
-        user.userId = user.id;
-      }
-    });
-
-    students.forEach(student => {
-      if (!users[student.id] && student.role === 'student') {
-        users[student.id] = {
-          ...student,
-          userId: student.id,
-          isEmailConfirmed: student.isEmailConfirmed || true
-        };
-      }
-    });
-
-    saveUsers(users);
-    console.log('✅ Migration from V1 to V2 completed');
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
-  }
-};
-
-// ==================== INITIALIZATION ====================
-
-const initializeStorage = () => {
-  console.log('🔄 Initializing Storage...');
-  migrateData();
-
-  const existingStudents = getStudents() || [];
-  const existingCourses = getCourses() || {};
-  const existingUsers = getUsers() || {};
-
-  console.log('Existing users:', Object.keys(existingUsers).length);
-  console.log('Existing students:', existingStudents.length);
-  console.log('Existing courses:', Object.keys(existingCourses).length);
-
-  const users = getUsers() || {};
-  let needsSave = false;
-
-  // Create admin user if missing
-  if (!users['admin1']) {
-    console.log('🛠 Creating admin user...');
-    users['admin1'] = {
-      id: 'admin1',
-      name: "Kabir Alkasim",
-      email: "codesmartng1@gmail.com",
-      password: hashPasswordSync("Kb1217@#$%&"),
-      role: "admin",
-      isEmailConfirmed: true,
-      joinedDate: new Date().toISOString()
-    };
-    needsSave = true;
-  } else if (users['admin1'].email !== 'codesmartng1@gmail.com') {
-    console.log('🛠 Updating admin user email...');
-    users['admin1'].email = "codesmartng1@gmail.com";
-    users['admin1'].isEmailConfirmed = true;
-    needsSave = true;
-  }
-
-  // Create teacher user if missing
-  if (!users['teacher1'] || users['teacher1'].email !== 'kabir@teacher.com') {
-    console.log('🛠 Creating teacher user...');
-    users['teacher1'] = {
-      id: 'teacher1',
-      name: "Kabir Teacher",
-      email: "kabir@teacher.com",
-      password: hashPasswordSync("121712"),
-      role: "teacher",
-      specialization: "Computer Science",
-      bio: "Experienced teacher in web development and programming",
-      joinedDate: new Date().toISOString(),
-      courses: ['webDevelopment', 'python', 'mathematics'],
-      isApproved: true,
-      isEmailConfirmed: true,
-      approvedDate: new Date().toISOString(),
-      whatsappNumber: '2348012345678'
-    };
-    needsSave = true;
-  }
-
-  // Create student user if missing
-  if (!users['student1'] || users['student1'].email !== 'student@example.com') {
-    console.log('🛠 Creating student user...');
-    users['student1'] = {
-      id: 'student1',
-      name: "Ahmad Musa",
-      email: "student@example.com",
-      password: hashPasswordSync("password123"),
-      role: "student",
-      level: "Beginner",
-      progress: {},
-      completedLessons: [],
-      completedCourses: [],
-      points: 0,
-      badges: [],
-      enrolledCourses: [],
-      isEmailConfirmed: true,
-      joinedDate: new Date().toISOString(),
-      purchasedLessons: [],
-      paymentHistory: [],
-      quizResults: [],
-      certificates: [],
-      enrolledCoursesDate: {}
-    };
-    needsSave = true;
-  }
-
-  if (needsSave) {
-    console.log('💾 Saving updated users...');
-    saveUsers(users);
-  }
-
-  // Initialize students array for backward compatibility
-  if (existingStudents.length === 0) {
-    console.log('🛠 Creating default students...');
-    const defaultStudents = [
-      {
-        id: 1,
-        userId: 'student1',
-        name: "Ahmad Musa",
-        email: "student@example.com",
-        password: hashPasswordSync("password123"),
-        role: "student",
-        level: "Beginner",
-        progress: {},
-        completedLessons: [],
-        completedCourses: [],
-        points: 0,
-        badges: [],
-        enrolledCourses: [],
-        isEmailConfirmed: true,
-        joinedDate: new Date().toISOString(),
-        purchasedLessons: [],
-        paymentHistory: [],
-        quizResults: [],
-        certificates: [],
-        enrolledCoursesDate: {}
-      }
-    ];
-    saveStudents(defaultStudents);
-  }
-
-  // Initialize courses
-  if (Object.keys(existingCourses).length === 0) {
-    console.log('🛠 Creating default courses...');
-    saveCourses(getDefaultCourses());
-  }
-
-  // Initialize teacher wallets
-  initializeTeacherWallets();
-
-  console.log('✅ Storage initialization complete');
-  debugStorage();
-};
-
-// ==================== USER MANAGEMENT ====================
-
-const getUsers = () => {
-  try {
-    const users = localStorage.getItem(USERS_KEY);
-    return users ? JSON.parse(users) : {};
-  } catch (error) {
-    console.error('Error loading users:', error);
-    return {};
-  }
-};
-
-const saveUsers = (users) => {
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  } catch (error) {
-    console.error('Error saving users:', error);
-  }
-};
-
-const getAllUsers = () => {
-  const users = getUsers() || {};
-  return Object.values(users);
-};
-
-const getUserById = (userId) => {
-  const users = getUsers() || {};
-  return users[userId] || null;
-};
-
-// ==================== AUTHENTICATION (with Firebase) ====================
-
-const authenticateUser = async (email, password) => {
-  const users = getUsers() || {};
-
-  console.log('🔐 Authentication Attempt:', { email });
-
-  try {
-    // ✅ Try Firebase login first (for users registered with Firebase)
-    let firebaseUser;
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      firebaseUser = userCredential.user;
-      console.log('✅ Firebase login successful:', firebaseUser.uid);
-    } catch (firebaseError) {
-      console.log('Firebase login failed, trying local login...');
-      firebaseUser = null;
-    }
-
-    // If Firebase login succeeded, check local user
-    if (firebaseUser) {
-      // Check email verification
-      if (!firebaseUser.emailVerified) {
-        throw new Error('Please verify your email before logging in. Check your inbox for the confirmation link.');
-      }
-
-      // Find or create local user
-      let localUser = Object.values(users).find(
-        user => user.firebaseUid === firebaseUser.uid
-      );
-
-      if (!localUser) {
-        // Create local user record if not exists
-        const newUserId = `student_${Date.now()}`;
-        localUser = {
-          id: newUserId,
-          firebaseUid: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Student',
-          email: firebaseUser.email,
-          role: 'student',
-          isEmailConfirmed: firebaseUser.emailVerified,
-          joinedDate: new Date().toISOString(),
-          level: 'Beginner',
-          progress: {},
-          completedLessons: [],
-          completedCourses: [],
-          points: 0,
-          badges: [],
-          enrolledCourses: [],
-          purchasedLessons: [],
-          paymentHistory: [],
-          quizResults: [],
-          certificates: [],
-          enrolledCoursesDate: {}
-        };
-        users[newUserId] = localUser;
-        saveUsers(users);
-      } else {
-        // Update email confirmation status
-        localUser.isEmailConfirmed = firebaseUser.emailVerified;
-        updateUser(localUser.id, localUser);
-      }
-
-      // Set current user
-      setCurrentUser(localUser);
-      resetSession();
-      console.log('✅ Login Successful (Firebase):', localUser.role);
-      return localUser;
-    }
-
-    // ✅ If Firebase fails, try local login (for admin/teacher accounts)
-    const localUser = Object.values(users).find(
-      user => user.email === email
-    );
-
-    if (!localUser) {
-      console.log('❌ Login Failed: User not found');
-      return null;
-    }
-
-    const isValidPassword = await comparePassword(password, localUser.password);
-    if (!isValidPassword) {
-      console.log('❌ Login Failed: Invalid password');
-      return null;
-    }
-
-    // Check email confirmation for local users
-    if (localUser.role !== 'admin' && !localUser.isEmailConfirmed) {
-      throw new Error('Please confirm your email before logging in. Check your inbox for the confirmation link.');
-    }
-
-    // Check teacher approval
-    if (localUser.role === 'teacher' && !localUser.isApproved) {
-      throw new Error('Your teacher account is pending admin approval.');
-    }
-
-    setCurrentUser(localUser);
-    resetSession();
-    console.log('✅ Login Successful (Local):', localUser.role);
-    return localUser;
-
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    throw error;
-  }
-};
-
-const getCurrentUser = () => {
-  try {
-    const user = localStorage.getItem(CURRENT_USER_KEY);
-    return user ? JSON.parse(user) : null;
-  } catch (error) {
-    console.error('Error loading current user:', error);
-    return null;
-  }
-};
-
-const setCurrentUser = (user) => {
-  try {
-    if (user) {
-      const { password, ...userWithoutPassword } = user;
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userWithoutPassword));
-      updateLastActivity();
-    } else {
-      localStorage.removeItem(CURRENT_USER_KEY);
-    }
-  } catch (error) {
-    console.error('Error saving current user:', error);
-  }
-};
-
-const logoutUser = async () => {
-  try {
-    // ✅ Logout from Firebase
-    await signOut(auth);
-    console.log('✅ Firebase logout successful');
-  } catch (error) {
-    console.warn('Firebase logout warning:', error.message);
-  }
-  
-  clearSession();
-  localStorage.removeItem(CURRENT_USER_KEY);
-  console.log('✅ Local logout successful');
-};
-
-// ==================== USER REGISTRATION (with Firebase) ====================
-
-const registerUser = async (userData) => {
-  // Validate input
-  if (!validateName(userData.name)) {
-    throw new Error('Name must be at least 2 characters long');
-  }
-
-  if (!validateEmail(userData.email)) {
-    throw new Error('Invalid email format');
-  }
-
-  if (!validatePassword(userData.password)) {
-    throw new Error('Password must be at least 8 characters with 1 uppercase, 1 lowercase, and 1 number');
-  }
-
-  const users = getUsers() || {};
-
-  // Check if email already exists locally
-  const existingUser = Object.values(users).find(
-    user => user.email === userData.email
-  );
-
-  if (existingUser) {
-    throw new Error('Email already registered');
-  }
-
-  try {
-    // ✅ Register with Firebase using your firebase.js function
-    console.log('📧 Registering with Firebase...');
-    const firebaseUser = await registerUserWithFirebase(
-      userData.email,
-      userData.password,
-      {
-        name: userData.name,
-        role: userData.role || 'student',
-        level: userData.level || 'Beginner'
-      }
-    );
-    console.log('📧 Verification email sent to:', userData.email);
-
-    // Hash password for local storage
-    const hashedPassword = await hashPassword(userData.password);
-
-    // Generate unique user ID
-    const userId = `${userData.role}_${Date.now()}`;
-
-    const newUser = {
-      id: userId,
-      firebaseUid: firebaseUser.uid,
-      name: userData.name,
-      email: userData.email,
-      password: hashedPassword,
-      role: userData.role,
-      isEmailConfirmed: false,
-      joinedDate: new Date().toISOString()
-    };
-
-    // Add role-specific fields
-    if (userData.role === 'teacher') {
-      newUser.specialization = userData.specialization || 'General';
-      newUser.bio = userData.bio || '';
-      newUser.courses = [];
-      newUser.isApproved = false;
-      newUser.profileImage = userData.profileImage || '';
-      newUser.whatsappNumber = userData.whatsappNumber || '';
-      newUser.earnings = 0;
-    } else if (userData.role === 'student') {
-      newUser.level = userData.level || 'Beginner';
-      newUser.progress = {};
-      newUser.completedLessons = [];
-      newUser.completedCourses = [];
-      newUser.points = 0;
-      newUser.badges = [];
-      newUser.enrolledCourses = [];
-      newUser.purchasedLessons = [];
-      newUser.paymentHistory = [];
-      newUser.quizResults = [];
-      newUser.certificates = [];
-      newUser.enrolledCoursesDate = {};
-
-      // Also add to students array
-      const students = getStudents() || [];
-      const newStudentId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-      const newStudent = {
-        id: newStudentId,
-        userId: userId,
-        firebaseUid: firebaseUser.uid,
-        name: userData.name,
-        email: userData.email,
-        password: hashedPassword,
-        role: 'student',
-        level: userData.level || 'Beginner',
-        progress: {},
-        completedLessons: [],
-        completedCourses: [],
-        points: 0,
-        badges: [],
-        enrolledCourses: [],
-        isEmailConfirmed: false,
-        joinedDate: new Date().toISOString(),
-        purchasedLessons: [],
-        paymentHistory: [],
-        quizResults: [],
-        certificates: [],
-        enrolledCoursesDate: {}
-      };
-      saveStudents([...students, newStudent]);
-    }
-
-    // Add to users
-    users[userId] = newUser;
-    saveUsers(users);
-
-    console.log('✅ New user registered with Firebase and localStorage:', userId);
-    return { user: newUser, confirmationToken: 'firebase_verification_sent' };
-  } catch (firebaseError) {
-    console.error('Firebase registration error:', firebaseError);
-    
-    if (firebaseError.code === 'auth/email-already-in-use') {
-      throw new Error('Email already registered in Firebase. Please login instead.');
-    } else {
-      throw new Error(firebaseError.message || 'Registration failed. Please try again.');
-    }
-  }
-};
-
-// ==================== EMAIL CONFIRMATION (Firebase) ====================
-
-// ✅ Re-export Firebase functions from storage.jsx
-// This way, other parts of your app import from storage.jsx only
-
-const confirmUserEmail = async (token) => {
-  try {
-    // Get current Firebase user
-    const user = await getCurrentFirebaseUser();
-    if (!user) {
-      throw new Error('No user found. Please log in again.');
-    }
-    
-    // Check verification status
-    const isVerified = await checkEmailVerification(user);
-    
-    if (isVerified) {
-      // Update local user status
-      const users = getUsers() || {};
-      const localUser = Object.values(users).find(
-        u => u.firebaseUid === user.uid
-      );
-      if (localUser) {
-        localUser.isEmailConfirmed = true;
-        updateUser(localUser.id, localUser);
-        
-        // Also update in students array if student
-        if (localUser.role === 'student') {
-          const students = getStudents() || [];
-          const studentIndex = students.findIndex(s => s.userId === localUser.id || s.firebaseUid === user.uid);
-          if (studentIndex !== -1) {
-            students[studentIndex].isEmailConfirmed = true;
-            saveStudents(students);
-          }
-        }
-      }
-      return { success: true, message: 'Email verified successfully!' };
-    } else {
-      return { success: false, message: 'Email not verified yet. Please check your inbox.' };
-    }
-  } catch (error) {
-    console.error('Error confirming email:', error);
-    throw error;
-  }
-};
-
-const resendEmailConfirmation = async (email) => {
-  try {
-    const user = await getCurrentFirebaseUser();
-    if (!user) {
-      throw new Error('No user found. Please log in again.');
-    }
-    
-    const result = await resendVerificationEmail(user);
-    if (result) {
-      return { success: true, message: 'Verification email resent successfully!' };
-    } else {
-      throw new Error('Failed to resend verification email.');
-    }
-  } catch (error) {
-    console.error('Error resending verification email:', error);
-    throw error;
-  }
-};
-
-// ==================== STUDENT MANAGEMENT ====================
-
-const getStudents = () => {
-  try {
-    const students = localStorage.getItem(STUDENT_KEY);
-    return students ? JSON.parse(students) : [];
-  } catch (error) {
-    console.error('Error loading students:', error);
-    return [];
-  }
-};
-
-const saveStudents = (students) => {
-  try {
-    localStorage.setItem(STUDENT_KEY, JSON.stringify(students));
-  } catch (error) {
-    console.error('Error saving students:', error);
-  }
-};
-
-const getStudentById = (id) => {
-  // First try to get from users
-  const users = getUsers() || {};
-  const user = users[id];
-  if (user && user.role === 'student') {
-    return user;
-  }
-
-  // Fallback to students array
-  const students = getStudents() || [];
-  return students.find(student => student.id === id || student.userId === id);
-};
-
-const updateStudent = (updatedStudent) => {
-  // Update in users
-  const users = getUsers() || {};
-  const userId = updatedStudent.userId || updatedStudent.id;
-
-  if (users[userId] && users[userId].role === 'student') {
-    const { password, ...userWithoutPassword } = updatedStudent;
-    users[userId] = { ...users[userId], ...userWithoutPassword };
-    saveUsers(users);
-  }
-
-  // Update in students array for backward compatibility
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student =>
-    student.id === updatedStudent.id || student.userId === userId
-      ? { ...student, ...updatedStudent }
-      : student
-  );
-  saveStudents(updatedStudents);
-
-  // Update current user if it's the same student
-  const currentUser = getCurrentUser();
-  if (currentUser && (currentUser.id === userId || currentUser.id === updatedStudent.id)) {
-    setCurrentUser(updatedStudent);
-  }
-
-  return updatedStudent;
-};
-
-const addStudent = (newStudent) => {
-  const students = getStudents() || [];
-  const newId = students.length > 0 ? Math.max(...students.map(s => s.id)) + 1 : 1;
-  const studentWithId = {
-    ...newStudent,
-    id: newId,
-    joinedDate: new Date().toISOString()
-  };
-
-  saveStudents([...students, studentWithId]);
-  return studentWithId;
-};
-
-// ==================== TEACHER MANAGEMENT ====================
-
-const registerTeacher = (teacherData) => {
-  return registerUser({
-    ...teacherData,
-    role: 'teacher'
-  });
-};
-
-const getAllTeachers = () => {
-  const users = getUsers() || {};
-  return Object.values(users).filter(user => user.role === 'teacher');
-};
-
-const getPendingTeachers = () => {
-  const teachers = getAllTeachers();
-  return teachers.filter(teacher => !teacher.isApproved);
-};
-
-const getApprovedTeachers = () => {
-  const teachers = getAllTeachers();
-  return teachers.filter(teacher => teacher.isApproved);
-};
-
-const approveTeacher = (teacherId) => {
-  const users = getUsers() || {};
-
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-
-  users[teacherId].isApproved = true;
-  users[teacherId].approvedDate = new Date().toISOString();
-
-  saveUsers(users);
-  console.log('✅ Teacher approved:', teacherId);
-  return users[teacherId];
-};
-
-const rejectTeacher = (teacherId) => {
-  const users = getUsers() || {};
-
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-
-  delete users[teacherId];
-  saveUsers(users);
-
-  console.log('❌ Teacher rejected:', teacherId);
-  return true;
-};
-
-const dismissTeacher = (teacherId) => {
-  const users = getUsers() || {};
-
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-
-  users[teacherId].isApproved = false;
-  users[teacherId].dismissedDate = new Date().toISOString();
-
-  saveUsers(users);
-  console.log('🚫 Teacher dismissed:', teacherId);
-  return users[teacherId];
-};
-
-const updateTeacherProfile = (teacherId, profileData) => {
-  const users = getUsers() || {};
-
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-
-  users[teacherId] = {
-    ...users[teacherId],
-    ...profileData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveUsers(users);
-  
-  const currentUser = getCurrentUser();
-  if (currentUser && currentUser.id === teacherId) {
-    setCurrentUser(users[teacherId]);
-  }
-  
-  return users[teacherId];
-};
-
-const updateTeacherProfileWithWhatsApp = (teacherId, profileData) => {
-  const users = getUsers() || {};
-  
-  if (!users[teacherId] || users[teacherId].role !== 'teacher') {
-    throw new Error('Teacher not found');
-  }
-  
-  if (profileData.whatsappNumber) {
-    profileData.whatsappNumber = profileData.whatsappNumber.replace(/\D/g, '');
-  }
-  
-  users[teacherId] = {
-    ...users[teacherId],
-    ...profileData,
-    updatedAt: new Date().toISOString()
-  };
-  
-  saveUsers(users);
-  
-  const currentUser = getCurrentUser();
-  if (currentUser && currentUser.id === teacherId) {
-    setCurrentUser(users[teacherId]);
-  }
-  
-  return users[teacherId];
-};
-
-const getTeacherById = (teacherId) => {
-  const users = getUsers() || {};
-  const teacher = users[teacherId];
-
-  if (!teacher || teacher.role !== 'teacher') {
-    return null;
-  }
-
-  return teacher;
-};
-
-const getTeacherWhatsAppUrl = (teacherId) => {
-  const users = getUsers() || {};
-  const teacher = users[teacherId];
-
-  if (!teacher || !teacher.whatsappNumber) {
-    return null;
-  }
-
-  const whatsappNumber = teacher.whatsappNumber.replace(/\D/g, '');
-  const message = `Hello ${teacher.name}! I found you on the STEM Learning Platform and would like to learn more about your courses.`;
-
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-};
-
-const getTeacherCourses = (teacherId) => {
-  const courses = getCourses() || {};
-
-  if (!teacherId) {
-    console.log('No teacher ID found, returning all courses for demo');
-    return courses;
-  }
-
-  return Object.fromEntries(
-    Object.entries(courses).filter(([key, course]) => course.teacherId === teacherId)
-  );
-};
-
-const getTeacherStats = (teacherId) => {
-  const teacherCourses = getTeacherCourses(teacherId);
-  const allStudents = getStudents() || [];
-
-  const totalCourses = Object.keys(teacherCourses).length;
-  const totalLessons = Object.values(teacherCourses).reduce(
-    (acc, course) => acc + (course.lessons?.length || 0), 0
-  );
-
-  const teacherCourseKeys = Object.keys(teacherCourses);
-  const totalStudents = allStudents.filter(student =>
-    student.enrolledCourses?.some(courseKey =>
-      teacherCourseKeys.includes(courseKey)
-    )
-  ).length;
-
-  let totalCompletions = 0;
-  let totalPossibleCompletions = 0;
-
-  allStudents.forEach(student => {
-    teacherCourseKeys.forEach(courseKey => {
-      if (student.enrolledCourses?.includes(courseKey)) {
-        totalPossibleCompletions++;
-        if (student.completedCourses?.includes(courseKey)) {
-          totalCompletions++;
-        }
-      }
-    });
-  });
-
-  const averageCompletionRate = totalPossibleCompletions > 0
-    ? Math.round((totalCompletions / totalPossibleCompletions) * 100)
-    : 0;
-
-  const paymentStats = getTeacherPaymentStats(teacherId);
-
-  return {
-    totalCourses,
-    totalLessons,
-    totalStudents,
-    averageCompletionRate,
-    totalEarnings: paymentStats.totalEarnings,
-    availableBalance: paymentStats.availableBalance,
-    monthlyEarnings: paymentStats.monthlyEarnings,
-    totalSales: paymentStats.totalSales,
-    recentActivity: [
-      {
-        type: 'course',
-        title: 'New Course Created',
-        description: 'You created a new course',
-        date: new Date().toISOString()
-      },
-      {
-        type: 'lesson',
-        title: 'Lesson Updated',
-        description: 'You updated a lesson',
-        date: new Date(Date.now() - 86400000).toISOString()
-      }
-    ]
-  };
-};
-
-const getCurrentTeacherId = () => {
-  const currentUser = getCurrentUser();
-  return currentUser && currentUser.role === 'teacher' ? currentUser.id : null;
-};
-
-// ==================== COURSE MANAGEMENT ====================
-
-const getCourses = () => {
-  try {
-    const courses = localStorage.getItem(COURSES_KEY);
-    return courses ? JSON.parse(courses) : {};
-  } catch (error) {
-    console.error('Error loading courses:', error);
-    return {};
-  }
-};
-
-const saveCourses = (courses) => {
-  try {
-    localStorage.setItem(COURSES_KEY, JSON.stringify(courses));
-  } catch (error) {
-    console.error('Error saving courses:', error);
-  }
-};
-
-const getCourseByKey = (courseKey) => {
-  const courses = getCourses() || {};
-  return courses[courseKey] || null;
-};
-
-const generateCourseKey = (title) => {
-  return title.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-};
-
-const addNewCourse = (courseData) => {
-  const courses = getCourses() || {};
-  const courseKey = courseData.key || generateCourseKey(courseData.title);
-
-  if (courses[courseKey]) {
-    throw new Error('Course with this key already exists');
-  }
-
-  const teacherId = getCurrentTeacherId();
-
-  courses[courseKey] = {
-    ...courseData,
-    key: courseKey,
-    teacherId: teacherId,
-    lessons: courseData.lessons || [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  saveCourses(courses);
-  return courseKey;
-};
-
-const addNewCourseWithTeacher = (courseData, teacherId) => {
-  const courses = getCourses() || {};
-  const users = getUsers() || {};
-
-  const courseKey = courseData.key || generateCourseKey(courseData.title);
-
-  if (courses[courseKey]) {
-    throw new Error('Course with this key already exists');
-  }
-
-  const teacher = users[teacherId];
-  if (!teacher || teacher.role !== 'teacher' || !teacher.isApproved) {
-    throw new Error('Teacher not found or not approved');
-  }
-
-  courses[courseKey] = {
-    ...courseData,
-    key: courseKey,
-    teacherId: teacherId,
-    teacherName: teacher.name,
-    lessons: courseData.lessons || [],
-    isPublished: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  if (!teacher.courses) {
-    teacher.courses = [];
-  }
-  teacher.courses.push(courseKey);
-  users[teacherId] = teacher;
-
-  saveCourses(courses);
-  saveUsers(users);
-
-  return courseKey;
-};
-
-const updateCourse = (courseKey, courseData) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey] = {
-    ...courses[courseKey],
-    ...courseData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveCourses(courses);
-  return courses[courseKey];
-};
-
-const deleteCourse = (courseKey) => {
-  const courses = getCourses() || {};
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  const teacherId = courses[courseKey].teacherId;
-  if (teacherId) {
-    const users = getUsers() || {};
-    const teacher = users[teacherId];
-    if (teacher && teacher.courses) {
-      teacher.courses = teacher.courses.filter(course => course !== courseKey);
-      saveUsers(users);
-    }
-  }
-
-  const updatedCourses = { ...courses };
-  delete updatedCourses[courseKey];
-  saveCourses(updatedCourses);
-  return true;
-};
-
-const approveCourse = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey].isPublished = true;
-  courses[courseKey].approvedDate = new Date().toISOString();
-
-  saveCourses(courses);
-  return courses[courseKey];
-};
-
-// ==================== LESSON MANAGEMENT ====================
-
-const getLessons = (courseKey) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    console.warn(`Course "${courseKey}" not found`);
-    return [];
-  }
-
-  return course.lessons || [];
-};
-
-const getLessonById = (courseKey, lessonId) => {
-  const course = getCourseByKey(courseKey);
-  if (!course) return null;
-
-  return course.lessons.find(lesson => lesson.id === lessonId) || null;
-};
-
-const addLessonToCourse = (courseKey, lessonData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const newLessonId = course.lessons.length > 0
-    ? Math.max(...course.lessons.map(l => l.id)) + 1
-    : 1;
-
-  const newLesson = {
-    id: newLessonId,
-    ...lessonData,
-    createdAt: new Date().toISOString()
-  };
-
-  course.lessons.push(newLesson);
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return newLesson;
-};
-
-const updateLesson = (courseKey, lessonId, lessonData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lessonIndex = course.lessons.findIndex(l => l.id === lessonId);
-  if (lessonIndex === -1) {
-    throw new Error('Lesson not found');
-  }
-
-  course.lessons[lessonIndex] = {
-    ...course.lessons[lessonIndex],
-    ...lessonData,
-    updatedAt: new Date().toISOString()
-  };
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return course.lessons[lessonIndex];
-};
-
-const deleteLesson = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  course.lessons = course.lessons.filter(lesson => lesson.id !== lessonId);
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return course;
-};
-
-// ==================== LESSON PURCHASE FUNCTIONS ====================
-
-const purchaseLesson = async (studentId, courseKey, lessonId, paymentData = null) => {
-  try {
-    const users = getUsers();
-    const user = users[studentId];
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    if (!user.purchasedLessons) {
-      user.purchasedLessons = [];
-    }
-
-    if (!user.paymentHistory) {
-      user.paymentHistory = [];
-    }
-
-    const purchaseKey = `${courseKey}_${lessonId}`;
-    if (!user.purchasedLessons.includes(purchaseKey)) {
-      user.purchasedLessons.push(purchaseKey);
-    }
-
-    if (paymentData) {
-      user.paymentHistory.push({
-        paymentId: paymentData.id || `manual_${Date.now()}`,
-        amount: paymentData.amount || 0,
-        lessonId: lessonId,
-        courseKey: courseKey,
-        gateway: paymentData.gateway || 'manual',
-        timestamp: paymentData.date || new Date().toISOString(),
-        status: 'completed'
-      });
-    }
-
-    users[studentId] = user;
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-    const currentUser = getCurrentUser();
-    if (currentUser && currentUser.id === studentId) {
-      setCurrentUser(user);
-    }
-
-    console.log('✅ Lesson purchase processed:', purchaseKey);
-    return true;
-
-  } catch (error) {
-    console.error('Error purchasing lesson:', error);
-    return false;
-  }
-};
-
-// ==================== LESSON ACCESS CHECK ====================
-
-const canAccessLesson = (studentId, courseKey, lessonId) => {
-  try {
-    const users = getUsers();
-    const user = users[studentId];
-
-    if (!user) return false;
-
-    // Admins and teachers have access to everything
-    if (user.role === 'admin' || user.role === 'teacher') {
-      return true;
-    }
-
-    // Check if lesson is free
-    const course = getCourseByKey(courseKey);
-    if (course) {
-      const lesson = course.lessons.find(l => l.id === lessonId);
-      if (lesson && lesson.isFree) {
-        return true;
-      }
-    }
-
-    // Check if lesson is purchased
-    const purchaseKey = `${courseKey}_${lessonId}`;
-    return user.purchasedLessons && user.purchasedLessons.includes(purchaseKey);
-
-  } catch (error) {
-    console.error('Error checking lesson access:', error);
-    return false;
-  }
-};
-
-const hasStudentPurchasedLesson = (studentId, courseKey, lessonId) => {
-  const student = getStudentById(studentId);
-  if (!student || !student.purchasedLessons) {
-    return false;
-  }
-
-  const purchaseKey = `${courseKey}_${lessonId}`;
-  return student.purchasedLessons.includes(purchaseKey);
-};
-
-// ==================== LESSON LOCK MANAGEMENT ====================
-
-const toggleLessonLock = (courseKey, lessonId, isLocked) => {
-  try {
-    const courses = getCourses() || {};
-    if (!courses[courseKey]) {
-      throw new Error('Course not found');
-    }
-
-    const course = courses[courseKey];
-    const lessonIndex = course.lessons.findIndex(lesson => lesson.id === lessonId);
-
-    if (lessonIndex === -1) {
-      throw new Error('Lesson not found');
-    }
-
-    course.lessons[lessonIndex].isLocked = isLocked;
-    course.updatedAt = new Date().toISOString();
-
-    saveCourses(courses);
-
-    console.log(`✅ Lesson ${lessonId} in course ${courseKey} ${isLocked ? 'locked' : 'unlocked'}`);
-    return true;
-  } catch (error) {
-    console.error('Error toggling lesson lock:', error);
-    throw error;
-  }
-};
-
-const getLockedLessonsCount = (courseKey) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course || !course.lessons) {
-    return 0;
-  }
-
-  return course.lessons.filter(lesson => lesson.isLocked).length;
-};
-
-const getLockedLessonsForStudent = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!student || !course) {
-    return [];
-  }
-
-  return course.lessons
-    .filter(lesson => lesson.isLocked)
-    .map(lesson => ({
-      courseKey,
-      lessonId: lesson.id,
-      lessonTitle: lesson.title,
-      isLocked: true
-    }));
-};
-
-const isLessonAccessible = (studentId, courseKey, lessonId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!student || !course) {
-    return false;
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    return false;
-  }
-
-  if (lesson.isFree) {
-    return true;
-  }
-
-  return hasStudentPurchasedLesson(studentId, courseKey, lessonId);
-};
-
-// ==================== TEACHER WALLET & PAYMENT ====================
-
-const initializeTeacherWallets = () => {
-  const wallets = getTeacherWallets();
-  const teachers = getAllTeachers();
-
-  teachers.forEach(teacher => {
-    if (!wallets[teacher.id]) {
-      wallets[teacher.id] = {
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        balance: 0,
-        totalEarnings: 0,
-        pendingWithdrawals: 0,
-        transactions: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-    }
-  });
-
-  saveTeacherWallets(wallets);
-};
-
-const getTeacherWallets = () => {
-  try {
-    const wallets = localStorage.getItem(TEACHER_WALLETS_KEY);
-    return wallets ? JSON.parse(wallets) : {};
-  } catch (error) {
-    console.error('Error loading teacher wallets:', error);
-    return {};
-  }
-};
-
-const saveTeacherWallets = (wallets) => {
-  try {
-    localStorage.setItem(TEACHER_WALLETS_KEY, JSON.stringify(wallets));
-  } catch (error) {
-    console.error('Error saving teacher wallets:', error);
-  }
-};
-
-const getTeacherWallet = (teacherId) => {
-  const wallets = getTeacherWallets();
-  return wallets[teacherId] || {
-    teacherId: teacherId,
-    teacherName: '',
-    balance: 0,
-    totalEarnings: 0,
-    pendingWithdrawals: 0,
-    transactions: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-};
-
-const updateTeacherWallet = (teacherId, walletData) => {
-  const wallets = getTeacherWallets();
-  const currentWallet = getTeacherWallet(teacherId);
-
-  wallets[teacherId] = {
-    ...currentWallet,
-    ...walletData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveTeacherWallets(wallets);
-  return wallets[teacherId];
-};
-
-const addTeacherEarnings = (teacherId, amount, description, lessonDetails = {}) => {
-  const wallet = getTeacherWallet(teacherId);
-
-  const transaction = {
-    id: `txn_${Date.now()}`,
-    type: 'credit',
-    amount: amount,
-    description: description,
-    lessonDetails: lessonDetails,
-    date: new Date().toISOString(),
-    status: 'completed'
-  };
-
-  const updatedWallet = {
-    ...wallet,
-    balance: wallet.balance + amount,
-    totalEarnings: wallet.totalEarnings + amount,
-    transactions: [transaction, ...wallet.transactions]
-  };
-
-  return updateTeacherWallet(teacherId, updatedWallet);
-};
-
-const withdrawFromWallet = (teacherId, amount, bankDetails) => {
-  const wallet = getTeacherWallet(teacherId);
-
-  if (wallet.balance < amount) {
-    throw new Error('Insufficient balance for withdrawal');
-  }
-
-  if (amount < 100) {
-    throw new Error('Minimum withdrawal amount is ₦100');
-  }
-
-  const transaction = {
-    id: `withdraw_${Date.now()}`,
-    type: 'debit',
-    amount: amount,
-    description: `Withdrawal to ${bankDetails.bankName}`,
-    bankDetails: bankDetails,
-    date: new Date().toISOString(),
-    status: 'pending'
-  };
-
-  const updatedWallet = {
-    ...wallet,
-    balance: wallet.balance - amount,
-    pendingWithdrawals: wallet.pendingWithdrawals + amount,
-    transactions: [transaction, ...wallet.transactions]
-  };
-
-  return updateTeacherWallet(teacherId, updatedWallet);
-};
-
-const getTeacherPaymentStats = (teacherId) => {
-  const wallet = getTeacherWallet(teacherId);
-  const transactions = getPaymentTransactions();
-
-  const teacherTransactions = Object.values(transactions).filter(
-    transaction => transaction.teacherId === teacherId && transaction.status === 'completed'
-  );
-
-  const monthlyEarnings = teacherTransactions
-    .filter(txn => {
-      const txnDate = new Date(txn.date);
-      const currentMonth = new Date();
-      return txnDate.getMonth() === currentMonth.getMonth() &&
-             txnDate.getFullYear() === currentMonth.getFullYear();
-    })
-    .reduce((total, txn) => total + txn.amount * 0.9, 0);
-
-  const totalSales = teacherTransactions.length;
-
-  return {
-    totalEarnings: wallet.totalEarnings,
-    availableBalance: wallet.balance,
-    pendingWithdrawals: wallet.pendingWithdrawals,
-    monthlyEarnings: monthlyEarnings,
-    totalSales: totalSales,
-    transactionHistory: wallet.transactions.slice(0, 10)
-  };
-};
-
-// ==================== PAYMENT TRANSACTIONS ====================
-
-const getPaymentTransactions = () => {
-  try {
-    const transactions = localStorage.getItem(PAYMENT_TRANSACTIONS_KEY);
-    return transactions ? JSON.parse(transactions) : {};
-  } catch (error) {
-    console.error('Error loading payment transactions:', error);
-    return {};
-  }
-};
-
-const savePaymentTransactions = (transactions) => {
-  try {
-    localStorage.setItem(PAYMENT_TRANSACTIONS_KEY, JSON.stringify(transactions));
-  } catch (error) {
-    console.error('Error saving payment transactions:', error);
-  }
-};
-
-const processLessonPayment = (studentId, teacherId, courseKey, lessonId, amount) => {
-  try {
-    const paymentTransaction = {
-      id: `pay_${Date.now()}`,
-      studentId: studentId,
-      teacherId: teacherId,
-      courseKey: courseKey,
-      lessonId: lessonId,
-      amount: amount,
-      status: 'completed',
-      date: new Date().toISOString(),
-      type: 'lesson_purchase'
-    };
-
-    const transactions = getPaymentTransactions();
-    transactions[paymentTransaction.id] = paymentTransaction;
-    savePaymentTransactions(transactions);
-
-    const teacherEarnings = amount * 0.9;
-    addTeacherEarnings(teacherId, teacherEarnings, `Payment for lesson purchase`, {
-      courseKey: courseKey,
-      lessonId: lessonId,
-      studentId: studentId
-    });
-
-    purchaseLesson(studentId, courseKey, lessonId, paymentTransaction);
-
-    return paymentTransaction;
-  } catch (error) {
-    console.error('Error processing payment:', error);
-    throw error;
-  }
-};
-
-// ==================== COURSE ENROLLMENT ====================
-
-const enrollStudentInCourse = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  if (student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Already enrolled in this course');
-  }
-
-  if (!student.enrolledCourses) {
-    student.enrolledCourses = [];
-  }
-
-  if (!student.progress) {
-    student.progress = {};
-  }
-
-  student.enrolledCourses.push(courseKey);
-  student.progress[courseKey] = 0;
-
-  if (!student.enrolledCoursesDate) {
-    student.enrolledCoursesDate = {};
-  }
-  student.enrolledCoursesDate[courseKey] = new Date().toISOString();
-
-  updateStudent(student);
-
-  console.log(`✅ Student ${studentId} enrolled in course: ${courseKey}`);
-  return true;
-};
-
-const unenrollStudentFromCourse = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  if (!student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Not enrolled in this course');
-  }
-
-  student.enrolledCourses = student.enrolledCourses.filter(course => course !== courseKey);
-
-  if (student.progress && student.progress[courseKey]) {
-    delete student.progress[courseKey];
-  }
-
-  if (student.completedCourses?.includes(courseKey)) {
-    student.completedCourses = student.completedCourses.filter(course => course !== courseKey);
-  }
-
-  if (student.enrolledCoursesDate && student.enrolledCoursesDate[courseKey]) {
-    delete student.enrolledCoursesDate[courseKey];
-  }
-
-  updateStudent(student);
-
-  console.log(`❌ Student ${studentId} unenrolled from course: ${courseKey}`);
-  return true;
-};
-
-const getEnrolledCoursesWithProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student || !student.enrolledCourses) {
-    return [];
-  }
-
-  return student.enrolledCourses.map(courseKey => {
-    const course = courses[courseKey];
-    if (!course) return null;
-    return {
-      key: courseKey,
-      ...course,
-      progress: student.progress?.[courseKey] || 0,
-      isCompleted: student.completedCourses?.includes(courseKey) || false,
-      enrolledDate: student.enrolledCoursesDate?.[courseKey] || student.joinedDate
-    };
-  }).filter(course => course !== null);
-};
-
-const updateCourseProgress = (studentId, courseKey, progress) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    throw new Error('Student not found');
-  }
-
-  if (!student.enrolledCourses?.includes(courseKey)) {
-    throw new Error('Not enrolled in this course');
-  }
-
-  if (!student.progress) {
-    student.progress = {};
-  }
-
-  student.progress[courseKey] = Math.min(100, Math.max(0, progress));
-
-  if (progress >= 100) {
-    if (!student.completedCourses) {
-      student.completedCourses = [];
-    }
-    if (!student.completedCourses.includes(courseKey)) {
-      student.completedCourses.push(courseKey);
-      student.points = (student.points || 0) + 100;
-
-      if (!student.badges) {
-        student.badges = [];
-      }
-      if (!student.badges.includes('Course Completer')) {
-        student.badges.push('Course Completer');
-      }
-    }
-  }
-
-  updateStudent(student);
-  return student.progress[courseKey];
-};
-
-const getCourseCompletionStatus = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-
-  if (!student) {
-    return { enrolled: false, progress: 0, completed: false };
-  }
-
-  return {
-    enrolled: student.enrolledCourses?.includes(courseKey) || false,
-    progress: student.progress?.[courseKey] || 0,
-    completed: student.completedCourses?.includes(courseKey) || false
-  };
-};
-
-// ==================== SESSION TRACKING ====================
-
-const getSessionTracking = () => {
-  try {
-    const sessionData = localStorage.getItem(SESSION_TRACKING_KEY);
-    return sessionData ? JSON.parse(sessionData) : {
-      lastActivity: null,
-      sessionStart: null,
-      autoLogoutEnabled: true,
-      logoutTimeout: 60 * 60 * 1000,
-      warningTimeout: 55 * 60 * 1000
-    };
-  } catch (error) {
-    console.error('Error loading session tracking:', error);
-    return {
-      lastActivity: null,
-      sessionStart: null,
-      autoLogoutEnabled: true,
-      logoutTimeout: 60 * 60 * 1000,
-      warningTimeout: 55 * 60 * 1000
-    };
-  }
-};
-
-const saveSessionTracking = (sessionData) => {
-  try {
-    localStorage.setItem(SESSION_TRACKING_KEY, JSON.stringify(sessionData));
-  } catch (error) {
-    console.error('Error saving session tracking:', error);
-  }
-};
-
-const updateLastActivity = () => {
-  const sessionData = getSessionTracking();
-  sessionData.lastActivity = new Date().toISOString();
-
-  if (!sessionData.sessionStart) {
-    sessionData.sessionStart = new Date().toISOString();
-  }
-
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
-
-const resetSession = () => {
-  const sessionData = {
-    lastActivity: new Date().toISOString(),
-    sessionStart: new Date().toISOString(),
-    autoLogoutEnabled: true,
-    logoutTimeout: 60 * 60 * 1000,
-    warningTimeout: 55 * 60 * 1000
-  };
-  saveSessionTracking(sessionData);
-  return sessionData;
-};
-
-const clearSession = () => {
-  localStorage.removeItem(SESSION_TRACKING_KEY);
-};
-
-const getSessionDuration = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.sessionStart) return 0;
-
-  const startTime = new Date(sessionData.sessionStart);
-  const currentTime = new Date();
-  return currentTime - startTime;
-};
-
-const getTimeUntilLogout = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
-    return null;
-  }
-
-  const lastActivity = new Date(sessionData.lastActivity);
-  const currentTime = new Date();
-  const timeSinceActivity = currentTime - lastActivity;
-  const timeRemaining = sessionData.logoutTimeout - timeSinceActivity;
-
-  return Math.max(0, timeRemaining);
-};
-
-const getTimeUntilWarning = () => {
-  const sessionData = getSessionTracking();
-  if (!sessionData.lastActivity || !sessionData.autoLogoutEnabled) {
-    return null;
-  }
-
-  const lastActivity = new Date(sessionData.lastActivity);
-  const currentTime = new Date();
-  const timeSinceActivity = currentTime - lastActivity;
-  const timeRemaining = sessionData.warningTimeout - timeSinceActivity;
-
-  return Math.max(0, timeRemaining);
-};
-
-const getSessionStats = () => {
-  const sessionData = getSessionTracking();
-  const timeUntilLogout = getTimeUntilLogout();
-  const timeUntilWarning = getTimeUntilWarning();
-  const sessionDuration = getSessionDuration();
-
-  return {
-    isActive: timeUntilLogout !== null && timeUntilLogout > 0,
-    timeUntilLogout: timeUntilLogout,
-    timeUntilWarning: timeUntilWarning,
-    sessionDuration: sessionDuration,
-    lastActivity: sessionData.lastActivity,
-    sessionStart: sessionData.sessionStart,
-    autoLogoutEnabled: sessionData.autoLogoutEnabled,
-    willWarnSoon: timeUntilWarning !== null && timeUntilWarning <= 5 * 60 * 1000
-  };
-};
-
-// ==================== USER MANAGEMENT ====================
-
-const deleteUser = (userId) => {
-  const users = getUsers() || {};
-  const currentUser = getCurrentUser();
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  if (currentUser && currentUser.id === userId) {
-    throw new Error('Cannot delete your own account');
-  }
-
-  if (users[userId].role === 'admin') {
-    throw new Error('Cannot delete admin users');
-  }
-
-  const userRole = users[userId].role;
-  delete users[userId];
-  saveUsers(users);
-
-  if (userRole === 'student') {
-    const students = getStudents() || [];
-    const updatedStudents = students.filter(student => student.userId !== userId && student.id !== userId);
-    saveStudents(updatedStudents);
-  }
-
-  if (userRole === 'teacher') {
-    const wallets = getTeacherWallets();
-    if (wallets[userId]) {
-      delete wallets[userId];
-      saveTeacherWallets(wallets);
-    }
-  }
-
-  console.log('🗑 User deleted:', userId);
-  return true;
-};
-
-const updateUser = (userId, userData) => {
-  const users = getUsers() || {};
-
-  if (!users[userId]) {
-    throw new Error('User not found');
-  }
-
-  users[userId] = {
-    ...users[userId],
-    ...userData,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveUsers(users);
-  return users[userId];
-};
-
-// ==================== MULTIMEDIA MANAGEMENT ====================
-
-const addMultimediaToLesson = (courseKey, lessonId, multimediaItem) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  if (!lesson.multimedia) {
-    lesson.multimedia = [];
-  }
-
-  const newMultimediaItem = {
-    id: lesson.multimedia.length > 0 ? Math.max(...lesson.multimedia.map(m => m.id)) + 1 : 1,
-    ...multimediaItem
-  };
-
-  lesson.multimedia.push(newMultimediaItem);
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return newMultimediaItem;
-};
-
-const updateMultimediaInLesson = (courseKey, lessonId, multimediaId, multimediaData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson || !lesson.multimedia) {
-    throw new Error('Lesson or multimedia not found');
-  }
-
-  const multimediaIndex = lesson.multimedia.findIndex(item => item.id === multimediaId);
-  if (multimediaIndex === -1) {
-    throw new Error('Multimedia item not found');
-  }
-
-  lesson.multimedia[multimediaIndex] = { ...lesson.multimedia[multimediaIndex], ...multimediaData };
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return lesson.multimedia[multimediaIndex];
-};
-
-const deleteMultimediaFromLesson = (courseKey, lessonId, multimediaId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson || !lesson.multimedia) {
-    throw new Error('Lesson or multimedia not found');
-  }
-
-  lesson.multimedia = lesson.multimedia.filter(item => item.id !== multimediaId);
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return true;
-};
-
-// ==================== QUIZ MANAGEMENT ====================
-
-const addQuizToLesson = (courseKey, lessonId, quizData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  const quizWithIds = {
-    ...quizData,
-    questions: quizData.questions.map((q, index) => ({
-      id: q.id || index + 1,
-      ...q
-    }))
-  };
-
-  lesson.quiz = quizWithIds;
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return quizWithIds;
-};
-
-const updateQuizInLesson = (courseKey, lessonId, quizData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson || !lesson.quiz) {
-    throw new Error('Lesson or quiz not found');
-  }
-
-  lesson.quiz = { ...lesson.quiz, ...quizData };
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return lesson.quiz;
-};
-
-const deleteQuizFromLesson = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  lesson.quiz = null;
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return true;
-};
-
-const getQuizResults = (studentId, courseKey, lessonId) => {
-  const student = getStudentById(studentId);
-  if (!student || !student.quizResults) return null;
-
-  return student.quizResults.find(result =>
-    result.courseKey === courseKey && result.lessonId === lessonId
-  );
-};
-
-const saveQuizResult = (studentId, courseKey, lessonId, score, passed, totalQuestions) => {
-  const student = getStudentById(studentId);
-  if (!student) return null;
-
-  if (!student.quizResults) {
-    student.quizResults = [];
-  }
-
-  const existingResultIndex = student.quizResults.findIndex(
-    result => result.courseKey === courseKey && result.lessonId === lessonId
-  );
-
-  const quizResult = {
-    courseKey,
-    lessonId,
-    score,
-    passed,
-    totalQuestions,
-    completedAt: new Date().toISOString(),
-    attempts: existingResultIndex >= 0 ? student.quizResults[existingResultIndex].attempts + 1 : 1
-  };
-
-  if (existingResultIndex >= 0) {
-    if (score > student.quizResults[existingResultIndex].score) {
-      student.quizResults[existingResultIndex] = quizResult;
-    }
-  } else {
-    student.quizResults.push(quizResult);
-  }
-
-  updateStudent(student);
-  return student;
-};
-
-const getQuizAnalytics = () => {
-  const students = getStudents() || [];
-  const courses = getCourses() || {};
-
-  let totalQuizzes = 0;
-  let totalAttempts = 0;
-  let passedAttempts = 0;
-  let averageScore = 0;
-
-  students.forEach(student => {
-    if (student.quizResults) {
-      student.quizResults.forEach(result => {
-        totalAttempts++;
-        averageScore += result.score;
-        if (result.passed) {
-          passedAttempts++;
-        }
-      });
-    }
-  });
-
-  Object.values(courses).forEach(course => {
-    course.lessons.forEach(lesson => {
-      if (lesson.quiz) {
-        totalQuizzes++;
-      }
-    });
-  });
-
-  averageScore = totalAttempts > 0 ? averageScore / totalAttempts : 0;
-
-  return {
-    totalQuizzes,
-    totalAttempts,
-    passedAttempts,
-    failedAttempts: totalAttempts - passedAttempts,
-    averageScore: Math.round(averageScore),
-    passRate: totalAttempts > 0 ? Math.round((passedAttempts / totalAttempts) * 100) : 0
-  };
-};
-
-const getStudentQuizProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student) return null;
-
-  let totalQuizzes = 0;
-  let completedQuizzes = 0;
-  let averageQuizScore = 0;
-
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    course.lessons.forEach(lesson => {
-      if (lesson.quiz) {
-        totalQuizzes++;
-        const quizResult = student.quizResults?.find(
-          result => result.courseKey === courseKey && result.lessonId === lesson.id
-        );
-        if (quizResult) {
-          completedQuizzes++;
-          averageQuizScore += quizResult.score;
-        }
-      }
-    });
-  });
-
-  averageQuizScore = completedQuizzes > 0 ? averageQuizScore / completedQuizzes : 0;
-
-  return {
-    totalQuizzes,
-    completedQuizzes,
-    pendingQuizzes: totalQuizzes - completedQuizzes,
-    completionRate: totalQuizzes > 0 ? Math.round((completedQuizzes / totalQuizzes) * 100) : 0,
-    averageScore: Math.round(averageQuizScore)
-  };
-};
-
-// ==================== CERTIFICATE FUNCTIONS ====================
-
-const generateCertificate = (studentId, courseKey, completionDate, certificateId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!student || !course) {
-    throw new Error('Student or course not found');
-  }
-
-  const certificate = {
-    id: certificateId || `cert_${Date.now()}`,
-    studentId: student.id,
-    studentName: student.name,
-    courseKey: courseKey,
-    courseTitle: course.title,
-    completionDate: completionDate || new Date().toISOString(),
-    issuedDate: new Date().toISOString(),
-    certificateUrl: null,
-    verificationCode: generateVerificationCode()
-  };
-
-  if (!student.certificates) {
-    student.certificates = [];
-  }
-  student.certificates.push(certificate);
-
-  updateStudent(student);
-
-  return certificate;
-};
-
-const getStudentCertificates = (studentId) => {
-  const student = getStudentById(studentId);
-  return student?.certificates || [];
-};
-
-const getCertificateById = (certificateId) => {
-  const students = getStudents() || [];
-  for (let student of students) {
-    if (student.certificates) {
-      const certificate = student.certificates.find(cert => cert.id === certificateId);
-      if (certificate) return certificate;
-    }
-  }
-  return null;
-};
-
-const verifyCertificate = (certificateId, verificationCode) => {
-  const certificate = getCertificateById(certificateId);
-  if (!certificate) {
-    return { valid: false, message: 'Certificate not found' };
-  }
-
-  if (certificate.verificationCode !== verificationCode) {
-    return { valid: false, message: 'Invalid verification code' };
-  }
-
-  return {
-    valid: true,
-    message: 'Certificate verified successfully',
-    certificate: certificate
-  };
-};
-
-const checkCertificateEligibility = (studentId, courseKey) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!student || !course) {
-    return { eligible: false, reason: 'Student or course not found' };
-  }
-
-  if (student.progress[courseKey] < 100) {
-    return {
-      eligible: false,
-      reason: 'Course not completed',
-      progress: student.progress[courseKey]
-    };
-  }
-
-  const existingCert = student.certificates?.find(cert =>
-    cert.courseKey === courseKey
-  );
-
-  if (existingCert) {
-    return {
-      eligible: false,
-      reason: 'Certificate already issued',
-      certificate: existingCert
-    };
-  }
-
-  return { eligible: true, reason: 'Eligible for certificate' };
-};
-
-const generateVerificationCode = () => {
-  return Math.random().toString(36).substring(2, 10).toUpperCase();
-};
-
-// ==================== PROGRESS TRACKING ====================
-
-const calculateOverallProgress = (studentId) => {
-  const student = getStudentById(studentId);
-  const courses = getCourses() || {};
-
-  if (!student) return 0;
-
-  let totalLessons = 0;
-  let completedLessons = 0;
-
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    totalLessons += course.lessons.length;
-    completedLessons += course.lessons.filter(lesson =>
-      student.completedLessons.includes(`${courseKey}-${lesson.id}`)
-    ).length;
-  });
-
-  return totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-};
-
-const getStudentActivity = (studentId, days = 30) => {
-  const student = getStudentById(studentId);
-  if (!student) return [];
-
-  const activities = [];
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - days);
-
-  student.completedLessons.forEach(lessonKey => {
-    activities.push({
-      type: 'lesson_completed',
-      lessonKey,
-      date: new Date().toISOString(),
-      description: 'Completed a lesson'
-    });
-  });
-
-  if (student.quizResults) {
-    student.quizResults.forEach(result => {
-      activities.push({
-        type: 'quiz_attempt',
-        courseKey: result.courseKey,
-        lessonId: result.lessonId,
-        score: result.score,
-        passed: result.passed,
-        date: result.completedAt,
-        description: `Scored ${result.score}% on quiz`
-      });
-    });
-  }
-
-  const transactions = getPaymentTransactions();
-  Object.values(transactions).forEach(transaction => {
-    if (transaction.studentId === studentId) {
-      activities.push({
-        type: 'payment',
-        courseKey: transaction.courseKey,
-        lessonId: transaction.lessonId,
-        amount: transaction.amount,
-        date: transaction.date,
-        description: `Purchased lesson for ₦${transaction.amount}`
-      });
-    }
-  });
-
-  return activities
-    .filter(activity => new Date(activity.date) >= cutoffDate)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-};
-
-// ==================== ADMIN COURSE MANAGEMENT ====================
-
-const getAllCoursesForAdmin = () => {
-  return getCourses() || {};
-};
-
-const getCourseDetailsForAdmin = (courseKey) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const users = getUsers() || {};
-  const teacher = users[course.teacherId];
-
-  return {
-    ...course,
-    teacherInfo: teacher ? {
-      name: teacher.name,
-      email: teacher.email,
-      specialization: teacher.specialization,
-      isApproved: teacher.isApproved
-    } : null
-  };
-};
-
-const deleteCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  const teacherId = courses[courseKey].teacherId;
-  if (teacherId) {
-    const users = getUsers() || {};
-    const teacher = users[teacherId];
-    if (teacher && teacher.courses) {
-      teacher.courses = teacher.courses.filter(course => course !== courseKey);
-      saveUsers(users);
-    }
-  }
-
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student => ({
-    ...student,
-    enrolledCourses: student.enrolledCourses?.filter(course => course !== courseKey) || [],
-    completedCourses: student.completedCourses?.filter(course => course !== courseKey) || [],
-    progress: Object.fromEntries(
-      Object.entries(student.progress || {}).filter(([key]) => key !== courseKey)
-    )
-  }));
-  saveStudents(updatedStudents);
-
-  const updatedCourses = { ...courses };
-  delete updatedCourses[courseKey];
-  saveCourses(updatedCourses);
-
-  console.log(`🗑 Admin deleted course: ${courseKey}`);
-  return true;
-};
-
-const deleteLessonAsAdmin = (courseKey, lessonId) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lesson = course.lessons.find(l => l.id === lessonId);
-  if (!lesson) {
-    throw new Error('Lesson not found');
-  }
-
-  const students = getStudents() || [];
-  const updatedStudents = students.map(student => ({
-    ...student,
-    completedLessons: student.completedLessons?.filter(lessonKey =>
-      !lessonKey.includes(`${courseKey}-${lessonId}`)
-    ) || []
-  }));
-  saveStudents(updatedStudents);
-
-  course.lessons = course.lessons.filter(lesson => lesson.id !== lessonId);
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-
-  console.log(`🗑 Admin deleted lesson ${lessonId} from course: ${courseKey}`);
-  return true;
-};
-
-const getTeacherCoursesForAdmin = (teacherId) => {
-  const courses = getCourses() || {};
-  return Object.fromEntries(
-    Object.entries(courses).filter(([key, course]) => course.teacherId === teacherId)
-  );
-};
-
-const getCourseAnalyticsForAdmin = (courseKey) => {
-  const course = getCourseByKey(courseKey);
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const students = getStudents() || [];
-  const enrolledStudents = students.filter(student =>
-    student.enrolledCourses?.includes(courseKey)
-  );
-
-  const completedStudents = students.filter(student =>
-    student.completedCourses?.includes(courseKey)
-  );
-
-  let totalLessonCompletions = 0;
-  let totalPossibleCompletions = 0;
-
-  enrolledStudents.forEach(student => {
-    course.lessons.forEach(lesson => {
-      totalPossibleCompletions++;
-      if (student.completedLessons?.includes(`${courseKey}-${lesson.id}`)) {
-        totalLessonCompletions++;
-      }
-    });
-  });
-
-  const averageCompletionRate = totalPossibleCompletions > 0
-    ? Math.round((totalLessonCompletions / totalPossibleCompletions) * 100)
-    : 0;
-
-  let totalQuizAttempts = 0;
-  let passedQuizAttempts = 0;
-  let totalQuizScore = 0;
-
-  enrolledStudents.forEach(student => {
-    if (student.quizResults) {
-      student.quizResults.forEach(result => {
-        if (result.courseKey === courseKey) {
-          totalQuizAttempts++;
-          totalQuizScore += result.score;
-          if (result.passed) {
-            passedQuizAttempts++;
-          }
-        }
-      });
-    }
-  });
-
-  const averageQuizScore = totalQuizAttempts > 0 ? Math.round(totalQuizScore / totalQuizAttempts) : 0;
-  const quizPassRate = totalQuizAttempts > 0 ? Math.round((passedQuizAttempts / totalQuizAttempts) * 100) : 0;
-
-  return {
-    courseKey,
-    courseTitle: course.title,
-    totalEnrolled: enrolledStudents.length,
-    totalCompleted: completedStudents.length,
-    completionRate: enrolledStudents.length > 0 ? Math.round((completedStudents.length / enrolledStudents.length) * 100) : 0,
-    averageLessonCompletion: averageCompletionRate,
-    totalLessons: course.lessons.length,
-    totalQuizAttempts,
-    averageQuizScore,
-    quizPassRate,
-    recentEnrollments: enrolledStudents
-      .sort((a, b) => new Date(b.joinedDate) - new Date(a.joinedDate))
-      .slice(0, 5)
-      .map(student => ({
-        name: student.name,
-        enrolledDate: student.enrolledCoursesDate?.[courseKey] || student.joinedDate,
-        progress: student.progress?.[courseKey] || 0
-      }))
-  };
-};
-
-const getAllCoursesAnalyticsForAdmin = () => {
-  const courses = getCourses() || {};
-  const analytics = [];
-
-  Object.entries(courses).forEach(([courseKey, course]) => {
-    const courseAnalytics = getCourseAnalyticsForAdmin(courseKey);
-    analytics.push(courseAnalytics);
-  });
-
-  return analytics.sort((a, b) => b.totalEnrolled - a.totalEnrolled);
-};
-
-const updateCourseAsAdmin = (courseKey, courseData) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey] = {
-    ...courses[courseKey],
-    ...courseData,
-    updatedAt: new Date().toISOString(),
-    lastUpdatedBy: 'admin'
-  };
-
-  saveCourses(courses);
-  return courses[courseKey];
-};
-
-const updateLessonAsAdmin = (courseKey, lessonId, lessonData) => {
-  const courses = getCourses() || {};
-  const course = courses[courseKey];
-
-  if (!course) {
-    throw new Error('Course not found');
-  }
-
-  const lessonIndex = course.lessons.findIndex(l => l.id === lessonId);
-  if (lessonIndex === -1) {
-    throw new Error('Lesson not found');
-  }
-
-  course.lessons[lessonIndex] = {
-    ...course.lessons[lessonIndex],
-    ...lessonData,
-    lastUpdatedBy: 'admin'
-  };
-  course.updatedAt = new Date().toISOString();
-
-  saveCourses(courses);
-  return course;
-};
-
-const getUnapprovedCourses = () => {
-  const courses = getCourses() || {};
-  return Object.fromEntries(
-    Object.entries(courses).filter(([key, course]) => !course.isPublished)
-  );
-};
-
-const approveCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey].isPublished = true;
-  courses[courseKey].approvedDate = new Date().toISOString();
-  courses[courseKey].approvedBy = 'admin';
-
-  saveCourses(courses);
-  console.log(`✅ Admin approved course: ${courseKey}`);
-  return courses[courseKey];
-};
-
-const rejectCourseAsAdmin = (courseKey) => {
-  const courses = getCourses() || {};
-
-  if (!courses[courseKey]) {
-    throw new Error('Course not found');
-  }
-
-  courses[courseKey].isPublished = false;
-  courses[courseKey].rejectedDate = new Date().toISOString();
-  courses[courseKey].rejectedBy = 'admin';
-  courses[courseKey].rejectionReason = 'Rejected by admin';
-
-  saveCourses(courses);
-  console.log(`❌ Admin rejected course: ${courseKey}`);
-  return courses[courseKey];
-};
-
-// ==================== PLATFORM STATISTICS ====================
-
-const getPlatformStats = () => {
-  const students = getStudents() || [];
-  const courses = getCourses() || {};
-  const teachers = getAllTeachers();
-  const approvedTeachers = getApprovedTeachers();
-  const pendingTeachers = getPendingTeachers();
-  const users = getAllUsers();
-
-  const totalStudents = students.length;
-  const totalTeachers = teachers.length;
-  const totalApprovedTeachers = approvedTeachers.length;
-  const totalPendingTeachers = pendingTeachers.length;
-  const totalCourses = Object.keys(courses).length;
-  const totalLessons = Object.values(courses).reduce((total, course) =>
-    total + course.lessons.length, 0
-  );
-  const totalCompletedLessons = students.reduce((total, student) =>
-    total + student.completedLessons.length, 0
-  );
-
-  const recentStudents = students
-    .sort((a, b) => new Date(b.joinedDate) - new Date(a.joinedDate))
-    .slice(0, 5);
-
-  const quizAnalytics = getQuizAnalytics();
-
-  return {
-    totalStudents,
-    totalTeachers,
-    totalApprovedTeachers,
-    totalPendingTeachers,
-    totalCourses,
-    totalLessons,
-    totalCompletedLessons,
-    totalUsers: users.length,
-    recentStudents,
-    studentProgress: students.map(student => ({
-      name: student.name || 'Unknown Student',
-      progress: student.progress && Object.values(student.progress).length > 0 
-        ? Object.values(student.progress).reduce((a, b) => a + b, 0) / 3 
-        : 0,
-      completedLessons: student.completedLessons?.length || 0,
-      joinedDate: student.joinedDate || new Date().toISOString()
-    })),
-    ...quizAnalytics
-  };
-};
-
-// ==================== DATA BACKUP ====================
-
-const exportData = () => {
-  const data = {
-    students: getStudents(),
-    courses: getCourses(),
-    users: getUsers(),
-    sessionTracking: getSessionTracking(),
-    emailConfirmations: getEmailConfirmations(),
-    teacherWallets: getTeacherWallets(),
-    paymentTransactions: getPaymentTransactions(),
-    exportDate: new Date().toISOString(),
-    version: DATA_VERSION
-  };
-
-  const dataStr = JSON.stringify(data, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-
-  return URL.createObjectURL(dataBlob);
-};
-
-const importData = (jsonData) => {
-  try {
-    const data = JSON.parse(jsonData);
-
-    if (data.students && Array.isArray(data.students)) {
-      saveStudents(data.students);
-    }
-
-    if (data.courses && typeof data.courses === 'object') {
-      saveCourses(data.courses);
-    }
-
-    if (data.users && typeof data.users === 'object') {
-      saveUsers(data.users);
-    }
-
-    if (data.sessionTracking && typeof data.sessionTracking === 'object') {
-      saveSessionTracking(data.sessionTracking);
-    }
-
-    if (data.emailConfirmations && typeof data.emailConfirmations === 'object') {
-      saveEmailConfirmations(data.emailConfirmations);
-    }
-
-    if (data.teacherWallets && typeof data.teacherWallets === 'object') {
-      saveTeacherWallets(data.teacherWallets);
-    }
-
-    if (data.paymentTransactions && typeof data.paymentTransactions === 'object') {
-      savePaymentTransactions(data.paymentTransactions);
-    }
-
-    localStorage.setItem(DATA_VERSION_KEY, data.version || DATA_VERSION);
-
-    return true;
-  } catch (error) {
-    console.error('Error importing data:', error);
-    return false;
-  }
-};
-
-const resetAllData = () => {
-  if (window.confirm('Are you sure you want to reset all data? This action cannot be undone.')) {
-    localStorage.removeItem(STUDENT_KEY);
-    localStorage.removeItem(CURRENT_USER_KEY);
-    localStorage.removeItem(COURSES_KEY);
-    localStorage.removeItem(USERS_KEY);
-    localStorage.removeItem(SESSION_TRACKING_KEY);
-    localStorage.removeItem(EMAIL_CONFIRMATIONS_KEY);
-    localStorage.removeItem(TEACHER_WALLETS_KEY);
-    localStorage.removeItem(PAYMENT_TRANSACTIONS_KEY);
-    localStorage.removeItem(DATA_VERSION_KEY);
-    initializeStorage();
-    return true;
-  }
-  return false;
-};
-
-// ==================== DEBUG FUNCTIONS ====================
-
-const debugStorage = () => {
-  console.log('=== STORAGE DEBUG INFO ===');
-  console.log('Data Version:', localStorage.getItem(DATA_VERSION_KEY));
-
-  const users = getUsers();
-  const currentUser = getCurrentUser();
-  const students = getStudents();
-  const courses = getCourses();
-  const sessionTracking = getSessionTracking();
-  const teacherWallets = getTeacherWallets();
-  const paymentTransactions = getPaymentTransactions();
-
-  console.log('All Users:', Object.keys(users).length);
-  console.log('Current User:', currentUser?.name || 'None');
-  console.log('Students:', students.length);
-  console.log('Courses:', Object.keys(courses).length);
-  console.log('Session Tracking:', sessionTracking);
-  console.log('Teacher Wallets:', Object.keys(teacherWallets).length);
-  console.log('Payment Transactions:', Object.keys(paymentTransactions).length);
-
-  console.log('=== END DEBUG INFO ===');
-};
-
-// ==================== SINGLE EXPORT ====================
-
-export {
-  // Validation
-  validateEmail,
-  validatePassword,
-  validateName,
-
-  // Initialization & Migration
-  initializeStorage,
-  migrateData,
-
-  // Password functions
-  hashPassword,
-  comparePassword,
-
-  // User Management
-  getUsers,
-  saveUsers,
-  registerUser,
-  authenticateUser,
-  getCurrentUser,
-  setCurrentUser,
-  logoutUser,
-  deleteUser,
-  updateUser,
-  getAllUsers,
-  getUserById,
-
-  // Student Management
-  getStudents,
-  saveStudents,
-  getStudentById,
-  updateStudent,
-  addStudent,
-
-  // Teacher Management
-  registerTeacher,
-  getAllTeachers,
-  getPendingTeachers,
-  getApprovedTeachers,
-  approveTeacher,
-  rejectTeacher,
-  dismissTeacher,
-  updateTeacherProfile,
-  updateTeacherProfileWithWhatsApp,
-  getTeacherById,
   getTeacherCourses,
-  getTeacherStats,
-  getCurrentTeacherId,
-
-  // Course Management
-  getCourses,
-  saveCourses,
-  getCourseByKey,
-  addNewCourse,
-  addNewCourseWithTeacher,
+  addNewCourse, 
+  addLessonToCourse, 
   updateCourse,
   deleteCourse,
-  approveCourse,
-
-  // Lesson Management
-  getLessons,
-  getLessonById,
-  addLessonToCourse,
   updateLesson,
   deleteLesson,
-
-  // Lesson Purchase & Access
-  purchaseLesson,
-  canAccessLesson,
-  hasStudentPurchasedLesson,
-
-  // Lesson Lock Management
-  toggleLessonLock,
-  getLockedLessonsCount,
-  getLockedLessonsForStudent,
-  isLessonAccessible,
-
-  // Teacher Wallet & Payment
-  initializeTeacherWallets,
-  getTeacherWallets,
-  saveTeacherWallets,
-  getTeacherWallet,
-  updateTeacherWallet,
-  addTeacherEarnings,
-  withdrawFromWallet,
-  getTeacherPaymentStats,
-  getTeacherWhatsAppUrl,
-  getPaymentTransactions,
-  savePaymentTransactions,
-  processLessonPayment,
-
-  // Course Enrollment
-  enrollStudentInCourse,
-  unenrollStudentFromCourse,
-  getEnrolledCoursesWithProgress,
-  updateCourseProgress,
-  getCourseCompletionStatus,
-
-  // Session Tracking
-  getSessionTracking,
-  saveSessionTracking,
-  updateLastActivity,
-  resetSession,
-  clearSession,
-  getSessionDuration,
-  getTimeUntilLogout,
-  getTimeUntilWarning,
-  getSessionStats,
-
-  // ✅ Email Confirmation (re-exported from Firebase)
-  confirmUserEmail,
-  resendEmailConfirmation,
-
-  // Multimedia Management
   addMultimediaToLesson,
-  updateMultimediaInLesson,
   deleteMultimediaFromLesson,
+  getTeacherStats,
+  getTeacherWallet,
+  withdrawFromWallet,
+  updateTeacherProfileWithWhatsApp,
+  getTeacherWhatsAppUrl,
+  getCurrentUser
+} from '../utils/storage';
+import './TeacherDashboard.css';
 
-  // Quiz Management
-  addQuizToLesson,
-  updateQuizInLesson,
-  deleteQuizFromLesson,
-  getQuizResults,
-  saveQuizResult,
-  getQuizAnalytics,
-  getStudentQuizProgress,
+const TeacherDashboard = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [stats, setStats] = useState(null);
+  const [courses, setCoursesState] = useState({});
+  const [wallet, setWallet] = useState(null);
+  const [teacherProfile, setTeacherProfile] = useState({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Certificate Functions
-  generateCertificate,
-  getStudentCertificates,
-  getCertificateById,
-  verifyCertificate,
-  checkCertificateEligibility,
+  // Course Form States
+  const [newCourseForm, setNewCourseForm] = useState({
+    title: '',
+    description: '',
+    thumbnail: '📚',
+    key: ''
+  });
 
-  // Progress Tracking
-  calculateOverallProgress,
-  getStudentActivity,
+  // Lesson Form States with File Upload and Payment Options
+  const [newLessonForm, setNewLessonForm] = useState({
+    courseKey: '',
+    title: '',
+    content: '',
+    duration: '',
+    videoFile: null,
+    videoFileName: '',
+    videoTitle: '',
+    videoDescription: '',
+    isFree: true,
+    price: 0,
+    isLocked: false
+  });
 
-  // Admin Course Management
-  getAllCoursesForAdmin,
-  getCourseDetailsForAdmin,
-  deleteCourseAsAdmin,
-  deleteLessonAsAdmin,
-  getTeacherCoursesForAdmin,
-  getCourseAnalyticsForAdmin,
-  getAllCoursesAnalyticsForAdmin,
-  updateCourseAsAdmin,
-  updateLessonAsAdmin,
-  getUnapprovedCourses,
-  approveCourseAsAdmin,
-  rejectCourseAsAdmin,
+  // Quiz Form States
+  const [quizForm, setQuizForm] = useState({
+    title: '',
+    passingScore: 70,
+    questions: []
+  });
 
-  // Platform Statistics
-  getPlatformStats,
+  const [currentQuestion, setCurrentQuestion] = useState({
+    question: '',
+    type: 'text',
+    options: ['', '', '', ''],
+    correctAnswer: 0,
+    imageUrl: ''
+  });
 
-  // Data Backup
-  exportData,
-  importData,
-  resetAllData,
+  const [showQuizForm, setShowQuizForm] = useState(false);
 
-  // Debug
-  debugStorage
+  // Edit States
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [editCourseForm, setEditCourseForm] = useState({});
+  const [editingLesson, setEditingLesson] = useState(null);
+  const [editLessonForm, setEditLessonForm] = useState({});
+  const [viewingCourseLessons, setViewingCourseLessons] = useState(null);
+
+  // Multimedia States
+  const [managingMultimedia, setManagingMultimedia] = useState(null);
+  const [newMultimediaForm, setNewMultimediaForm] = useState({
+    type: 'video',
+    file: null,
+    fileName: '',
+    title: '',
+    description: ''
+  });
+
+  // Payment & WhatsApp States
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountName: ''
+  });
+
+  // ✅ Convert file to base64 for storage (local storage)
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // ✅ Handle file upload progress simulation
+  const simulateUploadProgress = () => {
+    setUploadProgress(0);
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+    return interval;
+  };
+
+  useEffect(() => {
+    loadData();
+    loadTeacherProfile();
+  }, []);
+
+  const loadData = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser || !currentUser.id) {
+        console.error('No user logged in');
+        return;
+      }
+
+      const teacherStats = getTeacherStats(currentUser.id);
+      const teacherCourses = getTeacherCourses(currentUser.id);
+      const walletData = getTeacherWallet(currentUser.id);
+
+      setStats(teacherStats);
+      setCoursesState(teacherCourses);
+      setWallet(walletData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
+
+  const loadTeacherProfile = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        setTeacherProfile(currentUser);
+        setWhatsappNumber(currentUser.whatsappNumber || '');
+      }
+    } catch (error) {
+      console.error('Error loading teacher profile:', error);
+    }
+  };
+
+  // ✅ Save WhatsApp number
+  const saveWhatsAppNumber = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('Please log in first');
+        return;
+      }
+
+      updateTeacherProfileWithWhatsApp(currentUser.id, {
+        whatsappNumber: whatsappNumber
+      });
+      alert('✅ WhatsApp number saved successfully!');
+      loadTeacherProfile();
+    } catch (error) {
+      alert('❌ Error saving WhatsApp number: ' + error.message);
+    }
+  };
+
+  // ✅ Process withdrawal
+  const handleWithdrawal = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('Please log in first');
+        return;
+      }
+
+      if (!withdrawalAmount || withdrawalAmount <= 0) {
+        alert('Please enter a valid withdrawal amount');
+        return;
+      }
+
+      if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName) {
+        alert('Please fill in all bank details');
+        return;
+      }
+
+      if (window.confirm(`Are you sure you want to withdraw ₦${withdrawalAmount}?`)) {
+        const updatedWallet = withdrawFromWallet(currentUser.id, parseFloat(withdrawalAmount), bankDetails);
+        setWallet(updatedWallet);
+        setWithdrawalAmount('');
+        setBankDetails({ bankName: '', accountNumber: '', accountName: '' });
+        alert('✅ Withdrawal request submitted successfully!');
+      }
+    } catch (error) {
+      alert('❌ Error processing withdrawal: ' + error.message);
+    }
+  };
+
+  // Course Management Functions
+  const handleAddCourse = (e) => {
+    e.preventDefault();
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        alert('Please log in first');
+        return;
+      }
+
+      const courseData = {
+        ...newCourseForm,
+        teacherId: currentUser.id,
+        teacherName: currentUser.name,
+        createdAt: new Date().toISOString(),
+        lessons: []
+      };
+
+      addNewCourse(courseData);
+      alert('Course added successfully!');
+      setNewCourseForm({
+        title: '',
+        description: '',
+        thumbnail: '📚',
+        key: ''
+      });
+      loadData();
+      setActiveTab('my-courses');
+    } catch (error) {
+      alert('Error adding course: ' + error.message);
+    }
+  };
+
+  const startEditCourse = (courseKey) => {
+    const course = courses[courseKey];
+    setEditingCourse(courseKey);
+    setEditCourseForm({
+      title: course.title,
+      description: course.description,
+      thumbnail: course.thumbnail
+    });
+  };
+
+  const cancelEditCourse = () => {
+    setEditingCourse(null);
+    setEditCourseForm({});
+  };
+
+  const handleUpdateCourse = (e) => {
+    e.preventDefault();
+    try {
+      updateCourse(editingCourse, editCourseForm);
+      alert('Course updated successfully!');
+      setEditingCourse(null);
+      setEditCourseForm({});
+      loadData();
+    } catch (error) {
+      alert('Error updating course: ' + error.message);
+    }
+  };
+
+  const handleDeleteCourse = (courseKey) => {
+    if (window.confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+      try {
+        deleteCourse(courseKey);
+        alert('Course deleted successfully!');
+        loadData();
+      } catch (error) {
+        alert('Error deleting course: ' + error.message);
+      }
+    }
+  };
+
+  // Quiz Management Functions
+  const handleAddQuestion = () => {
+    if (!currentQuestion.question.trim()) {
+      alert('Please enter a question');
+      return;
+    }
+
+    if (currentQuestion.options.some(opt => !opt.trim())) {
+      alert('Please fill all options');
+      return;
+    }
+
+    const newQuestion = {
+      id: quizForm.questions.length + 1,
+      ...currentQuestion,
+      options: [...currentQuestion.options]
+    };
+
+    setQuizForm(prev => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion]
+    }));
+
+    setCurrentQuestion({
+      question: '',
+      type: 'text',
+      options: ['', '', '', ''],
+      correctAnswer: 0,
+      imageUrl: ''
+    });
+  };
+
+  const handleRemoveQuestion = (questionId) => {
+    setQuizForm(prev => ({
+      ...prev,
+      questions: prev.questions.filter(q => q.id !== questionId)
+    }));
+  };
+
+  const handleOptionChange = (index, value) => {
+    const newOptions = [...currentQuestion.options];
+    newOptions[index] = value;
+    setCurrentQuestion(prev => ({
+      ...prev,
+      options: newOptions
+    }));
+  };
+
+  const handleCorrectAnswerChange = (index) => {
+    setCurrentQuestion(prev => ({
+      ...prev,
+      correctAnswer: index
+    }));
+  };
+
+  const resetQuizForm = () => {
+    setQuizForm({
+      title: '',
+      passingScore: 70,
+      questions: []
+    });
+    setCurrentQuestion({
+      question: '',
+      type: 'text',
+      options: ['', '', '', ''],
+      correctAnswer: 0,
+      imageUrl: ''
+    });
+    setShowQuizForm(false);
+  };
+
+  // ✅ Handle video file selection
+  const handleVideoFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+      if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
+        alert('Please select a valid video file (MP4, WebM, OGG, MOV, AVI)');
+        return;
+      }
+
+      // Validate file size (max 100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        alert('Video file size must be less than 100MB');
+        return;
+      }
+
+      setNewLessonForm({
+        ...newLessonForm,
+        videoFile: file,
+        videoFileName: file.name
+      });
+    }
+  };
+
+  // ✅ Handle multimedia file selection
+  const handleMultimediaFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = {
+        video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+        image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+        audio: ['audio/mpeg', 'audio/ogg', 'audio/wav'],
+        document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+      };
+
+      const allowedTypes = validTypes[newMultimediaForm.type] || [];
+      if (!allowedTypes.includes(file.type) && !file.type.startsWith(newMultimediaForm.type === 'video' ? 'video/' : '')) {
+        alert(`Please select a valid ${newMultimediaForm.type} file`);
+        return;
+      }
+
+      // Validate file size (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('File size must be less than 50MB');
+        return;
+      }
+
+      setNewMultimediaForm({
+        ...newMultimediaForm,
+        file: file,
+        fileName: file.name
+      });
+    }
+  };
+
+  // ✅ Add lesson with file upload
+  const handleAddLesson = async (e) => {
+    e.preventDefault();
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const progressInterval = simulateUploadProgress();
+
+      const lessonData = {
+        title: newLessonForm.title,
+        content: newLessonForm.content,
+        duration: newLessonForm.duration,
+        completed: false,
+        multimedia: [],
+        quiz: null,
+        isFree: newLessonForm.isFree,
+        price: newLessonForm.isFree ? 0 : newLessonForm.price,
+        isLocked: !newLessonForm.isFree
+      };
+
+      // ✅ Add video file if provided
+      if (newLessonForm.videoFile) {
+        const base64Data = await fileToBase64(newLessonForm.videoFile);
+        lessonData.multimedia.push({
+          type: 'video',
+          url: base64Data,
+          title: newLessonForm.videoTitle || newLessonForm.videoFileName || 'Lesson Video',
+          description: newLessonForm.videoDescription || 'Video content for this lesson',
+          fileName: newLessonForm.videoFileName,
+          fileSize: newLessonForm.videoFile.size,
+          fileType: newLessonForm.videoFile.type,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      // Add quiz if there are questions
+      if (quizForm.questions.length > 0) {
+        lessonData.quiz = {
+          title: quizForm.title || 'Lesson Quiz',
+          passingScore: quizForm.passingScore,
+          questions: quizForm.questions
+        };
+      }
+
+      addLessonToCourse(newLessonForm.courseKey, lessonData);
+      alert('Lesson added successfully!');
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      // Reset all forms
+      setNewLessonForm({
+        courseKey: '',
+        title: '',
+        content: '',
+        duration: '',
+        videoFile: null,
+        videoFileName: '',
+        videoTitle: '',
+        videoDescription: '',
+        isFree: true,
+        price: 0,
+        isLocked: false
+      });
+      resetQuizForm();
+      loadData();
+      setIsUploading(false);
+    } catch (error) {
+      console.error('Error adding lesson:', error);
+      alert('Error adding lesson: ' + error.message);
+      setIsUploading(false);
+    }
+  };
+
+  const startViewLessons = (courseKey) => {
+    setViewingCourseLessons(courseKey);
+    setActiveTab('manage-lessons');
+  };
+
+  const startEditLesson = (courseKey, lesson) => {
+    setEditingLesson({ courseKey, lessonId: lesson.id });
+    setEditLessonForm({
+      title: lesson.title,
+      content: lesson.content,
+      duration: lesson.duration,
+      isFree: lesson.isFree,
+      price: lesson.price
+    });
+  };
+
+  const cancelEditLesson = () => {
+    setEditingLesson(null);
+    setEditLessonForm({});
+  };
+
+  const handleUpdateLesson = (e) => {
+    e.preventDefault();
+    try {
+      const updatedData = {
+        ...editLessonForm,
+        isLocked: !editLessonForm.isFree
+      };
+
+      updateLesson(editingLesson.courseKey, editingLesson.lessonId, updatedData);
+      alert('Lesson updated successfully!');
+      setEditingLesson(null);
+      setEditLessonForm({});
+      loadData();
+    } catch (error) {
+      alert('Error updating lesson: ' + error.message);
+    }
+  };
+
+  const handleDeleteLesson = (courseKey, lessonId, lessonTitle) => {
+    if (window.confirm(`Are you sure you want to delete the lesson "${lessonTitle}"?`)) {
+      try {
+        deleteLesson(courseKey, lessonId);
+        alert('Lesson deleted successfully!');
+        loadData();
+      } catch (error) {
+        alert('Error deleting lesson: ' + error.message);
+      }
+    }
+  };
+
+  // ✅ Handle multimedia file upload
+  const handleAddMultimedia = async (e) => {
+    e.preventDefault();
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const progressInterval = simulateUploadProgress();
+      const multimediaData = { ...newMultimediaForm };
+
+      if (newMultimediaForm.file) {
+        const base64Data = await fileToBase64(newMultimediaForm.file);
+        multimediaData.url = base64Data;
+        multimediaData.fileName = newMultimediaForm.fileName;
+        multimediaData.fileSize = newMultimediaForm.file.size;
+        multimediaData.fileType = newMultimediaForm.file.type;
+      }
+
+      addMultimediaToLesson(
+        managingMultimedia.courseKey,
+        managingMultimedia.lesson.id,
+        multimediaData
+      );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      alert('Multimedia content added successfully!');
+
+      setNewMultimediaForm({
+        type: 'video',
+        file: null,
+        fileName: '',
+        title: '',
+        description: ''
+      });
+      loadData();
+      setIsUploading(false);
+    } catch (error) {
+      console.error('Error adding multimedia:', error);
+      alert('Error adding multimedia: ' + error.message);
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteMultimedia = (multimediaId, multimediaTitle) => {
+    if (window.confirm(`Are you sure you want to delete "${multimediaTitle}"?`)) {
+      try {
+        deleteMultimediaFromLesson(
+          managingMultimedia.courseKey,
+          managingMultimedia.lesson.id,
+          multimediaId
+        );
+        alert('Multimedia content deleted successfully!');
+        loadData();
+      } catch (error) {
+        alert('Error deleting multimedia: ' + error.message);
+      }
+    }
+  };
+
+  const startManageMultimedia = (courseKey, lesson) => {
+    setManagingMultimedia({ courseKey, lesson });
+    setActiveTab('manage-multimedia');
+  };
+
+  const formatCurrency = (amount) => {
+    return `₦${amount?.toLocaleString() || '0'}`;
+  };
+
+  if (!stats) {
+    return <div className="loading-teacher">Loading teacher data...</div>;
+  }
+
+  return (
+    <div className="teacher-dashboard">
+      <div className="teacher-header">
+        <h3>Teacher Dashboard</h3>
+        <p>Manage Your Courses, Earnings, and Lessons</p>
+      </div>
+
+      {/* Upload Progress Bar */}
+      {isUploading && (
+        <div className="upload-progress">
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${uploadProgress}%` }}
+            >
+              {uploadProgress}%
+            </div>
+          </div>
+          <p>Uploading video... Please wait.</p>
+        </div>
+      )}
+
+      <div className="teacher-tabs">
+        <button onClick={() => setActiveTab('overview')} className={activeTab === 'overview' ? 'active' : ''}>
+          Overview
+        </button>
+        <button onClick={() => setActiveTab('my-courses')} className={activeTab === 'my-courses' ? 'active' : ''}>
+          My Courses ({Object.keys(courses).length})
+        </button>
+        <button onClick={() => setActiveTab('manage-lessons')} className={activeTab === 'manage-lessons' ? 'active' : ''}>
+          Manage Lessons
+        </button>
+        <button onClick={() => setActiveTab('add-course')} className={activeTab === 'add-course' ? 'active' : ''}>
+          Add Course
+        </button>
+        <button onClick={() => setActiveTab('add-lesson')} className={activeTab === 'add-lesson' ? 'active' : ''}>
+          Add Lesson
+        </button>
+        <button onClick={() => setActiveTab('manage-multimedia')} className={activeTab === 'manage-multimedia' ? 'active' : ''}>
+          Manage Media
+        </button>
+        <button onClick={() => setActiveTab('earnings')} className={activeTab === 'earnings' ? 'active' : ''}>
+          💰 Earnings {wallet && `(${formatCurrency(wallet.balance)})`}
+        </button>
+        <button onClick={() => setActiveTab('whatsapp')} className={activeTab === 'whatsapp' ? 'active' : ''}>
+          📱 WhatsApp
+        </button>
+      </div>
+
+      <div className="teacher-content">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="overview-tab">
+            {wallet && (
+              <div className="wallet-summary">
+                <h3>💰 Earnings Summary</h3>
+                <div className="wallet-stats">
+                  <div className="wallet-stat">
+                    <span className="stat-label">Available Balance:</span>
+                    <span className="stat-amount">{formatCurrency(wallet.balance)}</span>
+                  </div>
+                  <div className="wallet-stat">
+                    <span className="stat-label">Total Earnings:</span>
+                    <span className="stat-amount">{formatCurrency(wallet.totalEarnings)}</span>
+                  </div>
+                  <div className="wallet-stat">
+                    <span className="stat-label">Pending Withdrawals:</span>
+                    <span className="stat-amount">{formatCurrency(wallet.pendingWithdrawals)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="stats-grid">
+              <div className="stat-card">
+                <h3>My Courses</h3>
+                <div className="stat-number">{stats.totalCourses}</div>
+              </div>
+              <div className="stat-card">
+                <h3>Total Lessons</h3>
+                <div className="stat-number">{stats.totalLessons}</div>
+              </div>
+              <div className="stat-card">
+                <h3>Students Enrolled</h3>
+                <div className="stat-number">{stats.totalStudents}</div>
+              </div>
+              <div className="stat-card">
+                <h3>Paid Lessons</h3>
+                <div className="stat-number">
+                  {Object.values(courses).reduce((total, course) => 
+                    total + (course.lessons?.filter(lesson => !lesson.isFree).length || 0), 0
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Earnings Tab */}
+        {activeTab === 'earnings' && (
+          <div className="earnings-tab">
+            <h3>💰 Earnings & Withdrawals</h3>
+
+            {wallet ? (
+              <div className="earnings-content">
+                <div className="balance-card">
+                  <h4>Available Balance</h4>
+                  <div className="balance-amount">{formatCurrency(wallet.balance)}</div>
+                  <p>Total Earnings: {formatCurrency(wallet.totalEarnings)}</p>
+                </div>
+
+                <div className="withdrawal-section">
+                  <h4>Withdraw Funds</h4>
+                  <div className="withdrawal-form">
+                    <div className="form-group">
+                      <label>Amount to Withdraw (₦)</label>
+                      <input
+                        type="number"
+                        value={withdrawalAmount}
+                        onChange={(e) => setWithdrawalAmount(e.target.value)}
+                        placeholder="Enter amount"
+                        min="100"
+                        max={wallet.balance}
+                      />
+                      <small>Minimum withdrawal: ₦100</small>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Bank Name</label>
+                      <input
+                        type="text"
+                        value={bankDetails.bankName}
+                        onChange={(e) => setBankDetails({...bankDetails, bankName: e.target.value})}
+                        placeholder="e.g., GTBank, Zenith Bank"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Account Number</label>
+                      <input
+                        type="text"
+                        value={bankDetails.accountNumber}
+                        onChange={(e) => setBankDetails({...bankDetails, accountNumber: e.target.value})}
+                        placeholder="10-digit account number"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Account Name</label>
+                      <input
+                        type="text"
+                        value={bankDetails.accountName}
+                        onChange={(e) => setBankDetails({...bankDetails, accountName: e.target.value})}
+                        placeholder="Name as it appears on bank account"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={handleWithdrawal}
+                      disabled={!withdrawalAmount || withdrawalAmount > wallet.balance}
+                      className="withdraw-btn"
+                    >
+                      Request Withdrawal
+                    </button>
+                  </div>
+                </div>
+
+                <div className="transaction-history">
+                  <h4>Transaction History</h4>
+                  {wallet.transactions && wallet.transactions.length > 0 ? (
+                    <div className="transactions-list">
+                      {wallet.transactions.map((transaction, index) => (
+                        <div key={index} className="transaction-item">
+                          <div className="transaction-info">
+                            <span className={`transaction-type ${transaction.type}`}>
+                              {transaction.type === 'credit' ? '💰 Credit' : '💸 Withdrawal'}
+                            </span>
+                            <span className="transaction-amount">
+                              {transaction.type === 'credit' ? '+' : '-'}{formatCurrency(Math.abs(transaction.amount))}
+                            </span>
+                          </div>
+                          <div className="transaction-details">
+                            <span className="transaction-description">{transaction.description}</span>
+                            <span className="transaction-date">
+                              {new Date(transaction.date).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-transactions">No transactions yet</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p>Loading wallet information...</p>
+            )}
+          </div>
+        )}
+
+        {/* WhatsApp Tab */}
+        {activeTab === 'whatsapp' && (
+          <div className="whatsapp-tab">
+            <h3>📱 WhatsApp Contact</h3>
+            <p>Add your WhatsApp number so students can contact you directly</p>
+
+            <div className="whatsapp-form">
+              <div className="form-group">
+                <label>WhatsApp Phone Number</label>
+                <input
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(e) => setWhatsappNumber(e.target.value)}
+                  placeholder="e.g., 2348012345678"
+                />
+                <small>Include country code without + sign (e.g., 2348012345678 for Nigeria)</small>
+              </div>
+
+              <button onClick={saveWhatsAppNumber} className="save-btn">
+                Save WhatsApp Number
+              </button>
+
+              {teacherProfile.whatsappNumber && (
+                <div className="whatsapp-preview">
+                  <h4>Your WhatsApp Contact Link:</h4>
+                  <div className="whatsapp-link">
+                    <a 
+                      href={getTeacherWhatsAppUrl(teacherProfile.id)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="whatsapp-btn"
+                    >
+                      💬 Chat on WhatsApp
+                    </a>
+                  </div>
+                  <p>Share this link with your students for direct communication</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* My Courses Tab */}
+        {activeTab === 'my-courses' && (
+          <div className="courses-tab">
+            <h3>My Courses</h3>
+            <div className="courses-list">
+              {Object.entries(courses).map(([key, course]) => (
+                <div key={key} className="course-teacher-card">
+                  {editingCourse === key ? (
+                    <div className="edit-course-form">
+                      <h4>Edit Course: {course.title}</h4>
+                      <form onSubmit={handleUpdateCourse} className="teacher-form">
+                        <div className="form-group">
+                          <label>Course Title</label>
+                          <input
+                            type="text"
+                            value={editCourseForm.title}
+                            onChange={(e) => setEditCourseForm({...editCourseForm, title: e.target.value})}
+                            required
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Description</label>
+                          <textarea
+                            value={editCourseForm.description}
+                            onChange={(e) => setEditCourseForm({...editCourseForm, description: e.target.value})}
+                            required
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Thumbnail Emoji</label>
+                          <input
+                            type="text"
+                            value={editCourseForm.thumbnail}
+                            onChange={(e) => setEditCourseForm({...editCourseForm, thumbnail: e.target.value})}
+                          />
+                        </div>
+                        <div className="form-actions">
+                          <button type="submit" className="save-btn">Save Changes</button>
+                          <button type="button" onClick={cancelEditCourse} className="cancel-btn">Cancel</button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="course-header">
+                        <span className="course-thumbnail">{course.thumbnail}</span>
+                        <div className="course-info">
+                          <h4>{course.title}</h4>
+                          <p className="course-description">{course.description}</p>
+                        </div>
+                      </div>
+                      <div className="course-stats">
+                        <span>Lessons: {course.lessons?.length || 0}</span>
+                        <span>Free: {course.lessons?.filter(lesson => lesson.isFree).length || 0}</span>
+                        <span>Paid: {course.lessons?.filter(lesson => !lesson.isFree).length || 0}</span>
+                      </div>
+                      <div className="course-actions">
+                        <button className="edit-btn" onClick={() => startEditCourse(key)}>Edit</button>
+                        <button className="view-btn" onClick={() => startViewLessons(key)}>Manage Lessons</button>
+                        <button className="delete-btn" onClick={() => handleDeleteCourse(key)}>Delete</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manage Lessons Tab */}
+        {activeTab === 'manage-lessons' && (
+          <div className="manage-lessons-tab">
+            <h3>
+              Manage Lessons 
+              {viewingCourseLessons && ` - ${courses[viewingCourseLessons]?.title}`}
+            </h3>
+
+            {!viewingCourseLessons ? (
+              <div className="select-course-prompt">
+                <p>Select a course to manage its lessons:</p>
+                <div className="course-buttons">
+                  {Object.entries(courses).map(([key, course]) => (
+                    <button 
+                      key={key} 
+                      className="course-select-btn"
+                      onClick={() => startViewLessons(key)}
+                    >
+                      {course.thumbnail} {course.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="lessons-management">
+                <button 
+                  className="back-to-courses"
+                  onClick={() => setViewingCourseLessons(null)}
+                >
+                  ← Back to Courses
+                </button>
+
+                <div className="lessons-list">
+                  {courses[viewingCourseLessons]?.lessons?.map((lesson) => (
+                    <div key={lesson.id} className="lesson-teacher-card">
+                      {editingLesson?.courseKey === viewingCourseLessons && editingLesson.lessonId === lesson.id ? (
+                        <div className="edit-lesson-form">
+                          <h4>Edit Lesson</h4>
+                          <form onSubmit={handleUpdateLesson} className="teacher-form">
+                            <div className="form-group">
+                              <label>Lesson Title</label>
+                              <input
+                                type="text"
+                                value={editLessonForm.title}
+                                onChange={(e) => setEditLessonForm({...editLessonForm, title: e.target.value})}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Lesson Content</label>
+                              <textarea
+                                value={editLessonForm.content}
+                                onChange={(e) => setEditLessonForm({...editLessonForm, content: e.target.value})}
+                                required
+                                rows="4"
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Duration</label>
+                              <input
+                                type="text"
+                                value={editLessonForm.duration}
+                                onChange={(e) => setEditLessonForm({...editLessonForm, duration: e.target.value})}
+                                required
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Lesson Type</label>
+                              <div className="pricing-options">
+                                <label>
+                                  <input
+                                    type="radio"
+                                    name="lessonType"
+                                    checked={editLessonForm.isFree}
+                                    onChange={() => setEditLessonForm({...editLessonForm, isFree: true, price: 0})}
+                                  />
+                                  Free Lesson
+                                </label>
+                                <label>
+                                  <input
+                                    type="radio"
+                                    name="lessonType"
+                                    checked={!editLessonForm.isFree}
+                                    onChange={() => setEditLessonForm({...editLessonForm, isFree: false, price: editLessonForm.price || 500})}
+                                  />
+                                  Paid Lesson
+                                </label>
+                              </div>
+                            </div>
+                            {!editLessonForm.isFree && (
+                              <div className="form-group">
+                                <label>Price (₦)</label>
+                                <input
+                                  type="number"
+                                  value={editLessonForm.price}
+                                  onChange={(e) => setEditLessonForm({...editLessonForm, price: parseInt(e.target.value) || 0})}
+                                  min="100"
+                                  max="10000"
+                                />
+                              </div>
+                            )}
+                            <div className="form-actions">
+                              <button type="submit" className="save-btn">Save Changes</button>
+                              <button type="button" onClick={cancelEditLesson} className="cancel-btn">Cancel</button>
+                            </div>
+                          </form>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="lesson-info">
+                            <h5>{lesson.title}</h5>
+                            <p><strong>Duration:</strong> {lesson.duration}</p>
+                            <p><strong>Type:</strong> 
+                              <span className={`lesson-type ${lesson.isFree ? 'free' : 'paid'}`}>
+                                {lesson.isFree ? ' FREE' : ` PAID - ${formatCurrency(lesson.price)}`}
+                              </span>
+                            </p>
+                            <p className="lesson-content-preview">{lesson.content.substring(0, 100)}...</p>
+                            {lesson.multimedia && lesson.multimedia.length > 0 && (
+                              <div className="lesson-media-indicator">
+                                🎬 {lesson.multimedia.length} media file(s)
+                              </div>
+                            )}
+                            {lesson.quiz && (
+                              <div className="lesson-quiz-indicator">
+                                📝 Has quiz ({lesson.quiz.questions.length} questions)
+                              </div>
+                            )}
+                          </div>
+                          <div className="lesson-actions">
+                            <button 
+                              className="edit-btn"
+                              onClick={() => startEditLesson(viewingCourseLessons, lesson)}
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              className="media-btn"
+                              onClick={() => startManageMultimedia(viewingCourseLessons, lesson)}
+                            >
+                              Media
+                            </button>
+                            <button 
+                              className="delete-btn"
+                              onClick={() => handleDeleteLesson(viewingCourseLessons, lesson.id, lesson.title)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Add Course Tab */}
+        {activeTab === 'add-course' && (
+          <div className="add-course-tab">
+            <h3>Add New Course</h3>
+            <form onSubmit={handleAddCourse} className="teacher-form">
+              <div className="form-group">
+                <label>Course Title</label>
+                <input
+                  type="text"
+                  value={newCourseForm.title}
+                  onChange={(e) => setNewCourseForm({...newCourseForm, title: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={newCourseForm.description}
+                  onChange={(e) => setNewCourseForm({...newCourseForm, description: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Thumbnail Emoji</label>
+                <input
+                  type="text"
+                  value={newCourseForm.thumbnail}
+                  onChange={(e) => setNewCourseForm({...newCourseForm, thumbnail: e.target.value})}
+                  placeholder="🌐"
+                />
+              </div>
+              <div className="form-group">
+                <label>Course Key (auto-generated if empty)</label>
+                <input
+                  type="text"
+                  value={newCourseForm.key}
+                  onChange={(e) => setNewCourseForm({...newCourseForm, key: e.target.value})}
+                  placeholder="webDevelopment"
+                />
+              </div>
+              <button type="submit" className="submit-btn">Add Course</button>
+            </form>
+          </div>
+        )}
+
+        {/* Add Lesson Tab with File Upload */}
+        {activeTab === 'add-lesson' && (
+          <div className="add-lesson-tab">
+            <h3>Add New Lesson</h3>
+            <form onSubmit={handleAddLesson} className="teacher-form">
+              <div className="form-group">
+                <label>Select Course</label>
+                <select
+                  value={newLessonForm.courseKey}
+                  onChange={(e) => setNewLessonForm({...newLessonForm, courseKey: e.target.value})}
+                  required
+                >
+                  <option value="">Choose a course</option>
+                  {Object.entries(courses).map(([key, course]) => (
+                    <option key={key} value={key}>{course.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Lesson Title</label>
+                <input
+                  type="text"
+                  value={newLessonForm.title}
+                  onChange={(e) => setNewLessonForm({...newLessonForm, title: e.target.value})}
+                  required
+                />
+              </div>
+
+              {/* Lesson Pricing Section */}
+              <div className="pricing-section">
+                <h4>Lesson Pricing</h4>
+                <div className="pricing-options">
+                  <label className="pricing-option">
+                    <input
+                      type="radio"
+                      name="lessonType"
+                      checked={newLessonForm.isFree}
+                      onChange={() => setNewLessonForm({...newLessonForm, isFree: true, price: 0})}
+                    />
+                    <span className="option-label">Free Lesson</span>
+                    <span className="option-description">Students can access for free</span>
+                  </label>
+
+                  <label className="pricing-option">
+                    <input
+                      type="radio"
+                      name="lessonType"
+                      checked={!newLessonForm.isFree}
+                      onChange={() => setNewLessonForm({...newLessonForm, isFree: false, price: 500})}
+                    />
+                    <span className="option-label">Paid Lesson</span>
+                    <span className="option-description">Students pay to access</span>
+                  </label>
+                </div>
+
+                {!newLessonForm.isFree && (
+                  <div className="price-input">
+                    <div className="form-group">
+                      <label>Lesson Price (₦)</label>
+                      <input
+                        type="number"
+                        value={newLessonForm.price}
+                        onChange={(e) => setNewLessonForm({...newLessonForm, price: parseInt(e.target.value) || 0})}
+                        min="100"
+                        max="10000"
+                        required
+                      />
+                      <small>Price between ₦100 - ₦10,000</small>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Lesson Content</label>
+                <textarea
+                  value={newLessonForm.content}
+                  onChange={(e) => setNewLessonForm({...newLessonForm, content: e.target.value})}
+                  required
+                  rows="4"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Duration</label>
+                <input
+                  type="text"
+                  value={newLessonForm.duration}
+                  onChange={(e) => setNewLessonForm({...newLessonForm, duration: e.target.value})}
+                  placeholder="30 minutes"
+                  required
+                />
+              </div>
+
+              {/* Video Upload Section */}
+              <div className="video-upload-section">
+                <h4>📹 Upload Video (Optional)</h4>
+                <div className="form-group">
+                  <label>Select Video File</label>
+                  <div className="file-upload-wrapper">
+                    <input
+                      type="file"
+                      id="videoFile"
+                      accept="video/*,.mp4,.webm,.ogg,.mov,.avi"
+                      onChange={handleVideoFileSelect}
+                      className="file-input"
+                    />
+                    <label htmlFor="videoFile" className="file-upload-label">
+                      <span className="upload-icon">📤</span>
+                      {newLessonForm.videoFileName ? (
+                        <span className="file-name">{newLessonForm.videoFileName}</span>
+                      ) : (
+                        <span>Choose Video File (MP4, WebM, OGG, MOV, AVI)</span>
+                      )}
+                    </label>
+                  </div>
+                  <small className="help-text">
+                    Max file size: 100MB • Supported formats: MP4, WebM, OGG, MOV, AVI
+                  </small>
+                </div>
+
+                {newLessonForm.videoFile && (
+                  <div className="file-preview">
+                    <video controls style={{ maxWidth: '100%', maxHeight: '300px' }}>
+                      <source src={URL.createObjectURL(newLessonForm.videoFile)} type={newLessonForm.videoFile.type} />
+                      Your browser does not support the video tag.
+                    </video>
+                    <p className="file-details">
+                      File: {newLessonForm.videoFileName} • Size: {(newLessonForm.videoFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label>Video Title</label>
+                  <input
+                    type="text"
+                    value={newLessonForm.videoTitle}
+                    onChange={(e) => setNewLessonForm({...newLessonForm, videoTitle: e.target.value})}
+                    placeholder="Lesson Video Tutorial"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Video Description</label>
+                  <input
+                    type="text"
+                    value={newLessonForm.videoDescription}
+                    onChange={(e) => setNewLessonForm({...newLessonForm, videoDescription: e.target.value})}
+                    placeholder="Watch this video to learn more"
+                  />
+                </div>
+              </div>
+
+              {/* Quiz Section */}
+              <div className="quiz-section">
+                <div className="section-header">
+                  <h4>Quiz Content (Optional)</h4>
+                  <button 
+                    type="button"
+                    onClick={() => setShowQuizForm(!showQuizForm)}
+                    className="toggle-btn"
+                  >
+                    {showQuizForm ? 'Hide Quiz Form' : 'Add Quiz'}
+                  </button>
+                </div>
+
+                {showQuizForm && (
+                  <div className="quiz-form">
+                    <div className="form-group">
+                      <label>Quiz Title</label>
+                      <input
+                        type="text"
+                        value={quizForm.title}
+                        onChange={(e) => setQuizForm({...quizForm, title: e.target.value})}
+                        placeholder="Lesson Quiz"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Passing Score (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={quizForm.passingScore}
+                        onChange={(e) => setQuizForm({...quizForm, passingScore: parseInt(e.target.value) || 70})}
+                      />
+                    </div>
+
+                    <div className="current-question">
+                      <h5>Add New Question</h5>
+
+                      <div className="form-group">
+                        <label>Question Type</label>
+                        <select
+                          value={currentQuestion.type}
+                          onChange={(e) => setCurrentQuestion({...currentQuestion, type: e.target.value})}
+                        >
+                          <option value="text">Text Question</option>
+                          <option value="image">Image Question</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Question Text</label>
+                        <input
+                          type="text"
+                          value={currentQuestion.question}
+                          onChange={(e) => setCurrentQuestion({...currentQuestion, question: e.target.value})}
+                          placeholder="Enter your question here"
+                        />
+                      </div>
+
+                      {currentQuestion.type === 'image' && (
+                        <div className="form-group">
+                          <label>Image URL</label>
+                          <input
+                            type="url"
+                            value={currentQuestion.imageUrl}
+                            onChange={(e) => setCurrentQuestion({...currentQuestion, imageUrl: e.target.value})}
+                            placeholder="https://example.com/image.jpg"
+                          />
+                        </div>
+                      )}
+
+                      <div className="options-section">
+                        <h6>Options</h6>
+                        {currentQuestion.options.map((option, index) => (
+                          <div key={index} className="option-item">
+                            <input
+                              type="radio"
+                              name="correctAnswer"
+                              checked={currentQuestion.correctAnswer === index}
+                              onChange={() => handleCorrectAnswerChange(index)}
+                            />
+                            <input
+                              type="text"
+                              value={option}
+                              onChange={(e) => handleOptionChange(index, e.target.value)}
+                              placeholder={`Option ${index + 1}`}
+                              className="option-input"
+                            />
+                            <span className="correct-label">
+                              {currentQuestion.correctAnswer === index ? 'Correct' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button 
+                        type="button" 
+                        onClick={handleAddQuestion}
+                        className="add-question-btn"
+                      >
+                        Add Question to Quiz
+                      </button>
+                    </div>
+
+                    {quizForm.questions.length > 0 && (
+                      <div className="existing-questions">
+                        <h5>Questions in Quiz ({quizForm.questions.length})</h5>
+                        {quizForm.questions.map((question, index) => (
+                          <div key={question.id} className="question-item">
+                            <div className="question-info">
+                              <strong>Q{index + 1}:</strong> {question.question}
+                              {question.type === 'image' && question.imageUrl && (
+                                <div className="question-image-preview">
+                                  <img src={question.imageUrl} alt="Question" style={{maxWidth: '100px'}} />
+                                </div>
+                              )}
+                              <div className="options-preview">
+                                Options: {question.options.join(', ')}
+                              </div>
+                              <div className="correct-answer">
+                                Correct: Option {question.correctAnswer + 1}
+                              </div>
+                            </div>
+                            <button 
+                              type="button"
+                              onClick={() => handleRemoveQuestion(question.id)}
+                              className="remove-btn"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={isUploading}>
+                {isUploading ? 'Uploading...' : 'Add Lesson'}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Manage Multimedia Tab with File Upload */}
+        {activeTab === 'manage-multimedia' && (
+          <div className="manage-multimedia-tab">
+            <h3>
+              Manage Multimedia Content
+              {managingMultimedia && ` - ${managingMultimedia.lesson.title}`}
+            </h3>
+
+            {!managingMultimedia ? (
+              <div className="select-lesson-prompt">
+                <p>Select a lesson to manage its multimedia content:</p>
+                <div className="lessons-grid">
+                  {Object.entries(courses).map(([courseKey, course]) =>
+                    course.lessons?.map(lesson => (
+                      <div key={`${courseKey}-${lesson.id}`} className="lesson-select-card">
+                        <div className="lesson-info">
+                          <strong>{lesson.title}</strong>
+                          <span>Course: {course.title}</span>
+                          <span>Type: {lesson.isFree ? 'FREE' : `PAID - ${formatCurrency(lesson.price)}`}</span>
+                        </div>
+                        <div className="multimedia-stats">
+                          {lesson.multimedia && lesson.multimedia.length > 0 ? (
+                            <span className="has-media">📹 {lesson.multimedia.length} media files</span>
+                          ) : (
+                            <span className="no-media">No media</span>
+                          )}
+                        </div>
+                        <button 
+                          className="manage-media-btn"
+                          onClick={() => startManageMultimedia(courseKey, lesson)}
+                        >
+                          Manage Media
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="multimedia-management">
+                <div className="management-header">
+                  <button 
+                    className="back-to-lessons"
+                    onClick={() => setManagingMultimedia(null)}
+                  >
+                    ← Back to Lessons
+                  </button>
+                  <h4>Managing: {managingMultimedia.lesson.title}</h4>
+                </div>
+
+                {/* Add New Multimedia Form with File Upload */}
+                <div className="add-multimedia-form">
+                  <h5>Add New Multimedia Content</h5>
+                  <form onSubmit={handleAddMultimedia} className="teacher-form compact">
+                    <div className="form-group">
+                      <label>Media Type</label>
+                      <select
+                        value={newMultimediaForm.type}
+                        onChange={(e) => {
+                          setNewMultimediaForm({
+                            ...newMultimediaForm,
+                            type: e.target.value,
+                            file: null,
+                            fileName: ''
+                          });
+                        }}
+                        required
+                      >
+                        <option value="video">Video</option>
+                        <option value="image">Image</option>
+                        <option value="audio">Audio</option>
+                        <option value="document">Document</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Upload File</label>
+                      <div className="file-upload-wrapper">
+                        <input
+                          type="file"
+                          id="multimediaFile"
+                          accept={
+                            newMultimediaForm.type === 'video' ? 'video/*,.mp4,.webm,.ogg,.mov,.avi' :
+                            newMultimediaForm.type === 'image' ? 'image/*,.jpg,.jpeg,.png,.gif,.webp,.svg' :
+                            newMultimediaForm.type === 'audio' ? 'audio/*,.mp3,.ogg,.wav' :
+                            '.pdf,.doc,.docx,.txt'
+                          }
+                          onChange={handleMultimediaFileSelect}
+                          className="file-input"
+                        />
+                        <label htmlFor="multimediaFile" className="file-upload-label">
+                          <span className="upload-icon">📤</span>
+                          {newMultimediaForm.fileName ? (
+                            <span className="file-name">{newMultimediaForm.fileName}</span>
+                          ) : (
+                            <span>Choose {newMultimediaForm.type} file</span>
+                          )}
+                        </label>
+                      </div>
+                      <small className="help-text">
+                        Max file size: 50MB • Supported formats vary by type
+                      </small>
+                    </div>
+
+                    {newMultimediaForm.file && newMultimediaForm.type === 'video' && (
+                      <div className="file-preview">
+                        <video controls style={{ maxWidth: '100%', maxHeight: '200px' }}>
+                          <source src={URL.createObjectURL(newMultimediaForm.file)} type={newMultimediaForm.file.type} />
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
+
+                    {newMultimediaForm.file && newMultimediaForm.type === 'image' && (
+                      <div className="file-preview">
+                        <img 
+                          src={URL.createObjectURL(newMultimediaForm.file)} 
+                          alt="Preview" 
+                          style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label>Title</label>
+                      <input
+                        type="text"
+                        value={newMultimediaForm.title}
+                        onChange={(e) => setNewMultimediaForm({...newMultimediaForm, title: e.target.value})}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Description</label>
+                      <textarea
+                        value={newMultimediaForm.description}
+                        onChange={(e) => setNewMultimediaForm({...newMultimediaForm, description: e.target.value})}
+                        rows="2"
+                      />
+                    </div>
+
+                    <button type="submit" className="submit-btn" disabled={isUploading}>
+                      {isUploading ? 'Uploading...' : 'Add Media'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Existing Multimedia List */}
+                <div className="existing-multimedia">
+                  <h5>Existing Media Content</h5>
+                  {managingMultimedia.lesson.multimedia && managingMultimedia.lesson.multimedia.length > 0 ? (
+                    <div className="multimedia-list">
+                      {managingMultimedia.lesson.multimedia.map(media => (
+                        <div key={media.id} className="media-item">
+                          <div className="media-preview">
+                            {media.type === 'video' && <span className="media-icon">🎬</span>}
+                            {media.type === 'image' && <span className="media-icon">🖼️</span>}
+                            {media.type === 'audio' && <span className="media-icon">🎵</span>}
+                            {media.type === 'document' && <span className="media-icon">📄</span>}
+                            <div className="media-info">
+                              <strong>{media.title}</strong>
+                              <span>Type: {media.type}</span>
+                              {media.fileName && <span>File: {media.fileName}</span>}
+                              {media.fileSize && <span>Size: {(media.fileSize / (1024 * 1024)).toFixed(2)} MB</span>}
+                              {media.type === 'video' && (
+                                <div className="media-preview-video">
+                                  <video controls style={{ maxWidth: '200px', maxHeight: '150px' }}>
+                                    <source src={media.url} type={media.fileType || 'video/mp4'} />
+                                    Your browser does not support the video tag.
+                                  </video>
+                                </div>
+                              )}
+                              {media.type === 'image' && (
+                                <img src={media.url} alt={media.title} style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'contain' }} />
+                              )}
+                              {media.type === 'audio' && (
+                                <audio controls style={{ maxWidth: '200px' }}>
+                                  <source src={media.url} type={media.fileType || 'audio/mpeg'} />
+                                </audio>
+                              )}
+                            </div>
+                          </div>
+                          <button 
+                            className="delete-btn"
+                            onClick={() => handleDeleteMultimedia(media.id, media.title)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="no-media-message">No multimedia content added yet.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
-              
-  
-
-      
-
-
-    
-  
+export default TeacherDashboard;
