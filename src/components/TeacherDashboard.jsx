@@ -24,6 +24,8 @@ const TeacherDashboard = () => {
   const [courses, setCoursesState] = useState({});
   const [wallet, setWallet] = useState(null);
   const [teacherProfile, setTeacherProfile] = useState({});
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Course Form States
   const [newCourseForm, setNewCourseForm] = useState({
@@ -33,18 +35,19 @@ const TeacherDashboard = () => {
     key: ''
   });
 
-  // Lesson Form States with Video Support and Payment Options
+  // Lesson Form States with File Upload and Payment Options
   const [newLessonForm, setNewLessonForm] = useState({
     courseKey: '',
     title: '',
     content: '',
     duration: '',
-    videoUrl: '',
+    videoFile: null,
+    videoFileName: '',
     videoTitle: '',
     videoDescription: '',
-    isFree: true, // NEW: Free or paid lesson
-    price: 0, // NEW: Price for paid lessons
-    isLocked: false // NEW: Lock status
+    isFree: true,
+    price: 0,
+    isLocked: false
   });
 
   // Quiz Form States
@@ -75,12 +78,13 @@ const TeacherDashboard = () => {
   const [managingMultimedia, setManagingMultimedia] = useState(null);
   const [newMultimediaForm, setNewMultimediaForm] = useState({
     type: 'video',
-    url: '',
+    file: null,
+    fileName: '',
     title: '',
     description: ''
   });
 
-  // NEW: Payment & WhatsApp States
+  // Payment & WhatsApp States
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [bankDetails, setBankDetails] = useState({
@@ -89,37 +93,29 @@ const TeacherDashboard = () => {
     accountName: ''
   });
 
-  // Function to extract YouTube video ID from various URL formats
-  const getYouTubeEmbedUrl = (url) => {
-    if (!url) return '';
-
-    // If it's already an embed URL, return as is
-    if (url.includes('youtube.com/embed/')) {
-      return url;
-    }
-
-    // Extract video ID from various YouTube URL formats
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&]+)/,
-      /youtube\.com\/v\/([^?]+)/,
-      /youtube\.com\/watch\?.*v=([^&]+)/
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        return `https://www.youtube.com/embed/${match[1]}`;
-      }
-    }
-
-    // If no pattern matches, return original URL
-    return url;
+  // ✅ Convert file to base64 for storage (local storage)
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
-  // Function to check if URL is a valid YouTube URL
-  const isValidYouTubeUrl = (url) => {
-    if (!url) return false;
-    return url.includes('youtube.com') || url.includes('youtu.be');
+  // ✅ Handle file upload progress simulation
+  const simulateUploadProgress = () => {
+    setUploadProgress(0);
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+    return interval;
   };
 
   useEffect(() => {
@@ -147,7 +143,6 @@ const TeacherDashboard = () => {
     }
   };
 
-  // NEW: Load teacher profile with WhatsApp
   const loadTeacherProfile = () => {
     try {
       const currentUser = getCurrentUser();
@@ -160,7 +155,7 @@ const TeacherDashboard = () => {
     }
   };
 
-  // NEW: Save WhatsApp number
+  // ✅ Save WhatsApp number
   const saveWhatsAppNumber = () => {
     try {
       const currentUser = getCurrentUser();
@@ -179,7 +174,7 @@ const TeacherDashboard = () => {
     }
   };
 
-  // NEW: Process withdrawal
+  // ✅ Process withdrawal
   const handleWithdrawal = () => {
     try {
       const currentUser = getCurrentUser();
@@ -306,7 +301,6 @@ const TeacherDashboard = () => {
       questions: [...prev.questions, newQuestion]
     }));
 
-    // Reset current question
     setCurrentQuestion({
       question: '',
       type: 'text',
@@ -355,10 +349,72 @@ const TeacherDashboard = () => {
     setShowQuizForm(false);
   };
 
-  // Lesson Management Functions with Video Support and Payment Options
-  const handleAddLesson = (e) => {
+  // ✅ Handle video file selection
+  const handleVideoFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
+      if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
+        alert('Please select a valid video file (MP4, WebM, OGG, MOV, AVI)');
+        return;
+      }
+
+      // Validate file size (max 100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        alert('Video file size must be less than 100MB');
+        return;
+      }
+
+      setNewLessonForm({
+        ...newLessonForm,
+        videoFile: file,
+        videoFileName: file.name
+      });
+    }
+  };
+
+  // ✅ Handle multimedia file selection
+  const handleMultimediaFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = {
+        video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
+        image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+        audio: ['audio/mpeg', 'audio/ogg', 'audio/wav'],
+        document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+      };
+
+      const allowedTypes = validTypes[newMultimediaForm.type] || [];
+      if (!allowedTypes.includes(file.type) && !file.type.startsWith(newMultimediaForm.type === 'video' ? 'video/' : '')) {
+        alert(`Please select a valid ${newMultimediaForm.type} file`);
+        return;
+      }
+
+      // Validate file size (max 50MB)
+      if (file.size > 50 * 1024 * 1024) {
+        alert('File size must be less than 50MB');
+        return;
+      }
+
+      setNewMultimediaForm({
+        ...newMultimediaForm,
+        file: file,
+        fileName: file.name
+      });
+    }
+  };
+
+  // ✅ Add lesson with file upload
+  const handleAddLesson = async (e) => {
     e.preventDefault();
+    setIsUploading(true);
+    setUploadProgress(0);
+
     try {
+      const progressInterval = simulateUploadProgress();
+
       const lessonData = {
         title: newLessonForm.title,
         content: newLessonForm.content,
@@ -366,20 +422,23 @@ const TeacherDashboard = () => {
         completed: false,
         multimedia: [],
         quiz: null,
-        isFree: newLessonForm.isFree, // NEW
-        price: newLessonForm.isFree ? 0 : newLessonForm.price, // NEW
-        isLocked: !newLessonForm.isFree // NEW: Lock paid lessons by default
+        isFree: newLessonForm.isFree,
+        price: newLessonForm.isFree ? 0 : newLessonForm.price,
+        isLocked: !newLessonForm.isFree
       };
 
-      // Add video if provided
-      if (newLessonForm.videoUrl) {
-        const embedUrl = getYouTubeEmbedUrl(newLessonForm.videoUrl);
+      // ✅ Add video file if provided
+      if (newLessonForm.videoFile) {
+        const base64Data = await fileToBase64(newLessonForm.videoFile);
         lessonData.multimedia.push({
           type: 'video',
-          url: embedUrl,
-          title: newLessonForm.videoTitle || 'Lesson Video',
+          url: base64Data,
+          title: newLessonForm.videoTitle || newLessonForm.videoFileName || 'Lesson Video',
           description: newLessonForm.videoDescription || 'Video content for this lesson',
-          originalUrl: newLessonForm.videoUrl // Store original URL for reference
+          fileName: newLessonForm.videoFileName,
+          fileSize: newLessonForm.videoFile.size,
+          fileType: newLessonForm.videoFile.type,
+          uploadedAt: new Date().toISOString()
         });
       }
 
@@ -395,13 +454,17 @@ const TeacherDashboard = () => {
       addLessonToCourse(newLessonForm.courseKey, lessonData);
       alert('Lesson added successfully!');
 
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
       // Reset all forms
       setNewLessonForm({
         courseKey: '',
         title: '',
         content: '',
         duration: '',
-        videoUrl: '',
+        videoFile: null,
+        videoFileName: '',
         videoTitle: '',
         videoDescription: '',
         isFree: true,
@@ -410,8 +473,11 @@ const TeacherDashboard = () => {
       });
       resetQuizForm();
       loadData();
+      setIsUploading(false);
     } catch (error) {
+      console.error('Error adding lesson:', error);
       alert('Error adding lesson: ' + error.message);
+      setIsUploading(false);
     }
   };
 
@@ -426,8 +492,8 @@ const TeacherDashboard = () => {
       title: lesson.title,
       content: lesson.content,
       duration: lesson.duration,
-      isFree: lesson.isFree, // NEW
-      price: lesson.price // NEW
+      isFree: lesson.isFree,
+      price: lesson.price
     });
   };
 
@@ -441,9 +507,9 @@ const TeacherDashboard = () => {
     try {
       const updatedData = {
         ...editLessonForm,
-        isLocked: !editLessonForm.isFree // Update lock status based on free/paid
+        isLocked: !editLessonForm.isFree
       };
-      
+
       updateLesson(editingLesson.courseKey, editingLesson.lessonId, updatedData);
       alert('Lesson updated successfully!');
       setEditingLesson(null);
@@ -466,37 +532,47 @@ const TeacherDashboard = () => {
     }
   };
 
-  // Multimedia Management Functions
-  const startManageMultimedia = (courseKey, lesson) => {
-    setManagingMultimedia({ courseKey, lesson });
-    setActiveTab('manage-multimedia');
-  };
-
-  const handleAddMultimedia = (e) => {
+  // ✅ Handle multimedia file upload
+  const handleAddMultimedia = async (e) => {
     e.preventDefault();
+    setIsUploading(true);
+    setUploadProgress(0);
+
     try {
+      const progressInterval = simulateUploadProgress();
       const multimediaData = { ...newMultimediaForm };
 
-      // Convert YouTube URLs to embed format
-      if (multimediaData.type === 'video' && isValidYouTubeUrl(multimediaData.url)) {
-        multimediaData.url = getYouTubeEmbedUrl(multimediaData.url);
+      if (newMultimediaForm.file) {
+        const base64Data = await fileToBase64(newMultimediaForm.file);
+        multimediaData.url = base64Data;
+        multimediaData.fileName = newMultimediaForm.fileName;
+        multimediaData.fileSize = newMultimediaForm.file.size;
+        multimediaData.fileType = newMultimediaForm.file.type;
       }
 
       addMultimediaToLesson(
-        managingMultimedia.courseKey, 
-        managingMultimedia.lesson.id, 
+        managingMultimedia.courseKey,
+        managingMultimedia.lesson.id,
         multimediaData
       );
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       alert('Multimedia content added successfully!');
+
       setNewMultimediaForm({
         type: 'video',
-        url: '',
+        file: null,
+        fileName: '',
         title: '',
         description: ''
       });
       loadData();
+      setIsUploading(false);
     } catch (error) {
+      console.error('Error adding multimedia:', error);
       alert('Error adding multimedia: ' + error.message);
+      setIsUploading(false);
     }
   };
 
@@ -504,8 +580,8 @@ const TeacherDashboard = () => {
     if (window.confirm(`Are you sure you want to delete "${multimediaTitle}"?`)) {
       try {
         deleteMultimediaFromLesson(
-          managingMultimedia.courseKey, 
-          managingMultimedia.lesson.id, 
+          managingMultimedia.courseKey,
+          managingMultimedia.lesson.id,
           multimediaId
         );
         alert('Multimedia content deleted successfully!');
@@ -516,7 +592,11 @@ const TeacherDashboard = () => {
     }
   };
 
-  // NEW: Format currency
+  const startManageMultimedia = (courseKey, lesson) => {
+    setManagingMultimedia({ courseKey, lesson });
+    setActiveTab('manage-multimedia');
+  };
+
   const formatCurrency = (amount) => {
     return `₦${amount?.toLocaleString() || '0'}`;
   };
@@ -532,7 +612,21 @@ const TeacherDashboard = () => {
         <p>Manage Your Courses, Earnings, and Lessons</p>
       </div>
 
-      {/* Updated Tabs with Payment and WhatsApp */}
+      {/* Upload Progress Bar */}
+      {isUploading && (
+        <div className="upload-progress">
+          <div className="progress-bar">
+            <div 
+              className="progress-fill" 
+              style={{ width: `${uploadProgress}%` }}
+            >
+              {uploadProgress}%
+            </div>
+          </div>
+          <p>Uploading video... Please wait.</p>
+        </div>
+      )}
+
       <div className="teacher-tabs">
         <button onClick={() => setActiveTab('overview')} className={activeTab === 'overview' ? 'active' : ''}>
           Overview
@@ -552,7 +646,6 @@ const TeacherDashboard = () => {
         <button onClick={() => setActiveTab('manage-multimedia')} className={activeTab === 'manage-multimedia' ? 'active' : ''}>
           Manage Media
         </button>
-        {/* NEW TABS */}
         <button onClick={() => setActiveTab('earnings')} className={activeTab === 'earnings' ? 'active' : ''}>
           💰 Earnings {wallet && `(${formatCurrency(wallet.balance)})`}
         </button>
@@ -562,10 +655,9 @@ const TeacherDashboard = () => {
       </div>
 
       <div className="teacher-content">
-        {/* Overview Tab - Add wallet summary */}
+        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="overview-tab">
-            {/* Wallet Summary Card */}
             {wallet && (
               <div className="wallet-summary">
                 <h3>💰 Earnings Summary</h3>
@@ -586,7 +678,6 @@ const TeacherDashboard = () => {
               </div>
             )}
 
-            {/* Existing stats grid */}
             <div className="stats-grid">
               <div className="stat-card">
                 <h3>My Courses</h3>
@@ -616,17 +707,15 @@ const TeacherDashboard = () => {
         {activeTab === 'earnings' && (
           <div className="earnings-tab">
             <h3>💰 Earnings & Withdrawals</h3>
-            
+
             {wallet ? (
               <div className="earnings-content">
-                {/* Wallet Balance */}
                 <div className="balance-card">
                   <h4>Available Balance</h4>
                   <div className="balance-amount">{formatCurrency(wallet.balance)}</div>
                   <p>Total Earnings: {formatCurrency(wallet.totalEarnings)}</p>
                 </div>
 
-                {/* Withdrawal Form */}
                 <div className="withdrawal-section">
                   <h4>Withdraw Funds</h4>
                   <div className="withdrawal-form">
@@ -683,7 +772,6 @@ const TeacherDashboard = () => {
                   </div>
                 </div>
 
-                {/* Transaction History */}
                 <div className="transaction-history">
                   <h4>Transaction History</h4>
                   {wallet.transactions && wallet.transactions.length > 0 ? (
@@ -723,7 +811,7 @@ const TeacherDashboard = () => {
           <div className="whatsapp-tab">
             <h3>📱 WhatsApp Contact</h3>
             <p>Add your WhatsApp number so students can contact you directly</p>
-            
+
             <div className="whatsapp-form">
               <div className="form-group">
                 <label>WhatsApp Phone Number</label>
@@ -760,7 +848,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* My Courses Tab with Edit Functionality */}
+        {/* My Courses Tab */}
         {activeTab === 'my-courses' && (
           <div className="courses-tab">
             <h3>My Courses</h3>
@@ -895,7 +983,6 @@ const TeacherDashboard = () => {
                                 required
                               />
                             </div>
-                            {/* NEW: Pricing in Edit Form */}
                             <div className="form-group">
                               <label>Lesson Type</label>
                               <div className="pricing-options">
@@ -1022,8 +1109,7 @@ const TeacherDashboard = () => {
               </div>
               <div className="form-group">
                 <label>Course Key (auto-generated if empty)</label>
-                <input
-                  type="text"
+                <input                  type="text"
                   value={newCourseForm.key}
                   onChange={(e) => setNewCourseForm({...newCourseForm, key: e.target.value})}
                   placeholder="webDevelopment"
@@ -1034,7 +1120,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Add Lesson Tab with Video Embedding, Quiz, and Payment Options */}
+        {/* ✅ Add Lesson Tab with File Upload */}
         {activeTab === 'add-lesson' && (
           <div className="add-lesson-tab">
             <h3>Add New Lesson</h3>
@@ -1063,7 +1149,7 @@ const TeacherDashboard = () => {
                 />
               </div>
 
-              {/* NEW: Lesson Pricing Section */}
+              {/* Lesson Pricing Section */}
               <div className="pricing-section">
                 <h4>Lesson Pricing</h4>
                 <div className="pricing-options">
@@ -1129,21 +1215,44 @@ const TeacherDashboard = () => {
                 />
               </div>
 
-              {/* Video Embed Section */}
-              <div className="video-embed-section">
-                <h4>Video Content (Optional)</h4>
+              {/* ✅ Video Upload Section */}
+              <div className="video-upload-section">
+                <h4>📹 Upload Video (Optional)</h4>
                 <div className="form-group">
-                  <label>Video URL (YouTube, Vimeo, etc.)</label>
-                  <input
-                    type="url"
-                    value={newLessonForm.videoUrl}
-                    onChange={(e) => setNewLessonForm({...newLessonForm, videoUrl: e.target.value})}
-                    placeholder="https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID"
-                  />
+                  <label>Select Video File</label>
+                  <div className="file-upload-wrapper">
+                    <input
+                      type="file"
+                      id="videoFile"
+                      accept="video/*,.mp4,.webm,.ogg,.mov,.avi"
+                      onChange={handleVideoFileSelect}
+                      className="file-input"
+                    />
+                    <label htmlFor="videoFile" className="file-upload-label">
+                      <span className="upload-icon">📤</span>
+                      {newLessonForm.videoFileName ? (
+                        <span className="file-name">{newLessonForm.videoFileName}</span>
+                      ) : (
+                        <span>Choose Video File (MP4, WebM, OGG, MOV, AVI)</span>
+                      )}
+                    </label>
+                  </div>
                   <small className="help-text">
-                    For YouTube: You can use regular YouTube links (watch or youtu.be). We'll automatically convert them to embed format.
+                    Max file size: 100MB • Supported formats: MP4, WebM, OGG, MOV, AVI
                   </small>
                 </div>
+
+                {newLessonForm.videoFile && (
+                  <div className="file-preview">
+                    <video controls style={{ maxWidth: '100%', maxHeight: '300px' }}>
+                      <source src={URL.createObjectURL(newLessonForm.videoFile)} type={newLessonForm.videoFile.type} />
+                      Your browser does not support the video tag.
+                    </video>
+                    <p className="file-details">
+                      File: {newLessonForm.videoFileName} • Size: {(newLessonForm.videoFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </p>
+                  </div>
+                )}
 
                 <div className="form-group">
                   <label>Video Title</label>
@@ -1154,6 +1263,7 @@ const TeacherDashboard = () => {
                     placeholder="Lesson Video Tutorial"
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Video Description</label>
                   <input
@@ -1163,40 +1273,6 @@ const TeacherDashboard = () => {
                     placeholder="Watch this video to learn more"
                   />
                 </div>
-
-                {/* Video Preview */}
-                {newLessonForm.videoUrl && (
-                  <div className="video-preview">
-                    <h5>Video Preview:</h5>
-                    <div className="preview-container">
-                      {isValidYouTubeUrl(newLessonForm.videoUrl) ? (
-                        <iframe
-                          src={getYouTubeEmbedUrl(newLessonForm.videoUrl)}
-                          title="Video Preview"
-                          width="100%"
-                          height="200"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        ></iframe>
-                      ) : newLessonForm.videoUrl.includes('vimeo.com') ? (
-                        <iframe
-                          src={newLessonForm.videoUrl}
-                          title="Video Preview"
-                          width="100%"
-                          height="200"
-                          frameBorder="0"
-                          allowFullScreen
-                        ></iframe>
-                      ) : (
-                        <div className="video-link-preview">
-                          <p>🔗 Video Link: <a href={newLessonForm.videoUrl} target="_blank" rel="noopener noreferrer">{newLessonForm.videoUrl}</a></p>
-                          <small>Note: Only YouTube and Vimeo embed URLs will show preview. For other video platforms, students will be directed to the video page.</small>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Quiz Section */}
@@ -1235,7 +1311,6 @@ const TeacherDashboard = () => {
                       />
                     </div>
 
-                    {/* Current Question Form */}
                     <div className="current-question">
                       <h5>Add New Question</h5>
 
@@ -1305,7 +1380,6 @@ const TeacherDashboard = () => {
                       </button>
                     </div>
 
-                    {/* Existing Questions List */}
                     {quizForm.questions.length > 0 && (
                       <div className="existing-questions">
                         <h5>Questions in Quiz ({quizForm.questions.length})</h5>
@@ -1340,12 +1414,14 @@ const TeacherDashboard = () => {
                 )}
               </div>
 
-              <button type="submit" className="submit-btn">Add Lesson</button>
+              <button type="submit" className="submit-btn" disabled={isUploading}>
+                {isUploading ? 'Uploading...' : 'Add Lesson'}
+              </button>
             </form>
           </div>
         )}
 
-        {/* Manage Multimedia Tab */}
+        {/* ✅ Manage Multimedia Tab with File Upload */}
         {activeTab === 'manage-multimedia' && (
           <div className="manage-multimedia-tab">
             <h3>
@@ -1395,7 +1471,7 @@ const TeacherDashboard = () => {
                   <h4>Managing: {managingMultimedia.lesson.title}</h4>
                 </div>
 
-                {/* Add New Multimedia Form */}
+                {/* Add New Multimedia Form with File Upload */}
                 <div className="add-multimedia-form">
                   <h5>Add New Multimedia Content</h5>
                   <form onSubmit={handleAddMultimedia} className="teacher-form compact">
@@ -1403,7 +1479,14 @@ const TeacherDashboard = () => {
                       <label>Media Type</label>
                       <select
                         value={newMultimediaForm.type}
-                        onChange={(e) => setNewMultimediaForm({...newMultimediaForm, type: e.target.value})}
+                        onChange={(e) => {
+                          setNewMultimediaForm({
+                            ...newMultimediaForm,
+                            type: e.target.value,
+                            file: null,
+                            fileName: ''
+                          });
+                        }}
                         required
                       >
                         <option value="video">Video</option>
@@ -1414,24 +1497,52 @@ const TeacherDashboard = () => {
                     </div>
 
                     <div className="form-group">
-                      <label>Media URL</label>
-                      <input
-                        type="url"
-                        value={newMultimediaForm.url}
-                        onChange={(e) => setNewMultimediaForm({...newMultimediaForm, url: e.target.value})}
-                        placeholder={
-                          newMultimediaForm.type === 'video' 
-                            ? 'https://www.youtube.com/watch?v=VIDEO_ID' 
-                            : 'https://example.com/image.jpg'
-                        }
-                        required
-                      />
+                      <label>Upload File</label>
+                      <div className="file-upload-wrapper">
+                        <input
+                          type="file"
+                          id="multimediaFile"
+                          accept={
+                            newMultimediaForm.type === 'video' ? 'video/*,.mp4,.webm,.ogg,.mov,.avi' :
+                            newMultimediaForm.type === 'image' ? 'image/*,.jpg,.jpeg,.png,.gif,.webp,.svg' :
+                            newMultimediaForm.type === 'audio' ? 'audio/*,.mp3,.ogg,.wav' :
+                            '.pdf,.doc,.docx,.txt'
+                          }
+                          onChange={handleMultimediaFileSelect}
+                          className="file-input"
+                        />
+                        <label htmlFor="multimediaFile" className="file-upload-label">
+                          <span className="upload-icon">📤</span>
+                          {newMultimediaForm.fileName ? (
+                            <span className="file-name">{newMultimediaForm.fileName}</span>
+                          ) : (
+                            <span>Choose {newMultimediaForm.type} file</span>
+                          )}
+                        </label>
+                      </div>
                       <small className="help-text">
-                        {newMultimediaForm.type === 'video' 
-                          ? 'For YouTube: Use regular YouTube links (watch or youtu.be). We\'ll automatically convert to embed format.' 
-                          : 'Direct link to image, audio file, or document'}
+                        Max file size: 50MB • Supported formats vary by type
                       </small>
                     </div>
+
+                    {newMultimediaForm.file && newMultimediaForm.type === 'video' && (
+                      <div className="file-preview">
+                        <video controls style={{ maxWidth: '100%', maxHeight: '200px' }}>
+                          <source src={URL.createObjectURL(newMultimediaForm.file)} type={newMultimediaForm.file.type} />
+                          Your browser does not support the video tag.
+                        </video>
+                      </div>
+                    )}
+
+                    {newMultimediaForm.file && newMultimediaForm.type === 'image' && (
+                      <div className="file-preview">
+                        <img 
+                          src={URL.createObjectURL(newMultimediaForm.file)} 
+                          alt="Preview" 
+                          style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }}
+                        />
+                      </div>
+                    )}
 
                     <div className="form-group">
                       <label>Title</label>
@@ -1452,7 +1563,9 @@ const TeacherDashboard = () => {
                       />
                     </div>
 
-                    <button type="submit" className="submit-btn">Add Media</button>
+                    <button type="submit" className="submit-btn" disabled={isUploading}>
+                      {isUploading ? 'Uploading...' : 'Add Media'}
+                    </button>
                   </form>
                 </div>
 
@@ -1471,7 +1584,24 @@ const TeacherDashboard = () => {
                             <div className="media-info">
                               <strong>{media.title}</strong>
                               <span>Type: {media.type}</span>
-                              <span className="media-url">{media.url}</span>
+                              {media.fileName && <span>File: {media.fileName}</span>}
+                              {media.fileSize && <span>Size: {(media.fileSize / (1024 * 1024)).toFixed(2)} MB</span>}
+                              {media.type === 'video' && (
+                                <div className="media-preview-video">
+                                  <video controls style={{ maxWidth: '200px', maxHeight: '150px' }}>
+                                    <source src={media.url} type={media.fileType || 'video/mp4'} />
+                                    Your browser does not support the video tag.
+                                  </video>
+                                </div>
+                              )}
+                              {media.type === 'image' && (
+                                <img src={media.url} alt={media.title} style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'contain' }} />
+                              )}
+                              {media.type === 'audio' && (
+                                <audio controls style={{ maxWidth: '200px' }}>
+                                  <source src={media.url} type={media.fileType || 'audio/mpeg'} />
+                                </audio>
+                              )}
                             </div>
                           </div>
                           <button 
