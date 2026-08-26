@@ -6,7 +6,7 @@ const LoginForm = ({
   onSwitchToRegister, 
   onSwitchToTeacherRegister, 
   isLoading: parentLoading,
-  onResendVerification // ✅ New prop for resending verification email
+  onResendVerification
 }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -82,7 +82,7 @@ const LoginForm = ({
         // Increment failed attempts
         const newAttempts = loginAttempts + 1;
         setLoginAttempts(newAttempts);
-        
+
         // Lock account after 5 failed attempts
         if (newAttempts >= 5) {
           setIsLocked(true);
@@ -104,7 +104,7 @@ const LoginForm = ({
       } else {
         setError(err.message || 'Login failed. Please try again.');
       }
-      
+
       // Increment failed attempts on error too
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
@@ -124,7 +124,7 @@ const LoginForm = ({
     try {
       setIsLoading(true);
       setResendMessage('');
-      
+
       if (onResendVerification) {
         const result = await onResendVerification(formData.email);
         if (result && result.success) {
@@ -152,35 +152,6 @@ const LoginForm = ({
     setError('');
     setShowResendVerification(false);
     setResendMessage('');
-  };
-
-  const handleDemoLogin = (role) => {
-    // Clear any previous errors
-    setError('');
-    setLoginAttempts(0);
-    setIsLocked(false);
-    setShowResendVerification(false);
-    setResendMessage('');
-
-    const credentials = {
-      admin: { email: 'codesmartng1@gmail.com', password: 'Kb1217@#$%&' },
-      teacher: { email: 'kabir@teacher.com', password: '121712' },
-      student: { email: 'student@example.com', password: 'password123' }
-    };
-
-    const cred = credentials[role];
-    if (!cred) {
-      setError('Invalid demo role selected');
-      return;
-    }
-
-    setFormData({ email: cred.email, password: cred.password });
-
-    // Auto-submit after a short delay
-    setTimeout(() => {
-      const submitEvent = new Event('submit', { cancelable: true, bubbles: true });
-      handleSubmit(submitEvent);
-    }, 300);
   };
 
   const toggleShowPassword = () => {
@@ -342,41 +313,7 @@ const LoginForm = ({
           </button>
         </form>
 
-        {/* Demo Login Section */}
-        <div className="demo-section">
-          <div className="demo-divider">
-            <span>Quick Demo Access</span>
-          </div>
-          <div className="demo-buttons">
-            <button 
-              type="button" 
-              className="demo-btn admin-demo"
-              onClick={() => handleDemoLogin('admin')}
-              disabled={isDisabled}
-            >
-              <span className="demo-icon">👑</span>
-              Admin Demo
-            </button>
-            <button 
-              type="button" 
-              className="demo-btn teacher-demo"
-              onClick={() => handleDemoLogin('teacher')}
-              disabled={isDisabled}
-            >
-              <span className="demo-icon">👨‍🏫</span>
-              Teacher Demo
-            </button>
-            <button 
-              type="button" 
-              className="demo-btn student-demo"
-              onClick={() => handleDemoLogin('student')}
-              disabled={isDisabled}
-            >
-              <span className="demo-icon">👨‍🎓</span>
-              Student Demo
-            </button>
-          </div>
-        </div>
+        {/* ✅ DEMO SECTION REMOVED */}
 
         {/* Footer */}
         <div className="auth-footer">
