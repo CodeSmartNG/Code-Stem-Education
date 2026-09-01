@@ -1,3 +1,5 @@
+// TeacherDashboard.js - Complete with Firebase + Payment Integration
+
 import React, { useState, useEffect } from 'react';
 import { 
   getTeacherCourses,
@@ -15,10 +17,10 @@ import {
   updateTeacherProfileWithWhatsApp,
   getTeacherWhatsAppUrl,
   getCurrentUser,
-  // ✅ Firebase-specific functions
   uploadFile,
   getFileUrl
 } from '../utils/storage';
+import paymentService from '../utils/paymentService';
 import './TeacherDashboard.css';
 
 const TeacherDashboard = () => {
@@ -29,6 +31,13 @@ const TeacherDashboard = () => {
   const [teacherProfile, setTeacherProfile] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Payment-related states
+  const [transactions, setTransactions] = useState([]);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
 
   // Course Form States
   const [newCourseForm, setNewCourseForm] = useState({
@@ -107,16 +116,6 @@ const TeacherDashboard = () => {
     }
   };
 
-  // ✅ Convert file to base64 (fallback for small files)
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   // ✅ Handle file upload progress simulation
   const simulateUploadProgress = () => {
     setUploadProgress(0);
@@ -135,6 +134,7 @@ const TeacherDashboard = () => {
   useEffect(() => {
     loadData();
     loadTeacherProfile();
+    loadTransactions();
   }, []);
 
   const loadData = async () => {
@@ -167,6 +167,158 @@ const TeacherDashboard = () => {
     } catch (error) {
       console.error('Error loading teacher profile:', error);
     }
+  };
+
+  const loadTransactions = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser && currentUser.uid) {
+        const userTransactions = paymentService.getUserTransactions(currentUser.uid);
+        setTransactions(userTransactions);
+        
+        const walletData = await getTeacherWallet(currentUser.uid);
+        if (walletData && walletData.transactions) {
+          setPaymentHistory(walletData.transactions.filter(t => t.type === 'credit'));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    }
+  };
+
+  // ✅ Process lesson payment (for teacher to simulate student purchase)
+  const handleLessonPurchase = async (courseKey, lessonId, lessonPrice) => {
+    try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        alert('Please log in first');
+        return;
+      }
+
+      if (!lessonPrice || lessonPrice <= 0) {
+        alert('Invalid lesson price');
+        return;
+      }
+
+      const method = window.prompt('Select payment method (paystack/flutterwave):', 'paystack');
+      if (!method || !['paystack', 'flutterwave'].includes(method)) {
+        alert('Invalid payment method. Please choose paystack or flutterwave.');
+        return;
+      }
+
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const result = await paymentService.processLessonPayment(
+        currentUser.uid,
+        courseKey,
+        lessonId,
+        lessonPrice,
+        method
+      );
+
+      // Simulate payment verification
+      setTimeout(async () => {
+        try {
+          const verificationResult = await paymentService.verifyPaystackPayment(
+            result.data.reference || result.data.tx_ref
+          );
+
+          if (verificationResult.status) {
+            paymentService.updateTransactionStatus(
+              result.data.reference || result.data.tx_ref,
+              'completed',
+              verificationResult.data
+            );
+
+            // Update wallet
+            const updatedWallet = await getTeacherWallet(currentUser.uid);
+            if (updatedWallet) {
+              updatedWallet.transactions = updatedWallet.transactions || [];
+              updatedWallet.transactions.push({
+                type: 'credit',
+                amount: lessonPrice,
+                description: `Lesson purchase: ${courseKey} - ${lessonId}`,
+                date: new Date().toISOString()
+              });
+              updatedWallet.totalEarnings = (updatedWallet.totalEarnings || 0) + lessonPrice;
+              updatedWallet.balance = (updatedWallet.balance || 0) + lessonPrice;
+              
+              // Save updated wallet to Firebase
+              await updateTeacherWallet(currentUser.uid, updatedWallet);
+              setWallet(updatedWallet);
+            }
+
+            alert('✅ Payment successful! The lesson is now available.');
+            await loadTransactions();
+          } else {
+            alert('❌ Payment verification failed. Please try again.');
+          }
+        } catch (error) {
+          console.error('Verification error:', error);
+          alert('Error verifying payment: ' + error.message);
+        }
+        setIsUploading(false);
+        setUploadProgress(100);
+      }, 2000);
+
+      const interval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 20, 90));
+      }, 300);
+
+      window.open(result.data.authorization_url || result.data.link, '_blank');
+      setTimeout(() => clearInterval(interval), 2000);
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Error processing payment: ' + error.message);
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // ✅ Generate payment report
+  const generatePaymentReport = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) return;
+
+      const allTransactions = paymentService.getUserTransactions(currentUser.uid);
+      const completedTransactions = allTransactions.filter(t => t.status === 'completed');
+      const totalEarnings = completedTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+      const report = {
+        teacherName: currentUser.name || 'Teacher',
+        teacherId: currentUser.uid,
+        generatedAt: new Date().toISOString(),
+        totalTransactions: completedTransactions.length,
+        totalEarnings: totalEarnings,
+        transactions: completedTransactions,
+        paymentMethods: {
+          paystack: completedTransactions.filter(t => t.paymentMethod === 'paystack').length,
+          flutterwave: completedTransactions.filter(t => t.paymentMethod === 'flutterwave').length
+        }
+      };
+
+      // Download as JSON
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payment_report_${currentUser.uid}_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      alert('📊 Payment report downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Error generating report: ' + error.message);
+    }
+  };
+
+  // ✅ View transaction details
+  const viewTransactionDetails = (transaction) => {
+    setSelectedTransaction(transaction);
+    setShowPaymentDetails(true);
   };
 
   // ✅ Save WhatsApp number
@@ -367,14 +519,12 @@ const TeacherDashboard = () => {
   const handleVideoFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo'];
       if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
         alert('Please select a valid video file (MP4, WebM, OGG, MOV, AVI)');
         return;
       }
 
-      // Validate file size (max 100MB for Firebase)
       if (file.size > 100 * 1024 * 1024) {
         alert('Video file size must be less than 100MB');
         return;
@@ -392,7 +542,6 @@ const TeacherDashboard = () => {
   const handleMultimediaFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file type
       const validTypes = {
         video: ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'],
         image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
@@ -406,7 +555,6 @@ const TeacherDashboard = () => {
         return;
       }
 
-      // Validate file size (max 50MB for Firebase)
       if (file.size > 50 * 1024 * 1024) {
         alert('File size must be less than 50MB');
         return;
@@ -441,12 +589,11 @@ const TeacherDashboard = () => {
         isLocked: !newLessonForm.isFree
       };
 
-      // ✅ Upload video file to Firebase Storage
       if (newLessonForm.videoFile) {
         const currentUser = await getCurrentUser();
         const filePath = `teachers/${currentUser.uid}/videos/${Date.now()}_${newLessonForm.videoFileName}`;
         const fileUrl = await uploadFileToFirebase(newLessonForm.videoFile, filePath);
-        
+
         lessonData.multimedia.push({
           type: 'video',
           url: fileUrl,
@@ -460,7 +607,6 @@ const TeacherDashboard = () => {
         });
       }
 
-      // Add quiz if there are questions
       if (quizForm.questions.length > 0) {
         lessonData.quiz = {
           title: quizForm.title || 'Lesson Quiz',
@@ -475,7 +621,6 @@ const TeacherDashboard = () => {
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      // Reset all forms
       setNewLessonForm({
         courseKey: '',
         title: '',
@@ -564,7 +709,7 @@ const TeacherDashboard = () => {
         const currentUser = await getCurrentUser();
         const filePath = `teachers/${currentUser.uid}/media/${Date.now()}_${newMultimediaForm.fileName}`;
         const fileUrl = await uploadFileToFirebase(newMultimediaForm.file, filePath);
-        
+
         multimediaData.url = fileUrl;
         multimediaData.fileName = newMultimediaForm.fileName;
         multimediaData.fileSize = newMultimediaForm.file.size;
@@ -645,7 +790,7 @@ const TeacherDashboard = () => {
               {uploadProgress}%
             </div>
           </div>
-          <p>Uploading to Firebase... Please wait.</p>
+          <p>{uploadProgress < 100 ? 'Uploading to Firebase... Please wait.' : 'Upload complete!'}</p>
         </div>
       )}
 
@@ -671,13 +816,16 @@ const TeacherDashboard = () => {
         <button onClick={() => setActiveTab('earnings')} className={activeTab === 'earnings' ? 'active' : ''}>
           💰 Earnings {wallet && `(${formatCurrency(wallet.balance)})`}
         </button>
+        <button onClick={() => setActiveTab('payments')} className={activeTab === 'payments' ? 'active' : ''}>
+          💳 Payments
+        </button>
         <button onClick={() => setActiveTab('whatsapp')} className={activeTab === 'whatsapp' ? 'active' : ''}>
           📱 WhatsApp
         </button>
       </div>
 
       <div className="teacher-content">
-        {/* Overview Tab - Same as before */}
+        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="overview-tab">
             {wallet && (
@@ -725,16 +873,179 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Earnings Tab - Same as before */}
+        {/* Payments Tab */}
+        {activeTab === 'payments' && (
+          <div className="payments-tab">
+            <h3>💳 Payment History & Reports</h3>
+            
+            <div className="payment-actions">
+              <button onClick={generatePaymentReport} className="report-btn">
+                📊 Generate Payment Report
+              </button>
+              <button onClick={() => setActiveTab('earnings')} className="earnings-btn">
+                💰 View Earnings
+              </button>
+            </div>
+
+            <div className="payment-summary">
+              <div className="summary-card">
+                <h4>Total Transactions</h4>
+                <div className="summary-number">
+                  {transactions.filter(t => t.status === 'completed').length}
+                </div>
+              </div>
+              <div className="summary-card">
+                <h4>Total Earned</h4>
+                <div className="summary-number">
+                  {formatCurrency(transactions
+                    .filter(t => t.status === 'completed')
+                    .reduce((sum, t) => sum + t.amount, 0)
+                  )}
+                </div>
+              </div>
+              <div className="summary-card">
+                <h4>Pending Payments</h4>
+                <div className="summary-number">
+                  {transactions.filter(t => t.status === 'pending').length}
+                </div>
+              </div>
+            </div>
+
+            <div className="transactions-list-full">
+              <h4>Transaction History</h4>
+              {transactions.length > 0 ? (
+                <div className="transactions-table">
+                  <div className="table-header">
+                    <span>Reference</span>
+                    <span>Amount</span>
+                    <span>Method</span>
+                    <span>Status</span>
+                    <span>Date</span>
+                    <span>Action</span>
+                  </div>
+                  {transactions.map((transaction, index) => (
+                    <div key={index} className="table-row">
+                      <span className="ref">{transaction.reference}</span>
+                      <span className="amount">{formatCurrency(transaction.amount)}</span>
+                      <span className="method">{transaction.paymentMethod}</span>
+                      <span className={`status ${transaction.status}`}>
+                        {transaction.status === 'completed' ? '✅' : 
+                         transaction.status === 'pending' ? '⏳' : '❌'}
+                        {transaction.status}
+                      </span>
+                      <span className="date">{new Date(transaction.createdAt).toLocaleDateString()}</span>
+                      <span className="action">
+                        <button 
+                          onClick={() => viewTransactionDetails(transaction)}
+                          className="view-btn"
+                        >
+                          View
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-transactions">No transactions yet.</p>
+              )}
+            </div>
+
+            {/* Payment Details Modal */}
+            {showPaymentDetails && selectedTransaction && (
+              <div className="modal-overlay" onClick={() => {
+                setShowPaymentDetails(false);
+                setSelectedTransaction(null);
+              }}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <h3>Transaction Details</h3>
+                  <button 
+                    className="modal-close"
+                    onClick={() => {
+                      setShowPaymentDetails(false);
+                      setSelectedTransaction(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                  <div className="transaction-details-modal">
+                    <div className="detail-row">
+                      <span className="label">Reference:</span>
+                      <span className="value">{selectedTransaction.reference}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Amount:</span>
+                      <span className="value">{formatCurrency(selectedTransaction.amount)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Payment Method:</span>
+                      <span className="value">{selectedTransaction.paymentMethod}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Status:</span>
+                      <span className={`value status ${selectedTransaction.status}`}>
+                        {selectedTransaction.status}
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Date:</span>
+                      <span className="value">{new Date(selectedTransaction.createdAt).toLocaleString()}</span>
+                    </div>
+                    {selectedTransaction.paymentData && (
+                      <div className="detail-row">
+                        <span className="label">Payment Data:</span>
+                        <span className="value">
+                          <pre>{JSON.stringify(selectedTransaction.paymentData, null, 2)}</pre>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Earnings Tab */}
         {activeTab === 'earnings' && (
           <div className="earnings-tab">
             <h3>💰 Earnings & Withdrawals</h3>
+
             {wallet ? (
               <div className="earnings-content">
                 <div className="balance-card">
                   <h4>Available Balance</h4>
                   <div className="balance-amount">{formatCurrency(wallet.balance)}</div>
                   <p>Total Earnings: {formatCurrency(wallet.totalEarnings)}</p>
+                  <p>Pending Withdrawals: {formatCurrency(wallet.pendingWithdrawals)}</p>
+                </div>
+
+                {/* Payment Methods Section */}
+                <div className="payment-methods-section">
+                  <h4>Payment Methods</h4>
+                  <div className="payment-methods-grid">
+                    <div className="payment-method-card">
+                      <div className="method-icon">🏦</div>
+                      <h5>Paystack</h5>
+                      <p>Cards, Bank Transfer, USSD</p>
+                      <button 
+                        className={`select-method-btn ${paymentMethod === 'paystack' ? 'selected' : ''}`}
+                        onClick={() => setPaymentMethod('paystack')}
+                      >
+                        {paymentMethod === 'paystack' ? '✓ Selected' : 'Select'}
+                      </button>
+                    </div>
+                    <div className="payment-method-card">
+                      <div className="method-icon">🌊</div>
+                      <h5>Flutterwave</h5>
+                      <p>Cards, Bank, Mobile Money</p>
+                      <button 
+                        className={`select-method-btn ${paymentMethod === 'flutterwave' ? 'selected' : ''}`}
+                        onClick={() => setPaymentMethod('flutterwave')}
+                      >
+                        {paymentMethod === 'flutterwave' ? '✓ Selected' : 'Select'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="withdrawal-section">
@@ -827,7 +1138,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* WhatsApp Tab - Same as before */}
+        {/* WhatsApp Tab */}
         {activeTab === 'whatsapp' && (
           <div className="whatsapp-tab">
             <h3>📱 WhatsApp Contact</h3>
@@ -854,7 +1165,7 @@ const TeacherDashboard = () => {
                   <h4>Your WhatsApp Contact Link:</h4>
                   <div className="whatsapp-link">
                     <a 
-                      href={getTeacherWhatsAppUrl(teacherProfile.id)} 
+                      href={getTeacherWhatsAppUrl(teacherProfile.uid)} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="whatsapp-btn"
@@ -869,7 +1180,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* My Courses Tab - Updated for Firebase */}
+        {/* My Courses Tab */}
         {activeTab === 'my-courses' && (
           <div className="courses-tab">
             <h3>My Courses</h3>
@@ -938,7 +1249,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Manage Lessons Tab - Updated for Firebase */}
+        {/* Manage Lessons Tab */}
         {activeTab === 'manage-lessons' && (
           <div className="manage-lessons-tab">
             <h3>
@@ -1055,7 +1366,7 @@ const TeacherDashboard = () => {
                                 {lesson.isFree ? ' FREE' : ` PAID - ${formatCurrency(lesson.price)}`}
                               </span>
                             </p>
-                            <p className="lesson-content-preview">{lesson.content.substring(0, 100)}...</p>
+                            <p className="lesson-content-preview">{lesson.content?.substring(0, 100)}...</p>
                             {lesson.multimedia && lesson.multimedia.length > 0 && (
                               <div className="lesson-media-indicator">
                                 🎬 {lesson.multimedia.length} media file(s)
@@ -1097,7 +1408,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Add Course Tab - Updated for Firebase */}
+        {/* Add Course Tab */}
         {activeTab === 'add-course' && (
           <div className="add-course-tab">
             <h3>Add New Course</h3>
@@ -1142,7 +1453,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Add Lesson Tab - Updated for Firebase with File Upload */}
+        {/* Add Lesson Tab */}
         {activeTab === 'add-lesson' && (
           <div className="add-lesson-tab">
             <h3>Add New Lesson</h3>
@@ -1237,7 +1548,7 @@ const TeacherDashboard = () => {
                 />
               </div>
 
-              {/* Video Upload Section - Firebase Storage */}
+              {/* Video Upload Section */}
               <div className="video-upload-section">
                 <h4>📹 Upload Video (Optional)</h4>
                 <div className="form-group">
@@ -1297,7 +1608,7 @@ const TeacherDashboard = () => {
                 </div>
               </div>
 
-              {/* Quiz Section - Same as before */}
+              {/* Quiz Section */}
               <div className="quiz-section">
                 <div className="section-header">
                   <h4>Quiz Content (Optional)</h4>
@@ -1312,7 +1623,6 @@ const TeacherDashboard = () => {
 
                 {showQuizForm && (
                   <div className="quiz-form">
-                    {/* Quiz form content - same as before */}
                     <div className="form-group">
                       <label>Quiz Title</label>
                       <input
@@ -1444,7 +1754,7 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Manage Multimedia Tab - Updated for Firebase */}
+        {/* Manage Multimedia Tab */}
         {activeTab === 'manage-multimedia' && (
           <div className="manage-multimedia-tab">
             <h3>
@@ -1494,7 +1804,6 @@ const TeacherDashboard = () => {
                   <h4>Managing: {managingMultimedia.lesson.title}</h4>
                 </div>
 
-                {/* Add New Multimedia Form with Firebase Upload */}
                 <div className="add-multimedia-form">
                   <h5>Add New Multimedia Content</h5>
                   <form onSubmit={handleAddMultimedia} className="teacher-form compact">
@@ -1592,7 +1901,6 @@ const TeacherDashboard = () => {
                   </form>
                 </div>
 
-                {/* Existing Multimedia List */}
                 <div className="existing-multimedia">
                   <h5>Existing Media Content</h5>
                   {managingMultimedia.lesson.multimedia && managingMultimedia.lesson.multimedia.length > 0 ? (
