@@ -48,7 +48,7 @@ const debugAdminStatus = () => {
   console.log('=== ADMIN STATUS DEBUG ===');
   const users = JSON.parse(localStorage.getItem('hausaStem_users') || '{}');
   const currentUser = JSON.parse(localStorage.getItem('hausaStem_currentUser') || 'null');
-  
+
   console.log('All users:', Object.keys(users));
   console.log('Admin exists:', !!users['admin1']);
   console.log('Admin email:', users['admin1']?.email);
@@ -57,7 +57,7 @@ const debugAdminStatus = () => {
   console.log('Current user:', currentUser);
   console.log('Current user role:', currentUser?.role);
   console.log('=== END DEBUG ===');
-  
+
   return { users, currentUser };
 };
 
@@ -96,7 +96,7 @@ function App() {
   const [confirmationToken, setConfirmationToken] = useState('');
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-  
+
   // Refs for timer management
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
@@ -109,7 +109,7 @@ function App() {
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-    
+
     logoutUser();
     setCurrentUserState(null);
     setCurrentView('login');
@@ -133,12 +133,12 @@ function App() {
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current);
     }
-    
+
     if (currentUser) {
       warningTimerRef.current = setTimeout(() => {
         setShowInactivityWarning(true);
       }, INACTIVITY_WARNING_TIME);
-      
+
       logoutTimerRef.current = setTimeout(() => {
         handleAutoLogout();
       }, INACTIVITY_LOGOUT_TIME);
@@ -159,15 +159,15 @@ function App() {
   const handleEmailConfirmation = useCallback(async (token) => {
     try {
       const user = await confirmUserEmail(token);
-      
+
       setMessage('Email confirmed successfully! You can now log in.');
       setCurrentView('login');
       setPendingUser(null);
       setConfirmationToken('');
       setShowConfirmationInfo(false);
-      
+
       window.history.replaceState({}, document.title, window.location.pathname);
-      
+
       return true;
     } catch (error) {
       console.error('Email confirmation error:', error);
@@ -176,29 +176,75 @@ function App() {
     }
   }, []);
 
+  // Handle payment completion
+  const handlePaymentComplete = useCallback(async (paymentData) => {
+    try {
+      console.log('Payment completed:', paymentData);
+      
+      // Update user's purchased lessons
+      if (paymentData.lessonId && paymentData.courseKey) {
+        const success = await purchaseLesson(
+          currentUser?.id, 
+          paymentData.courseKey, 
+          paymentData.lessonId
+        );
+        
+        if (success) {
+          const updatedUser = getCurrentUser();
+          if (updatedUser) {
+            setCurrentUserState(updatedUser);
+          }
+          setMessage('✅ Payment completed successfully!');
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Payment completion error:', error);
+      setMessage('❌ Error processing payment completion: ' + error.message);
+      return false;
+    }
+  }, [currentUser]);
+
+  // Handle transaction update
+  const handleTransactionUpdate = useCallback((transaction) => {
+    try {
+      console.log('Transaction updated:', transaction);
+      // Update any transaction tracking in state if needed
+      if (currentUser && currentUser.role === 'teacher') {
+        const updatedUser = getCurrentUser();
+        if (updatedUser) {
+          setCurrentUserState(updatedUser);
+        }
+      }
+    } catch (error) {
+      console.error('Transaction update error:', error);
+    }
+  }, [currentUser]);
+
   // Initialize storage and load data
   useEffect(() => {
     const initApp = () => {
       try {
         console.log('🔄 Initializing storage...');
         initializeStorage();
-        
+
         const loadedStudents = getStudents();
         const loadedCurrentUser = getCurrentUser();
-        
+
         console.log('Loaded students:', loadedStudents);
         console.log('Loaded current user:', loadedCurrentUser);
         console.log('Loaded current user role:', loadedCurrentUser?.role);
-        
+
         setStudentsState(loadedStudents);
-        
+
         if (loadedCurrentUser) {
           setCurrentUserState(loadedCurrentUser);
-          
+
           // Determine correct view based on role
           const role = loadedCurrentUser.role;
           console.log('🔍 User role detected:', role);
-          
+
           if (role === 'admin') {
             console.log('👑 Setting admin view');
             setCurrentView('admin');
@@ -216,10 +262,10 @@ function App() {
           console.log('👤 No current user, showing login');
           setCurrentView('login');
         }
-        
+
         // Debug admin status
         debugAdminStatus();
-        
+
         setIsInitialized(true);
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -236,9 +282,9 @@ function App() {
       USER_ACTIVITY_EVENTS.forEach(event => {
         document.addEventListener(event, handleUserActivity);
       });
-      
+
       resetInactivityTimer();
-      
+
       return () => {
         USER_ACTIVITY_EVENTS.forEach(event => {
           document.removeEventListener(event, handleUserActivity);
@@ -266,21 +312,21 @@ function App() {
   const handleLogin = useCallback(async (email, password) => {
     try {
       console.log('🔐 Attempting login with email:', email);
-      
+
       const user = await authenticateUser(email, password);
       console.log('🔐 authenticateUser returned:', user);
-      
+
       if (user) {
         console.log('✅ Login successful!');
         console.log('User role:', user.role);
         console.log('User email:', user.email);
-        
+
         // Remove password before storing in state
         const { password: _, ...userWithoutPassword } = user;
         setCurrentUserState(userWithoutPassword);
-        
+
         resetInactivityTimer();
-        
+
         // Set view based on role
         if (user.role === 'admin') {
           console.log('👑 Navigating to admin dashboard');
@@ -295,7 +341,7 @@ function App() {
           setCurrentView('dashboard');
           localStorage.setItem('hausaStem_currentView', 'dashboard');
         }
-        
+
         setMessage('');
         return true;
       } else {
@@ -316,7 +362,7 @@ function App() {
       const existingUser = safeObjectEntries(users, 'student-register').find(
         ([, user]) => user.email === email
       );
-      
+
       if (existingUser || students.find(s => s.email === email)) {
         setMessage('Email already exists. Please use a different email or login.');
         return false;
@@ -328,7 +374,7 @@ function App() {
         password,
         role: 'student',
         level: 'Beginner',
-        completedLessons: [],
+        completedLessons: {},
         progress: {},
         purchasedLessons: []
       });
@@ -352,7 +398,7 @@ function App() {
       const existingUser = safeObjectEntries(users, 'teacher-register').find(
         ([, user]) => user.email === teacherData.email
       );
-      
+
       if (existingUser) {
         setMessage('Email already exists. Please use a different email or login.');
         return false;
@@ -395,10 +441,10 @@ function App() {
   const updateStudentData = useCallback((updatedStudent) => {
     try {
       updateStudent(updatedStudent);
-      
+
       const { password, ...studentWithoutPassword } = updatedStudent;
       setCurrentUserState(studentWithoutPassword);
-      
+
       setStudentsState(prev => 
         prev.map(s => s.id === updatedStudent.id ? updatedStudent : s)
       );
@@ -414,7 +460,7 @@ function App() {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
         localStorage.setItem('hausaStem_users', JSON.stringify(users));
       }
-      
+
       const { password: _, ...userWithoutPassword } = updatedUser;
       setCurrentUserState(userWithoutPassword);
     } catch (error) {
@@ -495,7 +541,7 @@ function App() {
 
   const ConfirmationInfoDisplay = useCallback(() => {
     if (!showConfirmationInfo || !confirmationToken) return null;
-    
+
     return (
       <div className="confirmation-demo-display">
         <h3>📧 Demo Email Confirmation</h3>
@@ -526,7 +572,7 @@ function App() {
 
   const MessageDisplay = useCallback(() => {
     if (!message) return null;
-    
+
     return (
       <div className={`message ${message.includes('success') ? 'success' : message.includes('email') ? 'info' : 'error'}`}>
         {message}
@@ -622,20 +668,20 @@ function App() {
     const isAdmin = userRole === 'admin';
     const isTeacher = userRole === 'teacher';
     const isStudent = userRole === 'student';
-    
+
     console.log('🎯 User roles - Admin:', isAdmin, 'Teacher:', isTeacher, 'Student:', isStudent);
     console.log('🎯 Current view:', currentView);
 
     // Check if currentView matches user role, if not, redirect
     if (isAdmin && currentView !== 'admin' && currentView !== 'admin-courses') {
       console.log('👑 Admin user, ensuring admin view');
-      setCurrentView('admin');
+      setTimeout(() => setCurrentView('admin'), 0);
       return null;
     }
 
-    if (isTeacher && currentView !== 'teacher' && currentView !== 'profile') {
+    if (isTeacher && currentView !== 'teacher' && currentView !== 'teacher-payments') {
       console.log('👨‍🏫 Teacher user, ensuring teacher view');
-      setCurrentView('teacher');
+      setTimeout(() => setCurrentView('teacher'), 0);
       return null;
     }
 
@@ -700,8 +746,17 @@ function App() {
     // Teacher dashboard
     if (isTeacher) {
       console.log('🎯 Rendering teacher dashboard');
-      if (currentView === 'teacher') {
-        return <TeacherDashboard currentUser={currentUser} setCurrentUser={updateCurrentUser} />;
+      if (currentView === 'teacher' || currentView === 'teacher-payments') {
+        return (
+          <TeacherDashboard 
+            currentUser={currentUser} 
+            setCurrentUser={updateCurrentUser}
+            onPaymentComplete={handlePaymentComplete}
+            onTransactionUpdate={handleTransactionUpdate}
+            paymentMethods={['paystack', 'flutterwave']}
+            initialTab={currentView === 'teacher-payments' ? 'payments' : 'overview'}
+          />
+        );
       } else if (currentView === 'dashboard' || currentView === 'profile') {
         console.log('🔄 Redirecting teacher to teacher dashboard');
         setTimeout(() => setCurrentView('teacher'), 0);
@@ -743,7 +798,15 @@ function App() {
     if (isAdmin) {
       return <AdminDashboard currentUser={currentUser} setCurrentView={setCurrentView} />;
     } else if (isTeacher) {
-      return <TeacherDashboard currentUser={currentUser} setCurrentUser={updateCurrentUser} />;
+      return (
+        <TeacherDashboard 
+          currentUser={currentUser} 
+          setCurrentUser={updateCurrentUser}
+          onPaymentComplete={handlePaymentComplete}
+          onTransactionUpdate={handleTransactionUpdate}
+          paymentMethods={['paystack', 'flutterwave']}
+        />
+      );
     } else {
       return (
         <>
@@ -766,6 +829,8 @@ function App() {
     handleLessonPurchase, 
     checkLessonAccess, 
     getTeacherContactUrl,
+    handlePaymentComplete,
+    handleTransactionUpdate,
     MessageDisplay,
     ConfirmationInfoDisplay,
     pendingUser
@@ -783,11 +848,11 @@ function App() {
   console.log('🎯 Rendering main App component');
   console.log('🎯 Current user:', currentUser);
   console.log('🎯 Current view:', currentView);
-  
+
   return (
     <div className="App">
       <InactivityWarning />
-      
+
       {currentUser && (
         <Navigation 
           currentView={currentView} 
