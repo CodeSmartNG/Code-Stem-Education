@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   getTeacherCourses,
@@ -17,21 +16,23 @@ import {
   getTeacherWhatsAppUrl,
   getCurrentUser
 } from '../utils/storage';
+import paymentService from '../utils/paymentService';
+import './TeacherDashboard.css';
 
-
-
-  
-
-
-
-const TeacherDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+const TeacherDashboard = ({ initialTab = 'overview' }) => {
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [stats, setStats] = useState(null);
   const [courses, setCoursesState] = useState({});
   const [wallet, setWallet] = useState(null);
   const [teacherProfile, setTeacherProfile] = useState({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Payment-related states
+  const [transactions, setTransactions] = useState([]);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('paystack');
 
   // Course Form States
   const [newCourseForm, setNewCourseForm] = useState({
@@ -127,6 +128,7 @@ const TeacherDashboard = () => {
   useEffect(() => {
     loadData();
     loadTeacherProfile();
+    loadTransactions();
   }, []);
 
   const loadData = () => {
@@ -159,6 +161,63 @@ const TeacherDashboard = () => {
     } catch (error) {
       console.error('Error loading teacher profile:', error);
     }
+  };
+
+  const loadTransactions = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id) {
+        const userTransactions = paymentService.getUserTransactions(currentUser.id);
+        setTransactions(userTransactions);
+      }
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+    }
+  };
+
+  // ✅ Generate payment report
+  const generatePaymentReport = () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (!currentUser) return;
+
+      const allTransactions = paymentService.getUserTransactions(currentUser.id);
+      const completedTransactions = allTransactions.filter(t => t.status === 'completed');
+      const totalEarnings = completedTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+      const report = {
+        teacherName: currentUser.name || 'Teacher',
+        teacherId: currentUser.id,
+        generatedAt: new Date().toISOString(),
+        totalTransactions: completedTransactions.length,
+        totalEarnings: totalEarnings,
+        transactions: completedTransactions,
+        paymentMethods: {
+          paystack: completedTransactions.filter(t => t.paymentMethod === 'paystack').length,
+          flutterwave: completedTransactions.filter(t => t.paymentMethod === 'flutterwave').length
+        }
+      };
+
+      // Download as JSON
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payment_report_${currentUser.id}_${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      alert('📊 Payment report downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert('Error generating report: ' + error.message);
+    }
+  };
+
+  // ✅ View transaction details
+  const viewTransactionDetails = (transaction) => {
+    setSelectedTransaction(transaction);
+    setShowPaymentDetails(true);
   };
 
   // ✅ Save WhatsApp number
@@ -205,6 +264,7 @@ const TeacherDashboard = () => {
         setWithdrawalAmount('');
         setBankDetails({ bankName: '', accountNumber: '', accountName: '' });
         alert('✅ Withdrawal request submitted successfully!');
+        loadTransactions();
       }
     } catch (error) {
       alert('❌ Error processing withdrawal: ' + error.message);
@@ -655,6 +715,9 @@ const TeacherDashboard = () => {
         <button onClick={() => setActiveTab('earnings')} className={activeTab === 'earnings' ? 'active' : ''}>
           💰 Earnings {wallet && `(${formatCurrency(wallet.balance)})`}
         </button>
+        <button onClick={() => setActiveTab('payments')} className={activeTab === 'payments' ? 'active' : ''}>
+          💳 Payments
+        </button>
         <button onClick={() => setActiveTab('whatsapp')} className={activeTab === 'whatsapp' ? 'active' : ''}>
           📱 WhatsApp
         </button>
@@ -709,6 +772,138 @@ const TeacherDashboard = () => {
           </div>
         )}
 
+        {/* Payments Tab */}
+        {activeTab === 'payments' && (
+          <div className="payments-tab">
+            <h3>💳 Payment History & Reports</h3>
+            
+            <div className="payment-actions">
+              <button onClick={generatePaymentReport} className="report-btn">
+                📊 Generate Payment Report
+              </button>
+              <button onClick={() => setActiveTab('earnings')} className="earnings-btn">
+                💰 View Earnings
+              </button>
+            </div>
+
+            <div className="payment-summary">
+              <div className="summary-card">
+                <h4>Total Transactions</h4>
+                <div className="summary-number">
+                  {transactions.filter(t => t.status === 'completed').length}
+                </div>
+              </div>
+              <div className="summary-card">
+                <h4>Total Earned</h4>
+                <div className="summary-number">
+                  {formatCurrency(transactions
+                    .filter(t => t.status === 'completed')
+                    .reduce((sum, t) => sum + t.amount, 0)
+                  )}
+                </div>
+              </div>
+              <div className="summary-card">
+                <h4>Pending Payments</h4>
+                <div className="summary-number">
+                  {transactions.filter(t => t.status === 'pending').length}
+                </div>
+              </div>
+            </div>
+
+            <div className="transactions-list-full">
+              <h4>Transaction History</h4>
+              {transactions.length > 0 ? (
+                <div className="transactions-table">
+                  <div className="table-header">
+                    <span>Reference</span>
+                    <span>Amount</span>
+                    <span>Method</span>
+                    <span>Status</span>
+                    <span>Date</span>
+                    <span>Action</span>
+                  </div>
+                  {transactions.map((transaction, index) => (
+                    <div key={index} className="table-row">
+                      <span className="ref">{transaction.reference}</span>
+                      <span className="amount">{formatCurrency(transaction.amount)}</span>
+                      <span className="method">{transaction.paymentMethod}</span>
+                      <span className={`status ${transaction.status}`}>
+                        {transaction.status === 'completed' ? '✅' : 
+                         transaction.status === 'pending' ? '⏳' : '❌'}
+                        {transaction.status}
+                      </span>
+                      <span className="date">{new Date(transaction.createdAt).toLocaleDateString()}</span>
+                      <span className="action">
+                        <button 
+                          onClick={() => viewTransactionDetails(transaction)}
+                          className="view-btn"
+                        >
+                          View
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="no-transactions">No transactions yet.</p>
+              )}
+            </div>
+
+            {/* Payment Details Modal */}
+            {showPaymentDetails && selectedTransaction && (
+              <div className="modal-overlay" onClick={() => {
+                setShowPaymentDetails(false);
+                setSelectedTransaction(null);
+              }}>
+                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                  <h3>Transaction Details</h3>
+                  <button 
+                    className="modal-close"
+                    onClick={() => {
+                      setShowPaymentDetails(false);
+                      setSelectedTransaction(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                  <div className="transaction-details-modal">
+                    <div className="detail-row">
+                      <span className="label">Reference:</span>
+                      <span className="value">{selectedTransaction.reference}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Amount:</span>
+                      <span className="value">{formatCurrency(selectedTransaction.amount)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Payment Method:</span>
+                      <span className="value">{selectedTransaction.paymentMethod}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Status:</span>
+                      <span className={`value status ${selectedTransaction.status}`}>
+                        {selectedTransaction.status}
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Date:</span>
+                      <span className="value">{new Date(selectedTransaction.createdAt).toLocaleString()}</span>
+                    </div>
+                    {selectedTransaction.paymentData && (
+                      <div className="detail-row">
+                        <span className="label">Payment Data:</span>
+                        <span className="value">
+                          <pre>{JSON.stringify(selectedTransaction.paymentData, null, 2)}</pre>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Earnings Tab */}
         {activeTab === 'earnings' && (
           <div className="earnings-tab">
@@ -720,6 +915,36 @@ const TeacherDashboard = () => {
                   <h4>Available Balance</h4>
                   <div className="balance-amount">{formatCurrency(wallet.balance)}</div>
                   <p>Total Earnings: {formatCurrency(wallet.totalEarnings)}</p>
+                  <p>Pending Withdrawals: {formatCurrency(wallet.pendingWithdrawals)}</p>
+                </div>
+
+                {/* Payment Methods Section */}
+                <div className="payment-methods-section">
+                  <h4>Payment Methods</h4>
+                  <div className="payment-methods-grid">
+                    <div className="payment-method-card">
+                      <div className="method-icon">🏦</div>
+                      <h5>Paystack</h5>
+                      <p>Cards, Bank Transfer, USSD</p>
+                      <button 
+                        className={`select-method-btn ${paymentMethod === 'paystack' ? 'selected' : ''}`}
+                        onClick={() => setPaymentMethod('paystack')}
+                      >
+                        {paymentMethod === 'paystack' ? '✓ Selected' : 'Select'}
+                      </button>
+                    </div>
+                    <div className="payment-method-card">
+                      <div className="method-icon">🌊</div>
+                      <h5>Flutterwave</h5>
+                      <p>Cards, Bank, Mobile Money</p>
+                      <button 
+                        className={`select-method-btn ${paymentMethod === 'flutterwave' ? 'selected' : ''}`}
+                        onClick={() => setPaymentMethod('flutterwave')}
+                      >
+                        {paymentMethod === 'flutterwave' ? '✓ Selected' : 'Select'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="withdrawal-section">
