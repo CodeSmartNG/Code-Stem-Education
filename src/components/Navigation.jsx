@@ -1,9 +1,19 @@
+// components/Navigation.js
+
 import React, { useState } from 'react';
 import './Navigation.css';
 
-const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmin, isTeacher }) => {
+const Navigation = ({ 
+  currentView, 
+  setCurrentView, 
+  currentUser, 
+  onLogout, 
+  isAdmin, 
+  isTeacher 
+}) => {
   const [showMoreLinks, setShowMoreLinks] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   // Check if user is student
   const isStudent = currentUser?.role === 'student';
@@ -11,7 +21,9 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
   // Handle navigation clicks
   const handleNavClick = (view) => {
     setCurrentView(view);
-    setIsMobileMenuOpen(false); // Close mobile menu on navigation
+    setIsMobileMenuOpen(false);
+    setShowMoreLinks(false);
+    setShowUserDropdown(false);
   };
 
   return (
@@ -29,6 +41,7 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
           <button 
             className="hamburger-btn"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Toggle menu"
           >
             <span></span>
             <span></span>
@@ -37,8 +50,6 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
 
           {/* Center: General Navigation Links */}
           <nav className={`general-nav ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
-            {/* Removed "My Courses" navigation link */}
-            
             <button 
               className={`nav-link ${currentView === 'about' ? 'active' : ''}`}
               onClick={() => handleNavClick('about')}
@@ -57,14 +68,14 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
             >
               Contact
             </button>
-            
+
             {/* More Links Dropdown */}
             <div className="dropdown">
               <button 
-                className="nav-link more-link"
+                className={`nav-link more-link ${showMoreLinks ? 'active' : ''}`}
                 onClick={() => setShowMoreLinks(!showMoreLinks)}
               >
-                More ▽
+                More {showMoreLinks ? '▴' : '▽'}
               </button>
               {showMoreLinks && (
                 <div className="dropdown-menu">
@@ -72,25 +83,25 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
                     className="dropdown-link"
                     onClick={() => handleNavClick('blog')}
                   >
-                    Blog
+                    📝 Blog
                   </button>
                   <button 
                     className="dropdown-link"
                     onClick={() => handleNavClick('resources')}
                   >
-                    Resources
+                    📖 Resources
                   </button>
                   <button 
                     className="dropdown-link"
                     onClick={() => handleNavClick('careers')}
                   >
-                    Careers
+                    💼 Careers
                   </button>
                   <button 
                     className="dropdown-link"
                     onClick={() => handleNavClick('support')}
                   >
-                    Support
+                    🆘 Support
                   </button>
                 </div>
               )}
@@ -98,34 +109,81 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
 
             {/* Mobile-only user info */}
             <div className="mobile-user-info">
-              <span className="welcome-text">Welcome, {currentUser?.name}</span>
-              <span className="user-role">({currentUser?.role})</span>
-            
-              <div className="user-info">
-                <span className="user-role">{currentUser?.role}</span>
+              <div className="mobile-user-details">
+                <span className="welcome-text">Welcome, {currentUser?.name}</span>
+                <span className="user-role">({currentUser?.role})</span>
+              </div>
+              <div className="mobile-user-actions">
                 <a 
                   href="https://wa.me/08021025168"
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="help-btn"
                 >
-                  Help via WhatsApp
+                  💬 Help via WhatsApp
                 </a>
+                <button onClick={onLogout} className="mobile-logout-btn">
+                  🚪 Logout
+                </button>
               </div>
             </div>
           </nav>
 
-          {/* Right: User Actions - Hidden on mobile */}
+          {/* Right: User Actions - Desktop */}
           <div className="header-actions">
-            <span className="welcome-text">Welcome, {currentUser?.name}</span>
-            <span className="user-role">({currentUser?.role})</span>
+            <div className="user-dropdown">
+              <button 
+                className="user-dropdown-btn"
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+              >
+                <span className="user-avatar">👤</span>
+                <span className="user-name">{currentUser?.name}</span>
+                <span className="dropdown-arrow">▾</span>
+              </button>
+              {showUserDropdown && (
+                <div className="user-dropdown-menu">
+                  <div className="user-dropdown-header">
+                    <span className="dropdown-user-name">{currentUser?.name}</span>
+                    <span className="dropdown-user-role">{currentUser?.role}</span>
+                  </div>
+                  <hr />
+                  <button 
+                    className="dropdown-item"
+                    onClick={() => handleNavClick('profile')}
+                  >
+                    👤 My Profile
+                  </button>
+                  {isStudent && (
+                    <button 
+                      className="dropdown-item"
+                      onClick={() => handleNavClick('courses')}
+                    >
+                      📚 My Courses
+                    </button>
+                  )}
+                  <button 
+                    className="dropdown-item"
+                    onClick={() => handleNavClick('dashboard')}
+                  >
+                    📊 Dashboard
+                  </button>
+                  <hr />
+                  <button 
+                    className="dropdown-item logout-item"
+                    onClick={onLogout}
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
             <a 
               href="https://wa.me/08021025168"
               target="_blank" 
               rel="noopener noreferrer"
               className="help-btn"
             >
-              Help via WhatsApp
+              💬 Help
             </a>
           </div>
         </div>
@@ -189,30 +247,53 @@ const Navigation = ({ currentView, setCurrentView, currentUser, onLogout, isAdmi
 
             {/* Teacher Dashboard Link - Only for teachers */}
             {isTeacher && (
-              <li>
-                <button 
-                  className={`app-nav-btn ${currentView === 'teacher' ? 'active' : ''}`}
-                  onClick={() => handleNavClick('teacher')}
-                >
-                  <span className="nav-icon">👨‍🏫</span>
-                  <span className="nav-label">Teacher</span>
-                </button>
-              </li>
+              <>
+                <li>
+                  <button 
+                    className={`app-nav-btn ${currentView === 'teacher' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('teacher')}
+                  >
+                    <span className="nav-icon">👨‍🏫</span>
+                    <span className="nav-label">Teacher</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    className={`app-nav-btn ${currentView === 'teacher-payments' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('teacher-payments')}
+                  >
+                    <span className="nav-icon">💳</span>
+                    <span className="nav-label">Payments</span>
+                  </button>
+                </li>
+              </>
             )}
 
             {/* Admin Dashboard Link - Only for admins */}
             {isAdmin && (
-              <li>
-                <button 
-                  className={`app-nav-btn ${currentView === 'admin' ? 'active' : ''}`}
-                  onClick={() => handleNavClick('admin')}
-                >
-                  <span className="nav-icon">⚙️</span>
-                  <span className="nav-label">Admin</span>
-                </button>
-              </li>
+              <>
+                <li>
+                  <button 
+                    className={`app-nav-btn ${currentView === 'admin' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('admin')}
+                  >
+                    <span className="nav-icon">⚙️</span>
+                    <span className="nav-label">Admin</span>
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    className={`app-nav-btn ${currentView === 'admin-courses' ? 'active' : ''}`}
+                    onClick={() => handleNavClick('admin-courses')}
+                  >
+                    <span className="nav-icon">📚</span>
+                    <span className="nav-label">Manage Courses</span>
+                  </button>
+                </li>
+              </>
             )}
-            
+
+            {/* Logout - Always visible */}
             <li>
               <button onClick={onLogout} className="app-nav-btn logout-btn">
                 <span className="nav-icon">🚪</span>
