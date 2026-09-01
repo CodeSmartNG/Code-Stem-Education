@@ -198,8 +198,8 @@ export const paymentService = {
   // Process payment for a lesson
   async processLessonPayment(userId, courseKey, lessonId, lessonPrice, paymentMethod = 'paystack') {
     try {
-      // Get user email and details
-      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      // Get user email and details - FIXED to use correct localStorage key
+      const user = JSON.parse(localStorage.getItem('hausaStem_currentUser') || '{}');
       
       if (!user.email) {
         throw new Error('User email not found');
@@ -255,21 +255,21 @@ export const paymentService = {
     }
   },
 
-  // Save pending transaction to storage
+  // Save pending transaction to storage - FIXED to use consistent key
   savePendingTransaction(transaction) {
     try {
-      const transactions = JSON.parse(localStorage.getItem('pendingTransactions') || '[]');
+      const transactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
       transactions.push(transaction);
-      localStorage.setItem('pendingTransactions', JSON.stringify(transactions));
+      localStorage.setItem('hausaStem_transactions', JSON.stringify(transactions));
     } catch (error) {
       console.error('Error saving transaction:', error);
     }
   },
 
-  // Get user's transaction history
+  // Get user's transaction history - FIXED to use consistent key
   getUserTransactions(userId) {
     try {
-      const allTransactions = JSON.parse(localStorage.getItem('pendingTransactions') || '[]');
+      const allTransactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
       return allTransactions.filter(t => t.userId === userId);
     } catch (error) {
       console.error('Error getting transactions:', error);
@@ -277,23 +277,66 @@ export const paymentService = {
     }
   },
 
-  // Update transaction status
+  // Update transaction status - FIXED to use consistent key
   updateTransactionStatus(reference, status, paymentData = {}) {
     try {
-      const transactions = JSON.parse(localStorage.getItem('pendingTransactions') || '[]');
+      const transactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
       const index = transactions.findIndex(t => t.reference === reference);
       
       if (index !== -1) {
         transactions[index].status = status;
         transactions[index].paymentData = paymentData;
         transactions[index].updatedAt = new Date().toISOString();
-        localStorage.setItem('pendingTransactions', JSON.stringify(transactions));
+        localStorage.setItem('hausaStem_transactions', JSON.stringify(transactions));
         return transactions[index];
       }
       return null;
     } catch (error) {
       console.error('Error updating transaction:', error);
       return null;
+    }
+  },
+
+  // Get all transactions (for admin/teacher)
+  getAllTransactions() {
+    try {
+      return JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
+    } catch (error) {
+      console.error('Error getting all transactions:', error);
+      return [];
+    }
+  },
+
+  // Get teacher's earnings summary
+  getTeacherEarningsSummary(teacherId) {
+    try {
+      const transactions = this.getUserTransactions(teacherId);
+      const completedTransactions = transactions.filter(t => t.status === 'completed');
+      
+      const summary = {
+        totalEarnings: completedTransactions.reduce((sum, t) => sum + t.amount, 0),
+        totalTransactions: completedTransactions.length,
+        pendingTransactions: transactions.filter(t => t.status === 'pending').length,
+        failedTransactions: transactions.filter(t => t.status === 'failed').length,
+        paymentMethods: {}
+      };
+
+      // Group by payment method
+      completedTransactions.forEach(t => {
+        const method = t.paymentMethod || 'unknown';
+        summary.paymentMethods[method] = (summary.paymentMethods[method] || 0) + t.amount;
+      });
+
+      return summary;
+    } catch (error) {
+      console.error('Error getting teacher earnings:', error);
+      return {
+        totalEarnings: 0,
+        totalTransactions: 0,
+        pendingTransactions: 0,
+        failedTransactions: 0,
+        paymentMethods: {}
+      };
     }
   }
 };
