@@ -17,7 +17,7 @@ import {
   getCurrentUser
 } from '../utils/storage';
 import paymentService from '../utils/paymentService';
-import './TeacherDashboard.css'; // Make sure to import the CSS
+//import './TeacherDashboard.css'; // Make sure to import the CSS
 
 const TeacherDashboard = ({ initialTab = 'overview' }) => {
   const [activeTab, setActiveTab] = useState(initialTab);
