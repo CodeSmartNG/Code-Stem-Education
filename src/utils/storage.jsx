@@ -30,6 +30,10 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 
+
+
+
+
 // ============================================
 // USER MANAGEMENT FUNCTIONS (Firebase)
 // ============================================
@@ -614,9 +618,128 @@ export const initializeStorage = async () => {
   }
 };
 
+
+
+
+// src/utils/storage.jsx - Add this function
+
+// ✅ Process lesson payment - ADD THIS
+export const processLessonPayment = async (userId, courseKey, lessonId, amount, paymentMethod = 'paystack') => {
+  try {
+    if (!userId || !courseKey || !lessonId) {
+      throw new Error('User ID, course key, and lesson ID are required');
+    }
+
+    // Get user data
+    const userData = await getUserData(userId);
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    // Check if lesson already purchased
+    const purchasedLessons = userData.purchasedLessons || [];
+    const alreadyPurchased = purchasedLessons.some(p => p.courseKey === courseKey && p.lessonId === lessonId);
+    
+    if (alreadyPurchased) {
+      throw new Error('Lesson already purchased');
+    }
+
+    // Process payment through payment service
+    const paymentResult = await paymentService.processLessonPayment(
+      userId,
+      courseKey,
+      lessonId,
+      amount,
+      paymentMethod
+    );
+
+    // Save transaction record
+    const transaction = {
+      userId: userId,
+      courseKey: courseKey,
+      lessonId: lessonId,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      status: 'pending',
+      reference: paymentResult.data.reference || paymentResult.data.tx_ref,
+      createdAt: new Date().toISOString()
+    };
+
+    // Save to transactions collection
+    const transactionsRef = collection(db, 'transactions');
+    await setDoc(doc(transactionsRef), transaction);
+
+    return paymentResult;
+  } catch (error) {
+    console.error('❌ Error processing lesson payment:', error);
+    throw error;
+  }
+};
+
+// ✅ Verify payment - ADD THIS
+export const verifyPayment = async (reference) => {
+  try {
+    if (!reference) {
+      throw new Error('Payment reference is required');
+    }
+
+    // Verify payment through payment service
+    const result = await paymentService.verifyPaystackPayment(reference);
+
+    if (result.status) {
+      // Update transaction status
+      const transactionsRef = collection(db, 'transactions');
+      const q = query(transactionsRef, where('reference', '==', reference));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docRef = querySnapshot.docs[0].ref;
+        await updateDoc(docRef, {
+          status: 'completed',
+          paymentData: result.data,
+          updatedAt: new Date().toISOString()
+        });
+
+        // Update user's purchased lessons
+        const transaction = querySnapshot.docs[0].data();
+        const userRef = doc(db, 'users', transaction.userId);
+        await updateDoc(userRef, {
+          purchasedLessons: arrayUnion({
+            courseKey: transaction.courseKey,
+            lessonId: transaction.lessonId,
+            purchasedAt: new Date().toISOString()
+          })
+        });
+      }
+    }
+
+    return result;
+  } catch (error) {
+    console.error('❌ Error verifying payment:', error);
+    throw error;
+  }
+};
+
+// ✅ Get user's purchased lessons - ADD THIS
+export const getUserPurchasedLessons = async (userId) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const userData = await getUserData(userId);
+    return userData?.purchasedLessons || [];
+  } catch (error) {
+    console.error('❌ Error getting purchased lessons:', error);
+    return [];
+  }
+};
+
 // ============================================
 // ✅ FINAL EXPORT
 // ============================================
+
+// src/utils/storage.jsx - Update the export section
 
 export default {
   // User Management
@@ -658,10 +781,14 @@ export default {
   updateTeacherProfileWithWhatsApp,
   getTeacherWhatsAppUrl,
   getTeacherWhatsAppNumber,
+  getTeacherWhatsAppUrlAsync,
   
-  // Lesson Access
+  // Lesson Access & Payment
   canAccessLesson,
   purchaseLesson,
+  processLessonPayment, // ✅ ADD THIS
+  verifyPayment, // ✅ ADD THIS
+  getUserPurchasedLessons, // ✅ ADD THIS
   
   // Storage
   initializeStorage
