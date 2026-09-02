@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 
@@ -21,6 +23,8 @@ import Blog from './components/Blog';
 import Resources from './components/Resources';
 import Careers from './components/Careers';
 import Support from './components/Support';
+// ✅ Import SetupDemo
+import SetupDemo from './pages/SetupDemo';
 
 import { 
   initializeStorage, 
@@ -47,7 +51,6 @@ const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
 const debugAdminStatus = () => {
   try {
     console.log('=== ADMIN STATUS DEBUG ===');
-    // For Firebase, we'll check from the users collection
     const users = JSON.parse(localStorage.getItem('hausaStem_users') || '{}');
     const currentUser = JSON.parse(localStorage.getItem('hausaStem_currentUser') || 'null');
 
@@ -187,7 +190,6 @@ function App() {
     try {
       console.log('Payment completed:', paymentData);
       
-      // Update user's purchased lessons
       if (paymentData.lessonId && paymentData.courseKey) {
         const success = await purchaseLesson(
           currentUser?.id, 
@@ -216,7 +218,6 @@ function App() {
   const handleTransactionUpdate = useCallback(async (transaction) => {
     try {
       console.log('Transaction updated:', transaction);
-      // Update any transaction tracking in state if needed
       if (currentUser && currentUser.role === 'teacher') {
         const updatedUser = await getCurrentUser();
         if (updatedUser) {
@@ -247,7 +248,6 @@ function App() {
         if (loadedCurrentUser) {
           setCurrentUserState(loadedCurrentUser);
 
-          // Determine correct view based on role
           const role = loadedCurrentUser.role;
           console.log('🔍 User role detected:', role);
 
@@ -269,7 +269,6 @@ function App() {
           setCurrentView('login');
         }
 
-        // Debug admin status
         debugAdminStatus();
 
         setIsInitialized(true);
@@ -329,13 +328,11 @@ function App() {
         console.log('User role:', user.role);
         console.log('User email:', user.email);
 
-        // Remove password before storing in state
         const { password: _, ...userWithoutPassword } = user;
         setCurrentUserState(userWithoutPassword);
 
         resetInactivityTimer();
 
-        // Set view based on role
         if (user.role === 'admin') {
           console.log('👑 Navigating to admin dashboard');
           setCurrentView('admin');
@@ -659,6 +656,9 @@ function App() {
               />
             </>
           );
+        // ✅ SETUP ROUTE - ADDED HERE
+        case 'setup':
+          return <SetupDemo />;
         case 'login':
         default:
           return (
