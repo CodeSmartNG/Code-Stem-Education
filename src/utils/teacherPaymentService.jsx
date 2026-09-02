@@ -1,7 +1,9 @@
-// utils/teacherPaymentService.js
+// utils/teacherPaymentService.jsx
 
+// ✅ FIX: Import db from your firebase config file, not from 'firebase/firestore'
+import { db } from './firebase';  // Import db from your firebase config
 import { 
-  db,
+  doc, 
   getDoc, 
   setDoc, 
   updateDoc, 
@@ -14,8 +16,7 @@ import {
   arrayRemove,
   serverTimestamp,
   addDoc,
-  increment,
-  doc
+  increment
 } from 'firebase/firestore';
 import { getCurrentUser, getUserData, updateUserData } from './storage';
 
@@ -310,11 +311,6 @@ const recordStudentPurchase = async (studentId, lessonId, transactionId) => {
  */
 const initiateTeacherPayout = async (teacherId, amount, transactionId, bankAccount) => {
   try {
-    // In production, this would call payment gateway APIs:
-    // - Paystack Transfer API
-    // - Flutterwave Payout API
-    // - Monnify Disbursement API
-    
     console.log(`💸 Initiating payout of ₦${amount} to teacher ${teacherId}`);
     console.log(`🏦 Bank: ${bankAccount.bankName}, Account: ${bankAccount.accountNumber}`);
     
