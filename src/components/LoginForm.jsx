@@ -176,18 +176,18 @@ const LoginForm = ({
   const fillDemoCredentials = (type) => {
     if (type === 'admin') {
       setFormData({
-        email: 'admin@stem.com',
-        password: 'Admin123!'
+        email: 'codesmartng1@gmail.com',
+        password: 'Kb1217@#$%&'
       });
     } else if (type === 'teacher') {
       setFormData({
-        email: 'teacher@stem.com',
-        password: 'Teacher123!'
+        email: 'kabiralkasim6@gmail.com',
+        password: 'Kb1217@#$%&'
       });
     } else if (type === 'student') {
       setFormData({
-        email: 'student@stem.com',
-        password: 'Student123!'
+        email: 'kabiralkasim9@gmail.com',
+        password: 'Kb1217@#$%&'
       });
     }
     setError('');
