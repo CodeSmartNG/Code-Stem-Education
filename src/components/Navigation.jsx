@@ -15,8 +15,11 @@ const Navigation = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
-  // Check if user is student
-  const isStudent = currentUser?.role === 'student';
+  // ✅ Check role directly from currentUser (fallback to props)
+  const userRole = currentUser?.role || 'student';
+  const isAdminUser = userRole === 'admin' || isAdmin;
+  const isTeacherUser = userRole === 'teacher' || isTeacher;
+  const isStudentUser = userRole === 'student';
 
   // Handle navigation clicks
   const handleNavClick = (view) => {
@@ -153,7 +156,7 @@ const Navigation = ({
                   >
                     👤 My Profile
                   </button>
-                  {isStudent && (
+                  {isStudentUser && (
                     <button 
                       className="dropdown-item"
                       onClick={() => handleNavClick('courses')}
@@ -167,6 +170,14 @@ const Navigation = ({
                   >
                     📊 Dashboard
                   </button>
+                  {isAdminUser && (
+                    <button 
+                      className="dropdown-item"
+                      onClick={() => handleNavClick('admin')}
+                    >
+                      ⚙️ Admin Dashboard
+                    </button>
+                  )}
                   <hr />
                   <button 
                     className="dropdown-item logout-item"
@@ -246,7 +257,7 @@ const Navigation = ({
             </li>
 
             {/* Teacher Dashboard Link - Only for teachers */}
-            {isTeacher && (
+            {isTeacherUser && (
               <>
                 <li>
                   <button 
@@ -270,7 +281,7 @@ const Navigation = ({
             )}
 
             {/* Admin Dashboard Link - Only for admins */}
-            {isAdmin && (
+            {isAdminUser && (
               <>
                 <li>
                   <button 
