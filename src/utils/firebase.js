@@ -1,4 +1,5 @@
 // src/utils/firebase.js
+
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -20,7 +21,8 @@ import {
   query,
   where,
   getDocs,
-  onSnapshot
+  onSnapshot,
+  serverTimestamp
 } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -55,11 +57,16 @@ export const registerUser = async (email, password, userData) => {
       level: userData.level || 'Beginner',
       createdAt: new Date().toISOString(),
       isEmailVerified: false,
+      isApproved: userData.role === 'teacher' ? false : true,
+      purchasedLessons: [],
+      completedLessons: {},
+      progress: {},
       ...userData
     });
     
     return { user, userData };
   } catch (error) {
+    console.error('❌ Error registering user:', error);
     throw error;
   }
 };
@@ -69,7 +76,18 @@ export const loginUser = async (email, password) => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
+    // Check if email is verified
     if (!user.emailVerified) {
+      // Check if this is a demo account (we can skip verification for demo)
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      
+      // Allow demo accounts to bypass email verification
+      if (userData.isDemoAccount) {
+        // Auto-verify demo accounts
+        return { ...user, ...userData, emailVerified: true };
+      }
+      
       throw new Error('Please verify your email before logging in.');
     }
     
@@ -78,6 +96,7 @@ export const loginUser = async (email, password) => {
     
     return { ...user, ...userData };
   } catch (error) {
+    console.error('❌ Error logging in:', error);
     throw error;
   }
 };
@@ -85,7 +104,9 @@ export const loginUser = async (email, password) => {
 export const logoutUser = async () => {
   try {
     await signOut(auth);
+    console.log('✅ User logged out');
   } catch (error) {
+    console.error('❌ Error logging out:', error);
     throw error;
   }
 };
@@ -95,8 +116,24 @@ export const resendVerification = async () => {
     const user = auth.currentUser;
     if (user) {
       await sendEmailVerification(user);
+      console.log('✅ Verification email resent');
+      return { success: true };
+    } else {
+      throw new Error('No user is currently signed in');
     }
   } catch (error) {
+    console.error('❌ Error resending verification:', error);
+    throw error;
+  }
+};
+
+export const resetPassword = async (email) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    console.log('✅ Password reset email sent');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error sending password reset:', error);
     throw error;
   }
 };
@@ -120,6 +157,7 @@ export const getUserData = async (uid) => {
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? docSnap.data() : null;
   } catch (error) {
+    console.error('❌ Error getting user data:', error);
     throw error;
   }
 };
@@ -130,7 +168,19 @@ export const updateUserData = async (uid, data) => {
       ...data,
       updatedAt: new Date().toISOString()
     });
+    console.log('✅ User data updated:', uid);
   } catch (error) {
+    console.error('❌ Error updating user data:', error);
+    throw error;
+  }
+};
+
+export const deleteUserData = async (uid) => {
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+    console.log('✅ User data deleted:', uid);
+  } catch (error) {
+    console.error('❌ Error deleting user data:', error);
     throw error;
   }
 };
@@ -143,8 +193,10 @@ export const saveCourse = async (courseData) => {
       id: docRef.id,
       createdAt: new Date().toISOString()
     });
+    console.log('✅ Course saved:', docRef.id);
     return docRef.id;
   } catch (error) {
+    console.error('❌ Error saving course:', error);
     throw error;
   }
 };
@@ -162,6 +214,7 @@ export const getCourses = async (teacherId = null) => {
     });
     return courses;
   } catch (error) {
+    console.error('❌ Error getting courses:', error);
     throw error;
   }
 };
@@ -175,8 +228,10 @@ export const saveLesson = async (courseId, lessonData) => {
       courseId: courseId,
       createdAt: new Date().toISOString()
     });
+    console.log('✅ Lesson saved:', docRef.id);
     return docRef.id;
   } catch (error) {
+    console.error('❌ Error saving lesson:', error);
     throw error;
   }
 };
@@ -191,6 +246,7 @@ export const getLessons = async (courseId) => {
     });
     return lessons;
   } catch (error) {
+    console.error('❌ Error getting lessons:', error);
     throw error;
   }
 };
@@ -204,9 +260,120 @@ export const saveProgress = async (studentId, courseId, progressData) => {
       ...progressData,
       updatedAt: new Date().toISOString()
     });
+    console.log('✅ Progress saved for:', studentId);
   } catch (error) {
+    console.error('❌ Error saving progress:', error);
     throw error;
   }
 };
 
+// ========================================
+// DEFAULT USER CREATION
+// ========================================
+
+export const createDefaultUsers = async () => {
+  try {
+    console.log('🔄 Creating default users...');
+    
+    // Default accounts
+    const defaultUsers = [
+      {
+        email: 'admin@stem.com',
+        password: 'Admin123!',
+        name: 'Admin User',
+        role: 'admin',
+        isDemoAccount: true,
+        isEmailVerified: true
+      },
+      {
+        email: 'teacher@stem.com',
+        password: 'Teacher123!',
+        name: 'Teacher User',
+        role: 'teacher',
+        isDemoAccount: true,
+        isEmailVerified: true,
+        isApproved: true,
+        specialization: 'Web Development',
+        bio: 'Experienced web developer and educator with 5+ years of teaching experience.',
+        whatsappNumber: '2348012345678'
+      },
+      {
+        email: 'student@stem.com',
+        password: 'Student123!',
+        name: 'Student User',
+        role: 'student',
+        isDemoAccount: true,
+        isEmailVerified: true,
+        level: 'Intermediate'
+      }
+    ];
+
+    const results = [];
+    for (const userData of defaultUsers) {
+      try {
+        // Check if user already exists
+        const userCredential = await createUserWithEmailAndPassword(
+          auth, 
+          userData.email, 
+          userData.password
+        );
+        const user = userCredential.user;
+        
+        // Save user data to Firestore
+        const { password, ...userDataWithoutPassword } = userData;
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          isDemoAccount: userData.isDemoAccount,
+          isEmailVerified: userData.isEmailVerified,
+          createdAt: new Date().toISOString(),
+          ...userDataWithoutPassword
+        });
+        
+        console.log(`✅ Created ${userData.role}: ${userData.email}`);
+        results.push({ success: true, email: userData.email, role: userData.role });
+      } catch (error) {
+        if (error.code === 'auth/email-already-in-use') {
+          console.log(`ℹ️ ${userData.email} already exists, skipping...`);
+          results.push({ success: true, email: userData.email, role: userData.role, exists: true });
+        } else {
+          console.error(`❌ Error creating ${userData.email}:`, error.message);
+          results.push({ success: false, email: userData.email, error: error.message });
+        }
+      }
+    }
+    
+    console.log('✅ Default users creation complete');
+    return results;
+  } catch (error) {
+    console.error('❌ Error creating default users:', error);
+    return [];
+  }
+};
+
+// ========================================
+// EXPORT ALL
+// ========================================
+
 export { auth, db };
+export default {
+  auth,
+  db,
+  registerUser,
+  loginUser,
+  logoutUser,
+  resendVerification,
+  resetPassword,
+  getCurrentUser,
+  getUserData,
+  updateUserData,
+  deleteUserData,
+  saveCourse,
+  getCourses,
+  saveLesson,
+  getLessons,
+  saveProgress,
+  createDefaultUsers
+};
