@@ -271,10 +271,11 @@ export const saveProgress = async (studentId, courseId, progressData) => {
 // DEFAULT USER CREATION
 // ========================================
 
+
 export const createDefaultUsers = async () => {
   try {
-    console.log('🔄 Creating default users...');
-    
+    console.log('🔄 Creating/updating default users...');
+
     // Default accounts
     const defaultUsers = [
       {
@@ -283,7 +284,8 @@ export const createDefaultUsers = async () => {
         name: 'Admin User',
         role: 'admin',
         isDemoAccount: true,
-        isEmailVerified: true
+        isEmailVerified: true,
+        isApproved: true
       },
       {
         email: 'kabiralkasim6@gmail.com',
@@ -311,40 +313,76 @@ export const createDefaultUsers = async () => {
     const results = [];
     for (const userData of defaultUsers) {
       try {
-        // Check if user already exists
-        const userCredential = await createUserWithEmailAndPassword(
-          auth, 
-          userData.email, 
-          userData.password
-        );
-        const user = userCredential.user;
-        
-        // Save user data to Firestore
-        const { password, ...userDataWithoutPassword } = userData;
-        await setDoc(doc(db, 'users', user.uid), {
-          uid: user.uid,
-          email: userData.email,
-          name: userData.name,
-          role: userData.role,
-          isDemoAccount: userData.isDemoAccount,
-          isEmailVerified: userData.isEmailVerified,
-          createdAt: new Date().toISOString(),
-          ...userDataWithoutPassword
-        });
-        
-        console.log(`✅ Created ${userData.role}: ${userData.email}`);
-        results.push({ success: true, email: userData.email, role: userData.role });
-      } catch (error) {
-        if (error.code === 'auth/email-already-in-use') {
-          console.log(`ℹ️ ${userData.email} already exists, skipping...`);
-          results.push({ success: true, email: userData.email, role: userData.role, exists: true });
-        } else {
-          console.error(`❌ Error creating ${userData.email}:`, error.message);
-          results.push({ success: false, email: userData.email, error: error.message });
+        let user = null;
+        let isExisting = false;
+
+        try {
+          // Try to create new user
+          const userCredential = await createUserWithEmailAndPassword(
+            auth, 
+            userData.email, 
+            userData.password
+          );
+          user = userCredential.user;
+          console.log(`✅ Created new ${userData.role}: ${userData.email}`);
+        } catch (error) {
+          if (error.code === 'auth/email-already-in-use') {
+            console.log(`ℹ️ ${userData.email} already exists, updating...`);
+            isExisting = true;
+            
+            // Sign in to get the user's UID
+            try {
+              const userCredential = await signInWithEmailAndPassword(
+                auth, 
+                userData.email, 
+                userData.password
+              );
+              user = userCredential.user;
+            } catch (signInError) {
+              console.error(`❌ Error signing in ${userData.email}:`, signInError.message);
+              // If can't sign in, we can't get the UID
+              results.push({ 
+                success: false, 
+                email: userData.email, 
+                error: 'Cannot sign in to update' 
+              });
+              continue;
+            }
+          } else {
+            throw error;
+          }
         }
+
+        if (user) {
+          // Save or update user data in Firestore
+          const { password, ...userDataWithoutPassword } = userData;
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            isDemoAccount: userData.isDemoAccount,
+            isEmailVerified: userData.isEmailVerified,
+            isApproved: userData.isApproved !== undefined ? userData.isApproved : true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            ...userDataWithoutPassword
+          }, { merge: true }); // ✅ merge: true updates existing document
+
+          console.log(`✅ ${isExisting ? 'Updated' : 'Created'} ${userData.role}: ${userData.email}`);
+          results.push({ 
+            success: true, 
+            email: userData.email, 
+            role: userData.role, 
+            existing: isExisting 
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error processing ${userData.email}:`, error.message);
+        results.push({ success: false, email: userData.email, error: error.message });
       }
     }
-    
+
     console.log('✅ Default users creation complete');
     return results;
   } catch (error) {
