@@ -354,19 +354,19 @@ const LoginForm = ({
             <div className="demo-grid">
               <div className="demo-card" onClick={() => fillDemoCredentials('admin')}>
                 <div className="demo-role">👑 Admin</div>
-                <div className="demo-email">admin@stem.com</div>
-                <div className="demo-password">••••••••</div>
+                <div className="demo-email">codesmartng1@gmail.com</div>
+                <div className="demo-password">•••••••</div>
                 <div className="demo-hint">Click to fill</div>
               </div>
               <div className="demo-card" onClick={() => fillDemoCredentials('teacher')}>
                 <div className="demo-role">👨‍🏫 Teacher</div>
-                <div className="demo-email">teacher@stem.com</div>
+                <div className="demo-email">kabiralkasim6@gmail.com</div>
                 <div className="demo-password">••••••••</div>
                 <div className="demo-hint">Click to fill</div>
               </div>
               <div className="demo-card" onClick={() => fillDemoCredentials('student')}>
                 <div className="demo-role">👨‍🎓 Student</div>
-                <div className="demo-email">student@stem.com</div>
+                <div className="demo-email">kabiralkasim9@gmail.com</div>
                 <div className="demo-password">••••••••</div>
                 <div className="demo-hint">Click to fill</div>
               </div>
