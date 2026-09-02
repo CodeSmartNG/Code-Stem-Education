@@ -45,20 +45,25 @@ const INACTIVITY_LOGOUT_TIME = 60 * 60 * 1000;
 
 // Debug function to check admin status
 const debugAdminStatus = () => {
-  console.log('=== ADMIN STATUS DEBUG ===');
-  const users = JSON.parse(localStorage.getItem('hausaStem_users') || '{}');
-  const currentUser = JSON.parse(localStorage.getItem('hausaStem_currentUser') || 'null');
+  try {
+    console.log('=== ADMIN STATUS DEBUG ===');
+    // For Firebase, we'll check from the users collection
+    const users = JSON.parse(localStorage.getItem('hausaStem_users') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('hausaStem_currentUser') || 'null');
 
-  console.log('All users:', Object.keys(users));
-  console.log('Admin exists:', !!users['admin1']);
-  console.log('Admin email:', users['admin1']?.email);
-  console.log('Admin role:', users['admin1']?.role);
-  console.log('Admin isEmailConfirmed:', users['admin1']?.isEmailConfirmed);
-  console.log('Current user:', currentUser);
-  console.log('Current user role:', currentUser?.role);
-  console.log('=== END DEBUG ===');
+    console.log('All users:', Object.keys(users));
+    console.log('Admin exists:', !!users['admin1']);
+    console.log('Admin email:', users['admin1']?.email);
+    console.log('Admin role:', users['admin1']?.role);
+    console.log('Current user:', currentUser);
+    console.log('Current user role:', currentUser?.role);
+    console.log('=== END DEBUG ===');
 
-  return { users, currentUser };
+    return { users, currentUser };
+  } catch (error) {
+    console.error('Debug error:', error);
+    return { users: {}, currentUser: null };
+  }
 };
 
 // Safe object utility function
@@ -96,13 +101,14 @@ function App() {
   const [confirmationToken, setConfirmationToken] = useState('');
   const [showConfirmationInfo, setShowConfirmationInfo] = useState(false);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [initError, setInitError] = useState(null);
 
   // Refs for timer management
   const logoutTimerRef = useRef(null);
   const warningTimerRef = useRef(null);
 
   // Define handleLogout first so it can be used in other hooks
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
     }
@@ -110,7 +116,7 @@ function App() {
       clearTimeout(warningTimerRef.current);
     }
 
-    logoutUser();
+    await logoutUser();
     setCurrentUserState(null);
     setCurrentView('login');
     setMessage('');
@@ -190,7 +196,7 @@ function App() {
         );
         
         if (success) {
-          const updatedUser = getCurrentUser();
+          const updatedUser = await getCurrentUser();
           if (updatedUser) {
             setCurrentUserState(updatedUser);
           }
@@ -207,12 +213,12 @@ function App() {
   }, [currentUser]);
 
   // Handle transaction update
-  const handleTransactionUpdate = useCallback((transaction) => {
+  const handleTransactionUpdate = useCallback(async (transaction) => {
     try {
       console.log('Transaction updated:', transaction);
       // Update any transaction tracking in state if needed
       if (currentUser && currentUser.role === 'teacher') {
-        const updatedUser = getCurrentUser();
+        const updatedUser = await getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
         }
@@ -224,19 +230,19 @@ function App() {
 
   // Initialize storage and load data
   useEffect(() => {
-    const initApp = () => {
+    const initApp = async () => {
       try {
         console.log('🔄 Initializing storage...');
-        initializeStorage();
+        await initializeStorage();
 
-        const loadedStudents = getStudents();
-        const loadedCurrentUser = getCurrentUser();
+        const loadedStudents = await getStudents();
+        const loadedCurrentUser = await getCurrentUser();
 
         console.log('Loaded students:', loadedStudents);
         console.log('Loaded current user:', loadedCurrentUser);
         console.log('Loaded current user role:', loadedCurrentUser?.role);
 
-        setStudentsState(loadedStudents);
+        setStudentsState(loadedStudents || []);
 
         if (loadedCurrentUser) {
           setCurrentUserState(loadedCurrentUser);
@@ -267,8 +273,10 @@ function App() {
         debugAdminStatus();
 
         setIsInitialized(true);
+        setInitError(null);
       } catch (error) {
         console.error('Error initializing app:', error);
+        setInitError(error.message || 'Failed to initialize app');
         setIsInitialized(true);
       }
     };
@@ -358,7 +366,7 @@ function App() {
 
   const handleStudentRegister = useCallback(async (name, email, password) => {
     try {
-      const users = getUsers();
+      const users = await getUsers();
       const existingUser = safeObjectEntries(users, 'student-register').find(
         ([, user]) => user.email === email
       );
@@ -394,7 +402,7 @@ function App() {
 
   const handleTeacherRegister = useCallback(async (teacherData) => {
     try {
-      const users = getUsers();
+      const users = await getUsers();
       const existingUser = safeObjectEntries(users, 'teacher-register').find(
         ([, user]) => user.email === teacherData.email
       );
@@ -438,24 +446,23 @@ function App() {
     }
   }, [pendingUser]);
 
-  const updateStudentData = useCallback((updatedStudent) => {
+  const updateStudentData = useCallback(async (updatedStudent) => {
     try {
-      updateStudent(updatedStudent);
+      await updateStudent(updatedStudent);
 
       const { password, ...studentWithoutPassword } = updatedStudent;
       setCurrentUserState(studentWithoutPassword);
 
-      setStudentsState(prev => 
-        prev.map(s => s.id === updatedStudent.id ? updatedStudent : s)
-      );
+      const loadedStudents = await getStudents();
+      setStudentsState(loadedStudents || []);
     } catch (error) {
       console.error('Error updating student:', error);
     }
   }, []);
 
-  const updateCurrentUser = useCallback((updatedUser) => {
+  const updateCurrentUser = useCallback(async (updatedUser) => {
     try {
-      const users = getUsers();
+      const users = await getUsers();
       if (users[updatedUser.id]) {
         users[updatedUser.id] = { ...users[updatedUser.id], ...updatedUser };
         localStorage.setItem('hausaStem_users', JSON.stringify(users));
@@ -477,7 +484,7 @@ function App() {
 
       const success = await purchaseLesson(currentUser.id, courseKey, lessonId);
       if (success) {
-        const updatedUser = getCurrentUser();
+        const updatedUser = await getCurrentUser();
         if (updatedUser) {
           setCurrentUserState(updatedUser);
         }
@@ -494,9 +501,9 @@ function App() {
     }
   }, [currentUser]);
 
-  const checkLessonAccess = useCallback((courseKey, lessonId) => {
+  const checkLessonAccess = useCallback(async (courseKey, lessonId) => {
     if (!currentUser) return false;
-    return canAccessLesson(currentUser.id, courseKey, lessonId);
+    return await canAccessLesson(currentUser.id, courseKey, lessonId);
   }, [currentUser]);
 
   const getTeacherContactUrl = useCallback((teacherId) => {
@@ -579,6 +586,17 @@ function App() {
       </div>
     );
   }, [message]);
+
+  // If there's an initialization error, show a friendly error message
+  if (initError) {
+    return (
+      <div className="error-screen">
+        <h2>⚠️ Something went wrong</h2>
+        <p>{initError}</p>
+        <button onClick={() => window.location.reload()}>Refresh Page</button>
+      </div>
+    );
+  }
 
   // Render view based on current view and user role
   const renderView = useCallback(() => {
@@ -840,7 +858,9 @@ function App() {
     return (
       <div className="loading-screen">
         <div className="loading-spinner"></div>
-        <p>Loading STEM Platform...</p>
+        <p>Loading your learning experience...</p>
+        <p className="loading-version">v1.0.0 • STEM Education Platform</p>
+        <p className="loading-powered">Powered by Firebase</p>
       </div>
     );
   }
