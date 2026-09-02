@@ -5,7 +5,7 @@ import {
   db,
   getCurrentUser as firebaseGetCurrentUser,
   getUserData,
-  updateUserData,
+  updateUserData as firebaseUpdateUserData,  // ✅ IMPORT FROM FIREBASE
   logoutUser as firebaseLogout,
   loginUser,
   registerUser as firebaseRegister,
@@ -28,11 +28,186 @@ import {
   increment
 } from 'firebase/firestore';
 
+// ============================================
+// USER MANAGEMENT FUNCTIONS (Firebase)
+// ============================================
 
-// src/utils/storage.jsx - Add these missing admin functions
+// ✅ Get current user
+export const getCurrentUser = async () => {
+  try {
+    const firebaseUser = await firebaseGetCurrentUser();
+    if (!firebaseUser) return null;
+    
+    const userData = await getUserData(firebaseUser.uid);
+    return {
+      id: firebaseUser.uid,
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      emailVerified: firebaseUser.emailVerified,
+      displayName: firebaseUser.displayName || userData?.name || '',
+      ...userData
+    };
+  } catch (error) {
+    console.error('❌ Error getting current user:', error);
+    return null;
+  }
+};
+
+// ✅ Update user data - EXPORT THIS (MISSING)
+export const updateUserData = async (userId, updatedData) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    // Use Firebase's updateUserData function
+    const result = await firebaseUpdateUserData(userId, updatedData);
+    
+    // Also update local storage for immediate UI update
+    const currentUser = await getCurrentUser();
+    if (currentUser && currentUser.uid === userId) {
+      const mergedUser = { ...currentUser, ...updatedData };
+      localStorage.setItem('hausaStem_currentUser', JSON.stringify(mergedUser));
+    }
+    
+    console.log('✅ User data updated:', userId);
+    return result;
+  } catch (error) {
+    console.error('❌ Error updating user data:', error);
+    throw error;
+  }
+};
+
+// ✅ Set current user (kept for compatibility)
+export const setCurrentUser = (user) => {
+  return user;
+};
+
+// ✅ Get all users
+export const getUsers = async () => {
+  try {
+    const usersRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersRef);
+    const users = {};
+    querySnapshot.forEach(doc => {
+      users[doc.id] = { id: doc.id, ...doc.data() };
+    });
+    return users;
+  } catch (error) {
+    console.error('❌ Error getting users:', error);
+    return {};
+  }
+};
+
+// ✅ Set users (kept for compatibility)
+export const setUsers = (users) => {
+  return users;
+};
+
+// ✅ Register user
+export const registerUser = async (userData) => {
+  try {
+    const result = await firebaseRegister(
+      userData.email, 
+      userData.password, 
+      userData
+    );
+    return {
+      user: result.userData,
+      confirmationToken: 'email_verification_sent'
+    };
+  } catch (error) {
+    console.error('❌ Error registering user:', error);
+    throw error;
+  }
+};
+
+// ✅ Authenticate user
+export const authenticateUser = async (email, password) => {
+  try {
+    const user = await loginUser(email, password);
+    return {
+      id: user.uid,
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      ...user
+    };
+  } catch (error) {
+    console.error('❌ Error authenticating user:', error);
+    throw error;
+  }
+};
+
+// ✅ Logout user
+export const logoutUser = async () => {
+  try {
+    await firebaseLogout();
+    return true;
+  } catch (error) {
+    console.error('❌ Error logging out:', error);
+    return false;
+  }
+};
+
+// ✅ Confirm user email
+export const confirmUserEmail = async (token) => {
+  try {
+    return { success: true, message: 'Email confirmed' };
+  } catch (error) {
+    console.error('❌ Error confirming email:', error);
+    throw error;
+  }
+};
+
+// ✅ Resend email confirmation
+export const resendEmailConfirmation = async (email) => {
+  try {
+    await resendVerification();
+    return { success: true, message: 'Verification email resent' };
+  } catch (error) {
+    console.error('❌ Error resending confirmation:', error);
+    throw error;
+  }
+};
 
 // ============================================
-// ADMIN FUNCTIONS - ADD THESE
+// STUDENT MANAGEMENT FUNCTIONS
+// ============================================
+
+// ✅ Get students
+export const getStudents = async () => {
+  try {
+    const users = await getUsers();
+    const students = [];
+    Object.values(users).forEach(user => {
+      if (user.role === 'student') {
+        students.push(user);
+      }
+    });
+    return students;
+  } catch (error) {
+    console.error('❌ Error getting students:', error);
+    return [];
+  }
+};
+
+// ✅ Update student
+export const updateStudent = async (student) => {
+  try {
+    if (!student || !student.id) {
+      throw new Error('Valid student object required');
+    }
+    await updateUserData(student.id, student);
+    return student;
+  } catch (error) {
+    console.error('❌ Error updating student:', error);
+    throw error;
+  }
+};
+
+// ============================================
+// ADMIN FUNCTIONS
 // ============================================
 
 // ✅ Get all courses for admin
@@ -93,7 +268,6 @@ export const getCourseAnalyticsForAdmin = async (courseId) => {
     const course = await getCourseById(courseId);
     const lessons = await getLessonsByCourse(courseId);
     
-    // Get all enrollments for this course
     const enrollmentsRef = collection(db, 'enrollments');
     const q = query(enrollmentsRef, where('courseId', '==', courseId));
     const querySnapshot = await getDocs(q);
@@ -107,7 +281,6 @@ export const getCourseAnalyticsForAdmin = async (courseId) => {
       totalProgress += data.progress || 0;
     });
     
-    // Calculate average progress
     const avgProgress = totalEnrolled > 0 ? Math.round((totalProgress / totalEnrolled) * 100) : 0;
     
     return {
@@ -306,7 +479,6 @@ export const saveTeacherWallets = async (wallets) => {
 // ✅ Get payment transactions
 export const getPaymentTransactions = async () => {
   try {
-    // Get transactions from localStorage (since paymentService uses localStorage)
     const transactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
     return transactions;
   } catch (error) {
@@ -338,160 +510,6 @@ export const getAllCoursesAnalyticsForAdmin = async () => {
   } catch (error) {
     console.error('❌ Error getting all courses analytics:', error);
     return {};
-  }
-};
-
-
-// ============================================
-// USER MANAGEMENT FUNCTIONS (Firebase)
-// ============================================
-
-// ✅ Get current user
-export const getCurrentUser = async () => {
-  try {
-    const firebaseUser = await firebaseGetCurrentUser();
-    if (!firebaseUser) return null;
-    
-    const userData = await getUserData(firebaseUser.uid);
-    return {
-      id: firebaseUser.uid,
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      emailVerified: firebaseUser.emailVerified,
-      displayName: firebaseUser.displayName || userData?.name || '',
-      ...userData
-    };
-  } catch (error) {
-    console.error('❌ Error getting current user:', error);
-    return null;
-  }
-};
-
-// ✅ Set current user (kept for compatibility)
-export const setCurrentUser = (user) => {
-  return user;
-};
-
-// ✅ Get all users
-export const getUsers = async () => {
-  try {
-    const usersRef = collection(db, 'users');
-    const querySnapshot = await getDocs(usersRef);
-    const users = {};
-    querySnapshot.forEach(doc => {
-      users[doc.id] = { id: doc.id, ...doc.data() };
-    });
-    return users;
-  } catch (error) {
-    console.error('❌ Error getting users:', error);
-    return {};
-  }
-};
-
-// ✅ Set users (kept for compatibility)
-export const setUsers = (users) => {
-  return users;
-};
-
-// ✅ Register user
-export const registerUser = async (userData) => {
-  try {
-    const result = await firebaseRegister(
-      userData.email, 
-      userData.password, 
-      userData
-    );
-    return {
-      user: result.userData,
-      confirmationToken: 'email_verification_sent'
-    };
-  } catch (error) {
-    console.error('❌ Error registering user:', error);
-    throw error;
-  }
-};
-
-// ✅ Authenticate user
-export const authenticateUser = async (email, password) => {
-  try {
-    const user = await loginUser(email, password);
-    return {
-      id: user.uid,
-      uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      ...user
-    };
-  } catch (error) {
-    console.error('❌ Error authenticating user:', error);
-    throw error;
-  }
-};
-
-// ✅ Logout user
-export const logoutUser = async () => {
-  try {
-    await firebaseLogout();
-    return true;
-  } catch (error) {
-    console.error('❌ Error logging out:', error);
-    return false;
-  }
-};
-
-// ✅ Confirm user email
-export const confirmUserEmail = async (token) => {
-  try {
-    return { success: true, message: 'Email confirmed' };
-  } catch (error) {
-    console.error('❌ Error confirming email:', error);
-    throw error;
-  }
-};
-
-// ✅ Resend email confirmation
-export const resendEmailConfirmation = async (email) => {
-  try {
-    await resendVerification();
-    return { success: true, message: 'Verification email resent' };
-  } catch (error) {
-    console.error('❌ Error resending confirmation:', error);
-    throw error;
-  }
-};
-
-// ============================================
-// STUDENT MANAGEMENT FUNCTIONS
-// ============================================
-
-// ✅ Get students
-export const getStudents = async () => {
-  try {
-    const users = await getUsers();
-    const students = [];
-    Object.values(users).forEach(user => {
-      if (user.role === 'student') {
-        students.push(user);
-      }
-    });
-    return students;
-  } catch (error) {
-    console.error('❌ Error getting students:', error);
-    return [];
-  }
-};
-
-// ✅ Update student
-export const updateStudent = async (student) => {
-  try {
-    if (!student || !student.id) {
-      throw new Error('Valid student object required');
-    }
-    await updateUserData(student.id, student);
-    return student;
-  } catch (error) {
-    console.error('❌ Error updating student:', error);
-    throw error;
   }
 };
 
@@ -1210,7 +1228,7 @@ export const getUserPurchasedLessons = async (userId) => {
 };
 
 // ============================================
-// INITIALIZE DEFAULT COURSES - ALL IN ENGLISH
+// INITIALIZE DEFAULT COURSES
 // ============================================
 
 export const initializeDefaultCourses = async () => {
@@ -1617,7 +1635,6 @@ export const initializeStorage = async () => {
 // ============================================
 // ✅ FINAL EXPORT
 // ============================================
-// src/utils/storage.jsx - Update the export section
 
 export default {
   // User Management
@@ -1630,6 +1647,7 @@ export default {
   logoutUser,
   confirmUserEmail,
   resendEmailConfirmation,
+  updateUserData,  // ✅ MAKE SURE THIS IS INCLUDED
   
   // Student Management
   getStudents,
@@ -1680,7 +1698,7 @@ export default {
   verifyPayment,
   getUserPurchasedLessons,
   
-  // Admin Functions - ADD THESE
+  // Admin Functions
   getAllCoursesForAdmin,
   getCourseDetailsForAdmin,
   deleteCourseAsAdmin,
