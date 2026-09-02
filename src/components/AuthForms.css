@@ -1,106 +1,91 @@
-/* Auth Forms Styles */
+/* AuthForms.css - Add these styles */
+
+/* Auth Container */
 .auth-container {
-  min-height: 100vh;
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  align-items: center;
+  min-height: 100vh;
   padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
 .auth-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
   padding: 40px;
+  max-width: 480px;
   width: 100%;
-  max-width: 450px;
-  margin: 20px auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
-/* ========================================
-   HEADER
-   ======================================== */
-
+/* Auth Header */
 .auth-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .auth-icon {
   font-size: 48px;
-  margin-bottom: 12px;
-  display: block;
-}
-
-.auth-header h2 {
-  color: #2d3748;
-  font-size: 28px;
-  font-weight: 700;
   margin-bottom: 8px;
 }
 
-.auth-header p {
-  color: #718096;
-  font-size: 16px;
+.auth-header h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 24px;
 }
 
-/* ========================================
-   ATTEMPTS & LOCK WARNINGS
-   ======================================== */
+.auth-header p {
+  margin: 4px 0 0 0;
+  color: #6b7280;
+}
 
 .attempts-warning {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffc107;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #fef3c7;
   border-radius: 6px;
+  color: #92400e;
   font-size: 13px;
-  font-weight: 500;
 }
 
 .lock-warning {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #fef2f2;
   border-radius: 6px;
+  color: #991b1b;
   font-size: 13px;
-  font-weight: 600;
 }
 
-/* ========================================
-   ERROR MESSAGE
-   ======================================== */
-
+/* Error Message */
 .error-message {
-  background: #fed7d7;
-  color: #c53030;
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  border: 1px solid #feb2b2;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #991b1b;
+  margin-bottom: 16px;
+  animation: slideDown 0.3s ease;
 }
 
 .error-message.lock-error {
-  background: #f8d7da;
-  border-color: #f5c6cb;
-  color: #721c24;
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
 }
 
 .error-icon {
   font-size: 18px;
-  flex-shrink: 0;
+  margin-right: 10px;
 }
 
 .error-text {
   flex: 1;
+  font-size: 14px;
 }
 
 .error-close {
@@ -111,193 +96,104 @@
   color: inherit;
   opacity: 0.6;
   padding: 0 4px;
-  transition: opacity 0.2s;
 }
 
 .error-close:hover {
   opacity: 1;
 }
 
-/* ========================================
-   RESEND VERIFICATION
-   ======================================== */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
+/* Resend Verification */
 .resend-verification-section {
-  margin: 0 0 20px 0;
   padding: 16px;
-  background: #fff3cd;
-  border: 1px solid #ffc107;
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
   border-radius: 8px;
-  text-align: center;
+  margin-bottom: 16px;
 }
 
 .resend-info {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   margin-bottom: 12px;
 }
 
 .resend-icon {
   font-size: 20px;
-  flex-shrink: 0;
 }
 
 .resend-info p {
   margin: 0;
   font-size: 14px;
-  color: #856404;
-  line-height: 1.4;
+  color: #1e40af;
 }
 
 .resend-btn {
-  padding: 10px 24px;
-  background: #ffc107;
-  color: #212529;
+  width: 100%;
+  padding: 10px;
+  background: #3b82f6;
+  color: white;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
   transition: all 0.3s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .resend-btn:hover:not(:disabled) {
-  background: #e0a800;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+  background: #2563eb;
+  transform: translateY(-2px);
 }
 
 .resend-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none !important;
 }
 
 .resend-message {
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 8px 12px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .resend-message.success {
   background: #d4edda;
   color: #155724;
-  border: 1px solid #c3e6cb;
 }
 
 .resend-message.error {
   background: #f8d7da;
   color: #721c24;
-  border: 1px solid #f5c6cb;
 }
 
-/* ========================================
-   FORM STYLES
-   ======================================== */
-
-.auth-form {
-  margin-bottom: 30px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #4a5568;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #4299e1;
-  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
-}
-
-.form-input:disabled {
-  background: #f7fafc;
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.form-input.input-error {
-  border-color: #fc8181;
-}
-
-.form-input.input-error:focus {
-  border-color: #fc8181;
-  box-shadow: 0 0 0 3px rgba(252, 129, 129, 0.1);
-}
-
-/* Password Input Wrapper */
-.password-input-wrapper {
-  position: relative;
-}
-
-.password-input-wrapper .form-input {
-  padding-right: 48px;
-}
-
-.password-toggle {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.password-toggle:hover {
-  opacity: 1;
-}
-
-.password-toggle:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ========================================
-   FORM OPTIONS
-   ======================================== */
-
+/* Form Options */
 .form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin: 12px 0;
 }
 
 .checkbox-label {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #4a5568;
-  font-size: 14px;
   cursor: pointer;
+  font-size: 14px;
+  color: #4b5563;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -306,38 +202,24 @@
   cursor: pointer;
 }
 
-.checkbox-label input[type="checkbox"]:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
 .forgot-password {
   background: none;
   border: none;
-  color: #4299e1;
-  font-size: 14px;
+  color: #3b82f6;
   cursor: pointer;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
   text-decoration: underline;
-  transition: color 0.2s;
 }
 
-.forgot-password:hover:not(:disabled) {
-  color: #2b6cb0;
-}
-
-.forgot-password:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* ========================================
-   BUTTONS
-   ======================================== */
-
-.btn-primary {
+/* Login Button */
+.login-btn {
   width: 100%;
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #4299e1, #3182ce);
+  padding: 14px;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
   color: white;
   border: none;
   border-radius: 8px;
@@ -351,583 +233,248 @@
   gap: 8px;
 }
 
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-.btn-primary:disabled {
-  opacity: 0.7;
+.login-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
-  transform: none !important;
+  transform: none;
 }
 
-.btn-primary.loading {
+.login-btn.loading {
   opacity: 0.8;
 }
 
-.btn-outline {
-  width: 100%;
-  padding: 12px 20px;
-  background: white;
-  color: #4a5568;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-outline:hover:not(:disabled) {
-  border-color: #4299e1;
-  color: #4299e1;
-  transform: translateY(-1px);
-}
-
-.btn-outline:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.btn-teacher {
-  width: 100%;
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #ed8936, #dd6b20);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.btn-teacher:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(237, 137, 54, 0.3);
-}
-
-.btn-teacher:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.student-register-btn {
-  border-color: #3182ce;
-  color: #3182ce;
-}
-
-.student-register-btn:hover:not(:disabled) {
-  border-color: #2b6cb0;
-  color: #2b6cb0;
-  background: #ebf8ff;
-}
-
-.teacher-register-btn {
-  border-color: #dd6b20;
-  color: #dd6b20;
-}
-
-.teacher-register-btn:hover:not(:disabled) {
-  border-color: #c05621;
-  color: #c05621;
-  background: #fffaf0;
-}
-
-.btn-icon {
-  font-size: 16px;
-}
-
-.login-btn {
-  margin-top: 4px;
-}
-
-/* ========================================
-   SPINNER
-   ======================================== */
-
 .spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid transparent;
-  border-top: 2px solid white;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  flex-shrink: 0;
+  border-top-color: white;
+  animation: spin 0.8s ease-in-out infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* ========================================
-   DEMO LOGIN SECTION
-   ======================================== */
-
-.demo-section {
-  margin: 20px 0;
+/* Demo Credentials */
+.demo-credentials {
+  margin: 16px 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
-.demo-divider {
-  position: relative;
-  text-align: center;
-  margin: 20px 0;
-}
-
-.demo-divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e2e8f0;
-}
-
-.demo-divider span {
-  background: white;
-  padding: 0 15px;
-  color: #718096;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  position: relative;
-  z-index: 1;
-}
-
-.demo-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.demo-btn {
-  padding: 12px 16px;
-  border: 1px solid #e2e8f0;
+.demo-toggle {
+  width: 100%;
+  padding: 10px;
+  background: #e9ecef;
+  border: none;
   border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  transition: all 0.3s ease;
+}
+
+.demo-toggle:hover {
+  background: #dee2e6;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.demo-card {
+  padding: 12px;
   background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
+}
+
+.demo-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.demo-role {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.demo-email {
+  font-size: 11px;
+  color: #666;
+  margin: 4px 0;
+  word-break: break-all;
+}
+
+.demo-password {
+  font-size: 12px;
+  color: #999;
+}
+
+.demo-hint {
+  font-size: 11px;
+  color: #3b82f6;
+  margin-top: 4px;
   font-weight: 500;
 }
 
-.demo-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.demo-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-.admin-demo {
-  border-left: 4px solid #e53e3e;
-}
-
-.admin-demo:hover:not(:disabled) {
-  background: #fff5f5;
-  border-color: #e53e3e;
-}
-
-.teacher-demo {
-  border-left: 4px solid #38a169;
-}
-
-.teacher-demo:hover:not(:disabled) {
-  background: #f0fff4;
-  border-color: #38a169;
-}
-
-.student-demo {
-  border-left: 4px solid #3182ce;
-}
-
-.student-demo:hover:not(:disabled) {
-  background: #ebf8ff;
-  border-color: #3182ce;
-}
-
-.demo-icon {
-  font-size: 18px;
-}
-
-/* ========================================
-   AUTH FOOTER
-   ======================================== */
-
+/* Auth Footer */
 .auth-footer {
-  margin-top: 30px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
 }
 
-.footer-section {
+.footer-section p {
   text-align: center;
-  margin-bottom: 25px;
-}
-
-.footer-section > p {
-  color: #718096;
-  margin-bottom: 15px;
-  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 12px;
 }
 
 .register-options {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
-.register-options .divider {
-  position: relative;
-  text-align: center;
-  margin: 6px 0;
-}
-
-.register-options .divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e2e8f0;
-}
-
-.register-options .divider span {
-  background: white;
-  padding: 0 15px;
-  color: #718096;
-  font-size: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-/* ========================================
-   TEACHER INFO SECTION
-   ======================================== */
-
-.teacher-info {
-  padding: 20px;
-  background: linear-gradient(135deg, #fffaf0, #fed7d7);
+.student-register-btn,
+.teacher-register-btn {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e5e7eb;
   border-radius: 8px;
-  border: 1px solid #fbd38d;
-  text-align: left;
-  margin-top: 10px;
-}
-
-.teacher-info-icon {
-  font-size: 32px;
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.teacher-info-content h4 {
-  color: #744210;
-  margin: 0 0 8px 0;
-  font-size: 16px;
-  text-align: center;
-}
-
-.teacher-info-content > p {
-  color: #744210;
+  background: white;
+  cursor: pointer;
   font-size: 14px;
-  margin-bottom: 12px;
-  opacity: 0.9;
-  text-align: center;
-}
-
-.teacher-info-content ul {
-  color: #744210;
-  font-size: 13px;
-  padding-left: 20px;
-  margin: 0;
-}
-
-.teacher-info-content li {
-  margin-bottom: 6px;
-  opacity: 0.9;
-}
-
-/* ========================================
-   SECURITY NOTICE
-   ======================================== */
-
-.security-notice {
-  margin-top: 20px;
+  font-weight: 500;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #718096;
+}
+
+.student-register-btn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.teacher-register-btn:hover:not(:disabled) {
+  border-color: #8b5cf6;
+  background: #f5f3ff;
+}
+
+.student-register-btn:disabled,
+.teacher-register-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #9ca3af;
   font-size: 13px;
 }
 
-.security-icon {
-  font-size: 16px;
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
 }
 
-.security-notice p {
+/* Teacher Info */
+.teacher-info {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.teacher-info-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.teacher-info-content h4 {
+  margin: 0 0 4px 0;
+  color: #1f2937;
+  font-size: 14px;
+}
+
+.teacher-info-content p {
+  margin: 0 0 8px 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.teacher-info-content ul {
   margin: 0;
+  padding-left: 16px;
 }
 
-/* ========================================
-   RESPONSIVE DESIGN
-   ======================================== */
+.teacher-info-content ul li {
+  color: #4b5563;
+  font-size: 13px;
+  margin: 2px 0;
+}
 
+/* Security Notice */
+.security-notice {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.powered-by {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: auto;
+}
+
+/* Responsive */
 @media (max-width: 480px) {
   .auth-card {
-    padding: 24px 16px;
-    margin: 10px;
-    border-radius: 8px;
+    padding: 24px;
   }
-
-  .auth-header h2 {
-    font-size: 24px;
+  
+  .demo-grid {
+    grid-template-columns: 1fr;
   }
-
-  .auth-header p {
-    font-size: 14px;
-  }
-
-  .auth-icon {
-    font-size: 36px;
-  }
-
-  .form-input {
-    font-size: 15px;
-    padding: 10px 14px;
-  }
-
-  .btn-primary {
-    font-size: 15px;
-    padding: 12px 16px;
-  }
-
-  .demo-btn {
-    font-size: 13px;
-    padding: 10px 14px;
-  }
-
-  .form-options {
+  
+  .register-options {
     flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
   }
-
-  .resend-info {
+  
+  .teacher-info {
     flex-direction: column;
-    text-align: center;
-  }
-
-  .resend-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .teacher-info {
-    padding: 16px;
-  }
-
-  .teacher-info-content ul {
-    padding-left: 16px;
-  }
-
-  .security-notice {
-    font-size: 12px;
-    flex-wrap: wrap;
-  }
-}
-
-/* ========================================
-   DARK MODE SUPPORT
-   ======================================== */
-
-@media (prefers-color-scheme: dark) {
-  .auth-card {
-    background: #1a202c;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  }
-
-  .auth-header h2 {
-    color: #e2e8f0;
-  }
-
-  .auth-header p {
-    color: #a0aec0;
-  }
-
-  .form-group label {
-    color: #cbd5e0;
-  }
-
-  .form-input {
-    background: #2d3748;
-    border-color: #4a5568;
-    color: #e2e8f0;
-  }
-
-  .form-input:focus {
-    border-color: #4299e1;
-  }
-
-  .form-input:disabled {
-    background: #1a202c;
-  }
-
-  .checkbox-label {
-    color: #cbd5e0;
-  }
-
-  .demo-btn {
-    background: #2d3748;
-    border-color: #4a5568;
-    color: #e2e8f0;
-  }
-
-  .demo-btn:hover:not(:disabled) {
-    background: #4a5568;
-  }
-
-  .btn-outline {
-    background: #2d3748;
-    color: #cbd5e0;
-    border-color: #4a5568;
-  }
-
-  .btn-outline:hover:not(:disabled) {
-    border-color: #4299e1;
-    color: #4299e1;
-  }
-
-  .demo-divider span {
-    background: #1a202c;
-    color: #a0aec0;
-  }
-
-  .register-options .divider span {
-    background: #1a202c;
-    color: #a0aec0;
-  }
-
-  .error-message {
-    background: #742a2a;
-    color: #feb2b2;
-    border-color: #9b2c2c;
-  }
-
-  .error-message.lock-error {
-    background: #742a2a;
-    border-color: #9b2c2c;
-    color: #feb2b2;
-  }
-
-  .attempts-warning {
-    background: #744210;
-    color: #fbd38d;
-    border-color: #9c6b1e;
-  }
-
-  .lock-warning {
-    background: #742a2a;
-    color: #feb2b2;
-    border-color: #9b2c2c;
-  }
-
-  .resend-verification-section {
-    background: #744210;
-    border-color: #9c6b1e;
-  }
-
-  .resend-info p {
-    color: #fbd38d;
-  }
-
-  .resend-btn {
-    background: #d69e2e;
-    color: #1a202c;
-  }
-
-  .resend-btn:hover:not(:disabled) {
-    background: #b7791f;
-  }
-
-  .resend-message.success {
-    background: #22543d;
-    color: #9ae6b4;
-    border-color: #276749;
-  }
-
-  .resend-message.error {
-    background: #742a2a;
-    color: #feb2b2;
-    border-color: #9b2c2c;
-  }
-
-  .teacher-info {
-    background: #2d3748;
-    border-color: #4a5568;
-  }
-
-  .teacher-info-content h4 {
-    color: #e2e8f0;
-  }
-
-  .teacher-info-content > p {
-    color: #a0aec0;
-  }
-
-  .teacher-info-content ul {
-    color: #a0aec0;
-  }
-
-  .teacher-info-icon {
-    color: #a0aec0;
-  }
-
-  .security-notice {
-    color: #a0aec0;
-  }
-
-  .student-register-btn:hover:not(:disabled) {
-    background: #2d3748;
-    border-color: #4299e1;
-  }
-
-  .teacher-register-btn:hover:not(:disabled) {
-    background: #2d3748;
-    border-color: #ed8936;
-  }
-
-  .admin-demo:hover:not(:disabled) {
-    background: #2d3748;
-    border-color: #e53e3e;
-  }
-
-  .teacher-demo:hover:not(:disabled) {
-    background: #2d3748;
-    border-color: #38a169;
-  }
-
-  .student-demo:hover:not(:disabled) {
-    background: #2d3748;
-    border-color: #3182ce;
   }
 }
