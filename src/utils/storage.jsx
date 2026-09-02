@@ -4,7 +4,7 @@ import {
   auth, 
   db,
   getCurrentUser as firebaseGetCurrentUser,
-  getUserData as firebaseGetUserData,  // ✅ IMPORT THIS
+  getUserData as firebaseGetUserData,
   updateUserData as firebaseUpdateUserData,
   logoutUser as firebaseLogout,
   loginUser,
@@ -53,7 +53,7 @@ export const getCurrentUser = async () => {
   }
 };
 
-// ✅ Get user data by ID - ADD THIS
+// ✅ Get user data by ID
 export const getUserData = async (userId) => {
   try {
     if (!userId) {
@@ -221,315 +221,18 @@ export const updateStudent = async (student) => {
 };
 
 // ============================================
-// ADMIN FUNCTIONS
+// COURSE MANAGEMENT FUNCTIONS
 // ============================================
 
-// ✅ Get all courses for admin
-export const getAllCoursesForAdmin = async () => {
+// ✅ Get all courses (alias for getAllCourses) - ADD THIS
+export const getCourses = async () => {
   try {
     return await getAllCourses();
   } catch (error) {
-    console.error('❌ Error getting all courses for admin:', error);
+    console.error('❌ Error getting courses:', error);
     return [];
   }
 };
-
-// ✅ Get course details for admin
-export const getCourseDetailsForAdmin = async (courseId) => {
-  try {
-    const course = await getCourseById(courseId);
-    if (!course) return null;
-    
-    const lessons = await getLessonsByCourse(courseId);
-    const teacher = await getUserData(course.teacherId);
-    
-    return {
-      ...course,
-      lessons: lessons,
-      teacherInfo: teacher || { name: 'Unknown', email: 'unknown@email.com' }
-    };
-  } catch (error) {
-    console.error('❌ Error getting course details for admin:', error);
-    return null;
-  }
-};
-
-// ✅ Delete course as admin
-export const deleteCourseAsAdmin = async (courseId) => {
-  try {
-    await deleteCourse(courseId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error deleting course as admin:', error);
-    throw error;
-  }
-};
-
-// ✅ Delete lesson as admin
-export const deleteLessonAsAdmin = async (lessonId) => {
-  try {
-    await deleteLesson(lessonId);
-    return true;
-  } catch (error) {
-    console.error('❌ Error deleting lesson as admin:', error);
-    throw error;
-  }
-};
-
-// ✅ Get course analytics for admin
-export const getCourseAnalyticsForAdmin = async (courseId) => {
-  try {
-    const course = await getCourseById(courseId);
-    const lessons = await getLessonsByCourse(courseId);
-    
-    const enrollmentsRef = collection(db, 'enrollments');
-    const q = query(enrollmentsRef, where('courseId', '==', courseId));
-    const querySnapshot = await getDocs(q);
-    
-    let totalEnrolled = 0;
-    let totalProgress = 0;
-    
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
-      totalEnrolled++;
-      totalProgress += data.progress || 0;
-    });
-    
-    const avgProgress = totalEnrolled > 0 ? Math.round((totalProgress / totalEnrolled) * 100) : 0;
-    
-    return {
-      totalEnrolled: totalEnrolled || course.enrolledStudents || 0,
-      totalLessons: lessons.length,
-      completionRate: avgProgress,
-      averageQuizScore: 0
-    };
-  } catch (error) {
-    console.error('❌ Error getting course analytics:', error);
-    return {
-      totalEnrolled: 0,
-      totalLessons: 0,
-      completionRate: 0,
-      averageQuizScore: 0
-    };
-  }
-};
-
-// ✅ Get all teachers
-export const getAllTeachers = async () => {
-  try {
-    const users = await getUsers();
-    const teachers = [];
-    Object.values(users).forEach(user => {
-      if (user.role === 'teacher') {
-        teachers.push(user);
-      }
-    });
-    return teachers;
-  } catch (error) {
-    console.error('❌ Error getting all teachers:', error);
-    return [];
-  }
-};
-
-// ✅ Get pending teachers
-export const getPendingTeachers = async () => {
-  try {
-    const teachers = await getAllTeachers();
-    return teachers.filter(teacher => !teacher.isApproved);
-  } catch (error) {
-    console.error('❌ Error getting pending teachers:', error);
-    return [];
-  }
-};
-
-// ✅ Approve teacher
-export const approveTeacher = async (teacherId) => {
-  try {
-    await updateUserData(teacherId, {
-      isApproved: true,
-      approvedDate: new Date().toISOString()
-    });
-    return true;
-  } catch (error) {
-    console.error('❌ Error approving teacher:', error);
-    throw error;
-  }
-};
-
-// ✅ Reject teacher
-export const rejectTeacher = async (teacherId) => {
-  try {
-    await updateUserData(teacherId, {
-      isApproved: false,
-      rejectedAt: new Date().toISOString(),
-      status: 'rejected'
-    });
-    return true;
-  } catch (error) {
-    console.error('❌ Error rejecting teacher:', error);
-    throw error;
-  }
-};
-
-// ✅ Dismiss teacher
-export const dismissTeacher = async (teacherId) => {
-  try {
-    await updateUserData(teacherId, {
-      isApproved: false,
-      dismissedAt: new Date().toISOString(),
-      status: 'dismissed'
-    });
-    return true;
-  } catch (error) {
-    console.error('❌ Error dismissing teacher:', error);
-    throw error;
-  }
-};
-
-// ✅ Get teacher courses for admin
-export const getTeacherCoursesForAdmin = async (teacherId) => {
-  try {
-    return await getCoursesByTeacher(teacherId);
-  } catch (error) {
-    console.error('❌ Error getting teacher courses for admin:', error);
-    return [];
-  }
-};
-
-// ✅ Get platform stats
-export const getPlatformStats = async () => {
-  try {
-    const users = await getUsers();
-    const courses = await getAllCourses();
-    const userArray = Object.values(users);
-    
-    const students = userArray.filter(u => u.role === 'student');
-    const teachers = userArray.filter(u => u.role === 'teacher' && u.isApproved);
-    
-    let totalLessons = 0;
-    for (const course of courses) {
-      const lessons = await getLessonsByCourse(course.id);
-      totalLessons += lessons.length;
-    }
-    
-    return {
-      totalStudents: students.length,
-      totalTeachers: teachers.length,
-      totalCourses: courses.length,
-      totalLessons: totalLessons,
-      totalEnrolled: courses.reduce((sum, c) => sum + (c.enrolledStudents || 0), 0),
-      totalCompletedLessons: 0
-    };
-  } catch (error) {
-    console.error('❌ Error getting platform stats:', error);
-    return {
-      totalStudents: 0,
-      totalTeachers: 0,
-      totalCourses: 0,
-      totalLessons: 0,
-      totalEnrolled: 0,
-      totalCompletedLessons: 0
-    };
-  }
-};
-
-// ✅ Delete user
-export const deleteUser = async (userId) => {
-  try {
-    await deleteDoc(doc(db, 'users', userId));
-    return true;
-  } catch (error) {
-    console.error('❌ Error deleting user:', error);
-    throw error;
-  }
-};
-
-// ✅ Update user
-export const updateUser = async (userId, userData) => {
-  try {
-    await updateUserData(userId, userData);
-    return true;
-  } catch (error) {
-    console.error('❌ Error updating user:', error);
-    throw error;
-  }
-};
-
-// ✅ Get teacher wallets
-export const getTeacherWallets = async () => {
-  try {
-    const teachers = await getAllTeachers();
-    const wallets = {};
-    for (const teacher of teachers) {
-      if (teacher.isApproved) {
-        const wallet = await getTeacherWallet(teacher.uid);
-        wallets[teacher.uid] = {
-          ...wallet,
-          teacherId: teacher.uid,
-          teacherName: teacher.name || teacher.displayName || 'Unknown'
-        };
-      }
-    }
-    return wallets;
-  } catch (error) {
-    console.error('❌ Error getting teacher wallets:', error);
-    return {};
-  }
-};
-
-// ✅ Save teacher wallets
-export const saveTeacherWallets = async (wallets) => {
-  try {
-    for (const [teacherId, walletData] of Object.entries(wallets)) {
-      await updateTeacherWallet(teacherId, walletData);
-    }
-    return true;
-  } catch (error) {
-    console.error('❌ Error saving teacher wallets:', error);
-    throw error;
-  }
-};
-
-// ✅ Get payment transactions
-export const getPaymentTransactions = async () => {
-  try {
-    const transactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
-    return transactions;
-  } catch (error) {
-    console.error('❌ Error getting payment transactions:', error);
-    return [];
-  }
-};
-
-// ✅ Save payment transactions
-export const savePaymentTransactions = async (transactions) => {
-  try {
-    localStorage.setItem('hausaStem_transactions', JSON.stringify(transactions));
-    return true;
-  } catch (error) {
-    console.error('❌ Error saving payment transactions:', error);
-    throw error;
-  }
-};
-
-// ✅ Get all courses analytics for admin
-export const getAllCoursesAnalyticsForAdmin = async () => {
-  try {
-    const courses = await getAllCourses();
-    const analytics = {};
-    for (const course of courses) {
-      analytics[course.id] = await getCourseAnalyticsForAdmin(course.id);
-    }
-    return analytics;
-  } catch (error) {
-    console.error('❌ Error getting all courses analytics:', error);
-    return {};
-  }
-};
-
-// ============================================
-// COURSE MANAGEMENT FUNCTIONS
-// ============================================
 
 // ✅ Create a new course
 export const createCourse = async (courseData) => {
@@ -1242,6 +945,313 @@ export const getUserPurchasedLessons = async (userId) => {
 };
 
 // ============================================
+// ADMIN FUNCTIONS
+// ============================================
+
+// ✅ Get all courses for admin
+export const getAllCoursesForAdmin = async () => {
+  try {
+    return await getAllCourses();
+  } catch (error) {
+    console.error('❌ Error getting all courses for admin:', error);
+    return [];
+  }
+};
+
+// ✅ Get course details for admin
+export const getCourseDetailsForAdmin = async (courseId) => {
+  try {
+    const course = await getCourseById(courseId);
+    if (!course) return null;
+    
+    const lessons = await getLessonsByCourse(courseId);
+    const teacher = await getUserData(course.teacherId);
+    
+    return {
+      ...course,
+      lessons: lessons,
+      teacherInfo: teacher || { name: 'Unknown', email: 'unknown@email.com' }
+    };
+  } catch (error) {
+    console.error('❌ Error getting course details for admin:', error);
+    return null;
+  }
+};
+
+// ✅ Delete course as admin
+export const deleteCourseAsAdmin = async (courseId) => {
+  try {
+    await deleteCourse(courseId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting course as admin:', error);
+    throw error;
+  }
+};
+
+// ✅ Delete lesson as admin
+export const deleteLessonAsAdmin = async (lessonId) => {
+  try {
+    await deleteLesson(lessonId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting lesson as admin:', error);
+    throw error;
+  }
+};
+
+// ✅ Get course analytics for admin
+export const getCourseAnalyticsForAdmin = async (courseId) => {
+  try {
+    const course = await getCourseById(courseId);
+    const lessons = await getLessonsByCourse(courseId);
+    
+    const enrollmentsRef = collection(db, 'enrollments');
+    const q = query(enrollmentsRef, where('courseId', '==', courseId));
+    const querySnapshot = await getDocs(q);
+    
+    let totalEnrolled = 0;
+    let totalProgress = 0;
+    
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      totalEnrolled++;
+      totalProgress += data.progress || 0;
+    });
+    
+    const avgProgress = totalEnrolled > 0 ? Math.round((totalProgress / totalEnrolled) * 100) : 0;
+    
+    return {
+      totalEnrolled: totalEnrolled || course.enrolledStudents || 0,
+      totalLessons: lessons.length,
+      completionRate: avgProgress,
+      averageQuizScore: 0
+    };
+  } catch (error) {
+    console.error('❌ Error getting course analytics:', error);
+    return {
+      totalEnrolled: 0,
+      totalLessons: 0,
+      completionRate: 0,
+      averageQuizScore: 0
+    };
+  }
+};
+
+// ✅ Get all teachers
+export const getAllTeachers = async () => {
+  try {
+    const users = await getUsers();
+    const teachers = [];
+    Object.values(users).forEach(user => {
+      if (user.role === 'teacher') {
+        teachers.push(user);
+      }
+    });
+    return teachers;
+  } catch (error) {
+    console.error('❌ Error getting all teachers:', error);
+    return [];
+  }
+};
+
+// ✅ Get pending teachers
+export const getPendingTeachers = async () => {
+  try {
+    const teachers = await getAllTeachers();
+    return teachers.filter(teacher => !teacher.isApproved);
+  } catch (error) {
+    console.error('❌ Error getting pending teachers:', error);
+    return [];
+  }
+};
+
+// ✅ Approve teacher
+export const approveTeacher = async (teacherId) => {
+  try {
+    await updateUserData(teacherId, {
+      isApproved: true,
+      approvedDate: new Date().toISOString()
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Error approving teacher:', error);
+    throw error;
+  }
+};
+
+// ✅ Reject teacher
+export const rejectTeacher = async (teacherId) => {
+  try {
+    await updateUserData(teacherId, {
+      isApproved: false,
+      rejectedAt: new Date().toISOString(),
+      status: 'rejected'
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Error rejecting teacher:', error);
+    throw error;
+  }
+};
+
+// ✅ Dismiss teacher
+export const dismissTeacher = async (teacherId) => {
+  try {
+    await updateUserData(teacherId, {
+      isApproved: false,
+      dismissedAt: new Date().toISOString(),
+      status: 'dismissed'
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Error dismissing teacher:', error);
+    throw error;
+  }
+};
+
+// ✅ Get teacher courses for admin
+export const getTeacherCoursesForAdmin = async (teacherId) => {
+  try {
+    return await getCoursesByTeacher(teacherId);
+  } catch (error) {
+    console.error('❌ Error getting teacher courses for admin:', error);
+    return [];
+  }
+};
+
+// ✅ Get platform stats
+export const getPlatformStats = async () => {
+  try {
+    const users = await getUsers();
+    const courses = await getAllCourses();
+    const userArray = Object.values(users);
+    
+    const students = userArray.filter(u => u.role === 'student');
+    const teachers = userArray.filter(u => u.role === 'teacher' && u.isApproved);
+    
+    let totalLessons = 0;
+    for (const course of courses) {
+      const lessons = await getLessonsByCourse(course.id);
+      totalLessons += lessons.length;
+    }
+    
+    return {
+      totalStudents: students.length,
+      totalTeachers: teachers.length,
+      totalCourses: courses.length,
+      totalLessons: totalLessons,
+      totalEnrolled: courses.reduce((sum, c) => sum + (c.enrolledStudents || 0), 0),
+      totalCompletedLessons: 0
+    };
+  } catch (error) {
+    console.error('❌ Error getting platform stats:', error);
+    return {
+      totalStudents: 0,
+      totalTeachers: 0,
+      totalCourses: 0,
+      totalLessons: 0,
+      totalEnrolled: 0,
+      totalCompletedLessons: 0
+    };
+  }
+};
+
+// ✅ Delete user
+export const deleteUser = async (userId) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId));
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting user:', error);
+    throw error;
+  }
+};
+
+// ✅ Update user
+export const updateUser = async (userId, userData) => {
+  try {
+    await updateUserData(userId, userData);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating user:', error);
+    throw error;
+  }
+};
+
+// ✅ Get teacher wallets
+export const getTeacherWallets = async () => {
+  try {
+    const teachers = await getAllTeachers();
+    const wallets = {};
+    for (const teacher of teachers) {
+      if (teacher.isApproved) {
+        const wallet = await getTeacherWallet(teacher.uid);
+        wallets[teacher.uid] = {
+          ...wallet,
+          teacherId: teacher.uid,
+          teacherName: teacher.name || teacher.displayName || 'Unknown'
+        };
+      }
+    }
+    return wallets;
+  } catch (error) {
+    console.error('❌ Error getting teacher wallets:', error);
+    return {};
+  }
+};
+
+// ✅ Save teacher wallets
+export const saveTeacherWallets = async (wallets) => {
+  try {
+    for (const [teacherId, walletData] of Object.entries(wallets)) {
+      await updateTeacherWallet(teacherId, walletData);
+    }
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving teacher wallets:', error);
+    throw error;
+  }
+};
+
+// ✅ Get payment transactions
+export const getPaymentTransactions = async () => {
+  try {
+    const transactions = JSON.parse(localStorage.getItem('hausaStem_transactions') || '[]');
+    return transactions;
+  } catch (error) {
+    console.error('❌ Error getting payment transactions:', error);
+    return [];
+  }
+};
+
+// ✅ Save payment transactions
+export const savePaymentTransactions = async (transactions) => {
+  try {
+    localStorage.setItem('hausaStem_transactions', JSON.stringify(transactions));
+    return true;
+  } catch (error) {
+    console.error('❌ Error saving payment transactions:', error);
+    throw error;
+  }
+};
+
+// ✅ Get all courses analytics for admin
+export const getAllCoursesAnalyticsForAdmin = async () => {
+  try {
+    const courses = await getAllCourses();
+    const analytics = {};
+    for (const course of courses) {
+      analytics[course.id] = await getCourseAnalyticsForAdmin(course.id);
+    }
+    return analytics;
+  } catch (error) {
+    console.error('❌ Error getting all courses analytics:', error);
+    return {};
+  }
+};
+
+// ============================================
 // INITIALIZE DEFAULT COURSES
 // ============================================
 
@@ -1255,8 +1265,34 @@ export const initializeDefaultCourses = async () => {
       return true;
     }
     
-    // ... rest of your default courses code ...
-    // (keep your existing default course data here)
+    // Default courses data (keep your existing data here)
+    const defaultCourseData = [
+      // ... your default courses ...
+    ];
+
+    for (const courseData of defaultCourseData) {
+      const lessons = courseData.lessons || [];
+      delete courseData.lessons;
+      
+      const course = await createCourse(courseData);
+      
+      for (const lessonData of lessons) {
+        const multimedia = lessonData.multimedia || [];
+        const quiz = lessonData.quiz || null;
+        delete lessonData.multimedia;
+        delete lessonData.quiz;
+        
+        const lesson = await createLesson(course.id, lessonData);
+        
+        for (const mediaData of multimedia) {
+          await addMultimediaToLesson(lesson.id, mediaData);
+        }
+        
+        if (quiz) {
+          await createQuiz(lesson.id, quiz);
+        }
+      }
+    }
     
     console.log('✅ Default courses initialized successfully');
     return true;
@@ -1298,13 +1334,14 @@ export default {
   confirmUserEmail,
   resendEmailConfirmation,
   updateUserData,
-  getUserData,  // ✅ ADD THIS
+  getUserData,
   
   // Student Management
   getStudents,
   updateStudent,
   
   // Course Management
+  getCourses,  // ✅ ADD THIS
   createCourse,
   getAllCourses,
   getCourseById,
