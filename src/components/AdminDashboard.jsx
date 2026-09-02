@@ -1,27 +1,21 @@
+// components/AdminDashboard.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  getPendingTeachers, 
-  approveTeacher, 
-  rejectTeacher, 
-  getAllTeachers,
-  getPlatformStats,
+  getCurrentUser,
   getUsers,
   getStudents,
-  getCourses,
-  deleteUser,
-  updateUser,
-  getAllCoursesForAdmin,
-  getCourseAnalyticsForAdmin,
-  getTeacherWallets,
-  updateTeacherWallet,
-  getPaymentTransactions,
-  savePaymentTransactions,
-  saveTeacherWallets,
+  getAllCourses,
+  getCoursesByTeacher,
+  getLessonsByCourse,
   getTeacherWallet,
-  dismissTeacher,
-  getTeacherCoursesForAdmin,
-  getAllCoursesAnalyticsForAdmin
+  updateTeacherWallet,
+  getTeacherWhatsAppNumber,
+  getTeacherWhatsAppUrlAsync,
+  initializeStorage,
+  initializeDefaultCourses
 } from '../utils/storage';
+import paymentService from '../utils/paymentService';
 import './AdminDashboard.css';
 
 const AdminDashboard = ({ currentUser, setCurrentView }) => {
@@ -34,41 +28,80 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [teacherWallets, setTeacherWallets] = useState({});
-  const [paymentTransactions, setPaymentTransactions] = useState({});
+  const [paymentTransactions, setPaymentTransactions] = useState([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [transactionHistory, setTransactionHistory] = useState([]);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const pending = getPendingTeachers();
-      const allTeachers = getAllTeachers();
-      const approved = allTeachers.filter(teacher => teacher.isApproved);
-      const platformStats = getPlatformStats();
-      const users = Object.values(getUsers());
-      const courses = Object.values(getAllCoursesForAdmin());
-      const wallets = getTeacherWallets();
-      const transactions = getPaymentTransactions();
+      // Get all users
+      const users = await getUsers();
+      const userArray = Object.values(users);
+      setAllUsers(userArray);
 
+      // Filter teachers
+      const teachers = userArray.filter(user => user.role === 'teacher');
+      const pending = teachers.filter(teacher => !teacher.isApproved);
+      const approved = teachers.filter(teacher => teacher.isApproved);
+      
       setPendingTeachers(pending);
       setApprovedTeachers(approved);
-      setAllUsers(users);
+
+      // Get all courses
+      const courses = await getAllCourses();
       setAllCourses(courses);
-      setStats(platformStats);
+
+      // Get platform stats
+      const students = userArray.filter(user => user.role === 'student');
+      let totalLessons = 0;
+      let totalEnrolled = 0;
+
+      for (const course of courses) {
+        const lessons = await getLessonsByCourse(course.id);
+        totalLessons += lessons.length;
+        totalEnrolled += course.enrolledStudents || 0;
+      }
+
+      setStats({
+        totalStudents: students.length,
+        totalTeachers: approved.length,
+        totalCourses: courses.length,
+        totalLessons: totalLessons,
+        totalEnrolled: totalEnrolled,
+        totalCompletedLessons: 0 // Calculate from progress if available
+      });
+
+      // Get teacher wallets
+      const wallets = {};
+      for (const teacher of approved) {
+        const wallet = await getTeacherWallet(teacher.uid);
+        wallets[teacher.uid] = {
+          ...wallet,
+          teacherId: teacher.uid,
+          teacherName: teacher.name || teacher.displayName || 'Unknown'
+        };
+      }
       setTeacherWallets(wallets);
+
+      // Get payment transactions
+      const transactions = paymentService.getAllTransactions ? 
+        paymentService.getAllTransactions() : [];
       setPaymentTransactions(transactions);
+      setTransactionHistory(transactions);
 
       // Extract pending withdrawals
       const withdrawals = [];
       Object.values(wallets).forEach(wallet => {
         if (wallet.transactions) {
           wallet.transactions.forEach(transaction => {
-            if (transaction.type === 'debit' && transaction.status === 'pending') {
+            if (transaction.type === 'withdrawal' && transaction.status === 'pending') {
               withdrawals.push({
                 ...transaction,
                 teacherId: wallet.teacherId,
@@ -79,6 +112,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
         }
       });
       setPendingWithdrawals(withdrawals);
+
     } catch (error) {
       console.error('Error loading data:', error);
       alert('Error loading dashboard data: ' + error.message);
@@ -87,13 +121,22 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, []);
 
-  const handleApproveTeacher = useCallback((teacherId) => {
+  const handleApproveTeacher = useCallback(async (teacherId) => {
     if (window.confirm('Are you sure you want to approve this teacher?')) {
       setLoading(true);
       try {
-        approveTeacher(teacherId);
-        loadData();
-        alert('✅ Teacher approved successfully! They can now access the teacher dashboard.');
+        const users = await getUsers();
+        if (users[teacherId]) {
+          users[teacherId] = {
+            ...users[teacherId],
+            isApproved: true,
+            approvedDate: new Date().toISOString()
+          };
+          // Save updated users back to Firebase
+          await updateUserData(teacherId, users[teacherId]);
+          await loadData();
+          alert('✅ Teacher approved successfully! They can now access the teacher dashboard.');
+        }
       } catch (error) {
         alert('❌ Error approving teacher: ' + error.message);
       }
@@ -101,13 +144,23 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, [loadData]);
 
-  const handleRejectTeacher = useCallback((teacherId) => {
+  const handleRejectTeacher = useCallback(async (teacherId) => {
     if (window.confirm('Are you sure you want to reject this teacher application? This action cannot be undone.')) {
       setLoading(true);
       try {
-        rejectTeacher(teacherId);
-        loadData();
-        alert('✅ Teacher application rejected.');
+        // Remove the teacher from users or mark as rejected
+        const users = await getUsers();
+        if (users[teacherId]) {
+          users[teacherId] = {
+            ...users[teacherId],
+            isApproved: false,
+            rejectedAt: new Date().toISOString(),
+            status: 'rejected'
+          };
+          await updateUserData(teacherId, users[teacherId]);
+          await loadData();
+          alert('✅ Teacher application rejected.');
+        }
       } catch (error) {
         alert('❌ Error rejecting teacher: ' + error.message);
       }
@@ -115,13 +168,22 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, [loadData]);
 
-  const handleDismissTeacher = useCallback((teacherId) => {
+  const handleDismissTeacher = useCallback(async (teacherId) => {
     if (window.confirm('Are you sure you want to dismiss this teacher? They will lose all access to the teacher dashboard.')) {
       setLoading(true);
       try {
-        dismissTeacher(teacherId);
-        loadData();
-        alert('✅ Teacher dismissed successfully.');
+        const users = await getUsers();
+        if (users[teacherId]) {
+          users[teacherId] = {
+            ...users[teacherId],
+            isApproved: false,
+            dismissedAt: new Date().toISOString(),
+            status: 'dismissed'
+          };
+          await updateUserData(teacherId, users[teacherId]);
+          await loadData();
+          alert('✅ Teacher dismissed successfully.');
+        }
       } catch (error) {
         alert('❌ Error dismissing teacher: ' + error.message);
       }
@@ -129,12 +191,13 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, [loadData]);
 
-  const handleDeleteUser = useCallback((userId) => {
+  const handleDeleteUser = useCallback(async (userId) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone and all their data will be lost.')) {
       setLoading(true);
       try {
-        deleteUser(userId);
-        loadData();
+        // Delete user from Firebase
+        await deleteDoc(doc(db, 'users', userId));
+        await loadData();
         alert('✅ User deleted successfully.');
       } catch (error) {
         alert('❌ Error deleting user: ' + error.message);
@@ -143,31 +206,27 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, [loadData]);
 
-  const handleApproveWithdrawal = useCallback((teacherId, transactionId) => {
+  const handleApproveWithdrawal = useCallback(async (teacherId, transactionId) => {
     if (window.confirm('Are you sure you want to approve this withdrawal? The funds will be transferred to the teacher.')) {
       setLoading(true);
       try {
-        const wallets = getTeacherWallets();
-        const wallet = wallets[teacherId];
-
+        const wallet = await getTeacherWallet(teacherId);
         if (wallet) {
-          const transaction = wallet.transactions.find(t => t.id === transactionId);
-          const updatedTransactions = wallet.transactions.map(t => 
-            t.id === transactionId 
-              ? { ...t, status: 'completed', completedAt: new Date().toISOString() }
-              : t
-          );
-
-          wallets[teacherId] = {
-            ...wallet,
-            transactions: updatedTransactions,
-            pendingWithdrawals: Math.max(0, (wallet.pendingWithdrawals || 0) - (transaction?.amount || 0)),
-            updatedAt: new Date().toISOString()
-          };
-
-          saveTeacherWallets(wallets);
-          loadData();
-          alert('✅ Withdrawal approved successfully!');
+          const transactionIndex = wallet.transactions?.findIndex(t => t.id === transactionId);
+          if (transactionIndex !== -1 && transactionIndex !== undefined) {
+            wallet.transactions[transactionIndex] = {
+              ...wallet.transactions[transactionIndex],
+              status: 'completed',
+              completedAt: new Date().toISOString()
+            };
+            
+            wallet.pendingWithdrawals = Math.max(0, (wallet.pendingWithdrawals || 0) - 
+              Math.abs(wallet.transactions[transactionIndex].amount || 0));
+            
+            await updateTeacherWallet(teacherId, wallet);
+            await loadData();
+            alert('✅ Withdrawal approved successfully!');
+          }
         }
       } catch (error) {
         alert('❌ Error approving withdrawal: ' + error.message);
@@ -176,32 +235,29 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     }
   }, [loadData]);
 
-  const handleRejectWithdrawal = useCallback((teacherId, transactionId) => {
+  const handleRejectWithdrawal = useCallback(async (teacherId, transactionId) => {
     if (window.confirm('Are you sure you want to reject this withdrawal? The funds will be returned to the teacher\'s wallet.')) {
       setLoading(true);
       try {
-        const wallets = getTeacherWallets();
-        const wallet = wallets[teacherId];
-
+        const wallet = await getTeacherWallet(teacherId);
         if (wallet) {
-          const transaction = wallet.transactions.find(t => t.id === transactionId);
-          const updatedTransactions = wallet.transactions.map(t => 
-            t.id === transactionId 
-              ? { ...t, status: 'rejected', rejectedAt: new Date().toISOString() }
-              : t
-          );
-
-          wallets[teacherId] = {
-            ...wallet,
-            balance: (wallet.balance || 0) + (transaction?.amount || 0),
-            pendingWithdrawals: Math.max(0, (wallet.pendingWithdrawals || 0) - (transaction?.amount || 0)),
-            transactions: updatedTransactions,
-            updatedAt: new Date().toISOString()
-          };
-
-          saveTeacherWallets(wallets);
-          loadData();
-          alert('✅ Withdrawal rejected. Funds returned to teacher wallet.');
+          const transactionIndex = wallet.transactions?.findIndex(t => t.id === transactionId);
+          if (transactionIndex !== -1 && transactionIndex !== undefined) {
+            const amount = Math.abs(wallet.transactions[transactionIndex].amount || 0);
+            
+            wallet.transactions[transactionIndex] = {
+              ...wallet.transactions[transactionIndex],
+              status: 'rejected',
+              rejectedAt: new Date().toISOString()
+            };
+            
+            wallet.balance = (wallet.balance || 0) + amount;
+            wallet.pendingWithdrawals = Math.max(0, (wallet.pendingWithdrawals || 0) - amount);
+            
+            await updateTeacherWallet(teacherId, wallet);
+            await loadData();
+            alert('✅ Withdrawal rejected. Funds returned to teacher wallet.');
+          }
         }
       } catch (error) {
         alert('❌ Error rejecting withdrawal: ' + error.message);
@@ -254,17 +310,8 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
   }, []);
 
   const getTopCourses = useCallback(() => {
-    const coursesWithAnalytics = allCourses.map(course => {
-      try {
-        const analytics = getCourseAnalyticsForAdmin(course.key);
-        return { ...course, analytics };
-      } catch (error) {
-        return { ...course, analytics: { totalEnrolled: 0 } };
-      }
-    });
-
-    return coursesWithAnalytics
-      .sort((a, b) => (b.analytics?.totalEnrolled || 0) - (a.analytics?.totalEnrolled || 0))
+    return allCourses
+      .sort((a, b) => (b.enrolledStudents || 0) - (a.enrolledStudents || 0))
       .slice(0, 5);
   }, [allCourses]);
 
@@ -274,7 +321,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
       if (wallet.transactions) {
         wallet.transactions.forEach(transaction => {
           if (transaction.type === 'credit') {
-            total += transaction.amount * 0.1;
+            total += transaction.amount * 0.1; // 10% platform fee
           }
         });
       }
@@ -282,7 +329,6 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     return total;
   }, [teacherWallets]);
 
-  // Filter users based on search and role
   const getFilteredUsers = useCallback(() => {
     let filtered = allUsers;
     
@@ -401,14 +447,14 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
               <div className="courses-list">
                 {getTopCourses().length > 0 ? (
                   getTopCourses().map((course, index) => (
-                    <div key={course.key} className="course-item">
+                    <div key={course.id} className="course-item">
                       <div className="course-rank">#{index + 1}</div>
                       <div className="course-info">
                         <div className="course-title">{course.title}</div>
                         <div className="course-meta">
                           <span>By: {course.teacherName}</span>
                           <span>•</span>
-                          <span>{course.analytics?.totalEnrolled || 0} students</span>
+                          <span>{course.enrolledStudents || 0} students</span>
                         </div>
                       </div>
                       <button 
@@ -475,8 +521,8 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
                   <span className="stat-value">{stats.totalLessons || 0}</span>
                 </div>
                 <div className="stat-item">
-                  <span className="stat-label">Completed Lessons:</span>
-                  <span className="stat-value">{stats.totalCompletedLessons || 0}</span>
+                  <span className="stat-label">Total Enrollments:</span>
+                  <span className="stat-value">{stats.totalEnrolled || 0}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Platform Revenue:</span>
@@ -517,8 +563,8 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
             </div>
           ) : (
             <div className="payments-grid">
-              {pendingWithdrawals.map((withdrawal) => (
-                <div key={withdrawal.id} className="payment-card">
+              {pendingWithdrawals.map((withdrawal, index) => (
+                <div key={withdrawal.id || index} className="payment-card">
                   <div className="payment-header">
                     <div className="payment-teacher">
                       <div className="teacher-avatar">
@@ -530,7 +576,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
                       </div>
                     </div>
                     <div className="payment-amount">
-                      <span className="amount">{formatCurrency(withdrawal.amount)}</span>
+                      <span className="amount">{formatCurrency(Math.abs(withdrawal.amount))}</span>
                       <span className="status pending">⏳ Pending</span>
                     </div>
                   </div>
@@ -615,275 +661,263 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
         </div>
       )}
 
-      {/* User Management Section */}
-      <div className="management-section">
-        <div className="section-header">
-          <h2>👥 User Management</h2>
-          <div className="tab-buttons">
-            <button 
-              className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
-            >
-              📊 Overview
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'payments' ? 'active' : ''}`}
-              onClick={() => setActiveTab('payments')}
-            >
-              💰 Payments ({pendingWithdrawals.length})
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
-              onClick={() => setActiveTab('pending')}
-            >
-              ⏳ Pending Teachers ({pendingTeachers.length})
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'teachers' ? 'active' : ''}`}
-              onClick={() => setActiveTab('teachers')}
-            >
-              ✅ Approved Teachers ({approvedTeachers.length})
-            </button>
-            <button 
-              className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
-            >
-              👥 All Users ({allUsers.length})
-            </button>
+      {/* Pending Teachers Tab */}
+      {activeTab === 'pending' && (
+        <div className="tab-content">
+          <div className="section-header">
+            <h2>⏳ Pending Teacher Applications</h2>
+            <p>Review and approve teacher registration requests</p>
           </div>
-        </div>
 
-        {/* Pending Teachers Tab */}
-        {activeTab === 'pending' && (
-          <div className="tab-content">
-            {pendingTeachers.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">✅</div>
-                <h3>No Pending Requests</h3>
-                <p>All teacher applications have been reviewed.</p>
-              </div>
-            ) : (
-              <div className="users-grid">
-                {pendingTeachers.map(teacher => (
-                  <div key={teacher.id} className="user-card pending">
-                    <div className="user-header">
-                      <div className="user-avatar">
-                        {teacher.name?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="user-info">
-                        <h4>{teacher.name}</h4>
-                        <p className="user-email">{teacher.email}</p>
-                        <p className="user-specialization">{teacher.specialization}</p>
-                      </div>
-                      {getUserRoleBadge(teacher)}
-                    </div>
-
-                    <div className="user-bio">
-                      <p>{teacher.bio || 'No bio provided.'}</p>
-                    </div>
-
-                    <div className="user-meta">
-                      <div className="meta-item">
-                        <span className="meta-label">Applied:</span>
-                        <span className="meta-value">{formatDate(teacher.joinedDate)}</span>
-                      </div>
-                    </div>
-
-                    <div className="action-buttons">
-                      <button 
-                        className="btn-approve"
-                        onClick={() => handleApproveTeacher(teacher.id)}
-                        disabled={loading}
-                      >
-                        ✅ Approve
-                      </button>
-                      <button 
-                        className="btn-reject"
-                        onClick={() => handleRejectTeacher(teacher.id)}
-                        disabled={loading}
-                      >
-                        ❌ Reject
-                      </button>
-                      <button 
-                        className="btn-view"
-                        onClick={() => handleViewUser(teacher)}
-                      >
-                        👁 View
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Approved Teachers Tab */}
-        {activeTab === 'teachers' && (
-          <div className="tab-content">
-            {approvedTeachers.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">👨‍🏫</div>
-                <h3>No Approved Teachers</h3>
-                <p>Approved teachers will appear here.</p>
-              </div>
-            ) : (
-              <div className="users-grid">
-                {approvedTeachers.map(teacher => (
-                  <div key={teacher.id} className="user-card approved">
-                    <div className="user-header">
-                      <div className="user-avatar approved">
-                        {teacher.name?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="user-info">
-                        <h4>{teacher.name}</h4>
-                        <p className="user-email">{teacher.email}</p>
-                        <p className="user-specialization">{teacher.specialization}</p>
-                      </div>
-                      {getUserRoleBadge(teacher)}
-                    </div>
-
-                    <div className="user-bio">
-                      <p>{teacher.bio || 'No bio provided.'}</p>
-                    </div>
-
-                    <div className="user-meta">
-                      <div className="meta-item">
-                        <span className="meta-label">Approved:</span>
-                        <span className="meta-value">
-                          {teacher.approvedDate ? formatDate(teacher.approvedDate) : 'N/A'}
-                        </span>
-                      </div>
-                      <div className="meta-item">
-                        <span className="meta-label">Courses:</span>
-                        <span className="meta-value">{teacher.courses?.length || 0}</span>
-                      </div>
-                    </div>
-
-                    <div className="action-buttons">
-                      <button 
-                        className="btn-dismiss"
-                        onClick={() => handleDismissTeacher(teacher.id)}
-                        disabled={loading}
-                      >
-                        🚫 Dismiss
-                      </button>
-                      <button 
-                        className="btn-view"
-                        onClick={() => handleViewUser(teacher)}
-                      >
-                        👁 View
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* All Users Tab */}
-        {activeTab === 'users' && (
-          <div className="tab-content">
-            <div className="table-controls">
-              <div className="search-box">
-                <input
-                  type="text"
-                  placeholder="🔍 Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
-              </div>
-              <div className="filter-box">
-                <select 
-                  value={filterRole} 
-                  onChange={(e) => setFilterRole(e.target.value)}
-                  className="filter-select"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="admin">Admin</option>
-                  <option value="teacher">Teacher</option>
-                  <option value="student">Student</option>
-                </select>
-              </div>
+          {pendingTeachers.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">✅</div>
+              <h3>No Pending Requests</h3>
+              <p>All teacher applications have been reviewed.</p>
             </div>
+          ) : (
+            <div className="users-grid">
+              {pendingTeachers.map(teacher => (
+                <div key={teacher.uid || teacher.id} className="user-card pending">
+                  <div className="user-header">
+                    <div className="user-avatar">
+                      {teacher.name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="user-info">
+                      <h4>{teacher.name || teacher.displayName}</h4>
+                      <p className="user-email">{teacher.email}</p>
+                      <p className="user-specialization">{teacher.specialization || 'N/A'}</p>
+                    </div>
+                    {getUserRoleBadge(teacher)}
+                  </div>
 
-            {getFilteredUsers().length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">👥</div>
-                <h3>No Users Found</h3>
-                <p>Try adjusting your search or filter criteria.</p>
-              </div>
-            ) : (
-              <div className="users-table-container">
-                <table className="users-table">
-                  <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Role</th>
-                      <th>Status</th>
-                      <th>Joined Date</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredUsers().map(user => (
-                      <tr key={user.id} className="user-row">
-                        <td>
-                          <div className="user-cell">
-                            <div className="user-avatar small">
-                              {user.name?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                            <div className="user-details">
-                              <div className="user-name">{user.name}</div>
-                              <div className="user-email">{user.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          {getUserRoleBadge(user)}
-                        </td>
-                        <td>
-                          <span className={`status-badge ${user.role === 'teacher' ? (user.isApproved ? 'approved' : 'pending') : 'active'}`}>
-                            {user.role === 'teacher' ? (
-                              user.isApproved ? '✅ Approved' : '⏳ Pending'
-                            ) : (
-                              '✅ Active'
-                            )}
-                          </span>
-                        </td>
-                        <td>
-                          {formatDate(user.joinedDate)}
-                        </td>
-                        <td>
-                          <div className="table-actions">
-                            <button 
-                              className="btn-view"
-                              onClick={() => handleViewUser(user)}
-                            >
-                              👁 View
-                            </button>
-                            {user.id !== currentUser?.id && user.role !== 'admin' && (
-                              <button 
-                                className="btn-delete"
-                                onClick={() => handleDeleteUser(user.id)}
-                                disabled={loading}
-                              >
-                                🗑 Delete
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  <div className="user-bio">
+                    <p>{teacher.bio || 'No bio provided.'}</p>
+                  </div>
+
+                  <div className="user-meta">
+                    <div className="meta-item">
+                      <span className="meta-label">Applied:</span>
+                      <span className="meta-value">{formatDate(teacher.createdAt || teacher.joinedDate)}</span>
+                    </div>
+                    {teacher.whatsappNumber && (
+                      <div className="meta-item">
+                        <span className="meta-label">WhatsApp:</span>
+                        <span className="meta-value">{teacher.whatsappNumber}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="action-buttons">
+                    <button 
+                      className="btn-approve"
+                      onClick={() => handleApproveTeacher(teacher.uid || teacher.id)}
+                      disabled={loading}
+                    >
+                      ✅ Approve
+                    </button>
+                    <button 
+                      className="btn-reject"
+                      onClick={() => handleRejectTeacher(teacher.uid || teacher.id)}
+                      disabled={loading}
+                    >
+                      ❌ Reject
+                    </button>
+                    <button 
+                      className="btn-view"
+                      onClick={() => handleViewUser(teacher)}
+                    >
+                      👁 View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Approved Teachers Tab */}
+      {activeTab === 'teachers' && (
+        <div className="tab-content">
+          <div className="section-header">
+            <h2>✅ Approved Teachers</h2>
+            <p>Currently approved teachers on the platform</p>
           </div>
-        )}
-      </div>
+
+          {approvedTeachers.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">👨‍🏫</div>
+              <h3>No Approved Teachers</h3>
+              <p>Approved teachers will appear here.</p>
+            </div>
+          ) : (
+            <div className="users-grid">
+              {approvedTeachers.map(teacher => (
+                <div key={teacher.uid || teacher.id} className="user-card approved">
+                  <div className="user-header">
+                    <div className="user-avatar approved">
+                      {teacher.name?.charAt(0).toUpperCase() || '?'}
+                    </div>
+                    <div className="user-info">
+                      <h4>{teacher.name || teacher.displayName}</h4>
+                      <p className="user-email">{teacher.email}</p>
+                      <p className="user-specialization">{teacher.specialization || 'N/A'}</p>
+                    </div>
+                    {getUserRoleBadge(teacher)}
+                  </div>
+
+                  <div className="user-bio">
+                    <p>{teacher.bio || 'No bio provided.'}</p>
+                  </div>
+
+                  <div className="user-meta">
+                    <div className="meta-item">
+                      <span className="meta-label">Approved:</span>
+                      <span className="meta-value">
+                        {teacher.approvedDate ? formatDate(teacher.approvedDate) : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">Courses:</span>
+                      <span className="meta-value">{teacher.courses?.length || 0}</span>
+                    </div>
+                    {teacher.whatsappNumber && (
+                      <div className="meta-item">
+                        <span className="meta-label">WhatsApp:</span>
+                        <span className="meta-value">{teacher.whatsappNumber}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="action-buttons">
+                    <button 
+                      className="btn-dismiss"
+                      onClick={() => handleDismissTeacher(teacher.uid || teacher.id)}
+                      disabled={loading}
+                    >
+                      🚫 Dismiss
+                    </button>
+                    <button 
+                      className="btn-view"
+                      onClick={() => handleViewUser(teacher)}
+                    >
+                      👁 View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* All Users Tab */}
+      {activeTab === 'users' && (
+        <div className="tab-content">
+          <div className="section-header">
+            <h2>👥 All Users</h2>
+            <p>Manage all users on the platform</p>
+          </div>
+
+          <div className="table-controls">
+            <div className="search-box">
+              <input
+                type="text"
+                placeholder="🔍 Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+            </div>
+            <div className="filter-box">
+              <select 
+                value={filterRole} 
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="teacher">Teacher</option>
+                <option value="student">Student</option>
+              </select>
+            </div>
+          </div>
+
+          {getFilteredUsers().length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">👥</div>
+              <h3>No Users Found</h3>
+              <p>Try adjusting your search or filter criteria.</p>
+            </div>
+          ) : (
+            <div className="users-table-container">
+              <table className="users-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Joined Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {getFilteredUsers().map(user => (
+                    <tr key={user.uid || user.id} className="user-row">
+                      <td>
+                        <div className="user-cell">
+                          <div className="user-avatar small">
+                            {user.name?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div className="user-details">
+                            <div className="user-name">{user.name || user.displayName}</div>
+                            <div className="user-email">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        {getUserRoleBadge(user)}
+                      </td>
+                      <td>
+                        <span className={`status-badge ${user.role === 'teacher' ? (user.isApproved ? 'approved' : 'pending') : 'active'}`}>
+                          {user.role === 'teacher' ? (
+                            user.isApproved ? '✅ Approved' : '⏳ Pending'
+                          ) : (
+                            '✅ Active'
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        {formatDate(user.createdAt || user.joinedDate)}
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <button 
+                            className="btn-view"
+                            onClick={() => handleViewUser(user)}
+                          >
+                            👁 View
+                          </button>
+                          {user.uid !== currentUser?.uid && user.role !== 'admin' && (
+                            <button 
+                              className="btn-delete"
+                              onClick={() => handleDeleteUser(user.uid || user.id)}
+                              disabled={loading}
+                            >
+                              🗑 Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* User Details Modal */}
       {selectedUser && (
@@ -902,7 +936,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
                     {selectedUser.name?.charAt(0).toUpperCase() || '?'}
                   </div>
                   <div className="user-detail-name">
-                    <h4>{selectedUser.name}</h4>
+                    <h4>{selectedUser.name || selectedUser.displayName}</h4>
                     <span className="user-detail-email">{selectedUser.email}</span>
                   </div>
                 </div>
@@ -914,7 +948,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
                   </div>
                   <div className="detail-row">
                     <label>Joined Date:</label>
-                    <span>{formatDate(selectedUser.joinedDate)}</span>
+                    <span>{formatDate(selectedUser.createdAt || selectedUser.joinedDate)}</span>
                   </div>
                   {selectedUser.role === 'teacher' && (
                     <>
