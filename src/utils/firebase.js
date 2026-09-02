@@ -278,16 +278,16 @@ export const createDefaultUsers = async () => {
     // Default accounts
     const defaultUsers = [
       {
-        email: 'admin@stem.com',
-        password: 'Admin123!',
+        email: 'codesmartng1@gmail.com',
+        password: 'Kb1217@#$%&',
         name: 'Admin User',
         role: 'admin',
         isDemoAccount: true,
         isEmailVerified: true
       },
       {
-        email: 'teacher@stem.com',
-        password: 'Teacher123!',
+        email: 'kabiralkasim6@gmail.com',
+        password: 'Kb1217@#$%&',
         name: 'Teacher User',
         role: 'teacher',
         isDemoAccount: true,
@@ -298,8 +298,8 @@ export const createDefaultUsers = async () => {
         whatsappNumber: '2348012345678'
       },
       {
-        email: 'student@stem.com',
-        password: 'Student123!',
+        email: 'kabiralkasim9@gmail.com',
+        password: 'Kb1217@#$%&',
         name: 'Student User',
         role: 'student',
         isDemoAccount: true,
