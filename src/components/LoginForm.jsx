@@ -20,6 +20,7 @@ const LoginForm = ({
   const [isLocked, setIsLocked] = useState(false);
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [showDemoCredentials, setShowDemoCredentials] = useState(false);
 
   // Check for saved credentials on mount
   useEffect(() => {
@@ -101,6 +102,10 @@ const LoginForm = ({
       if (err.message && err.message.toLowerCase().includes('verify your email')) {
         setError('Please verify your email before logging in. Check your inbox for the confirmation link.');
         setShowResendVerification(true);
+      } else if (err.message && err.message.toLowerCase().includes('user not found')) {
+        setError('No account found with this email. Please register first.');
+      } else if (err.message && err.message.toLowerCase().includes('invalid-credential')) {
+        setError('Invalid email or password. Please check your credentials.');
       } else {
         setError(err.message || 'Login failed. Please try again.');
       }
@@ -163,6 +168,28 @@ const LoginForm = ({
   };
 
   const clearError = () => {
+    setError('');
+    setShowResendVerification(false);
+    setResendMessage('');
+  };
+
+  const fillDemoCredentials = (type) => {
+    if (type === 'admin') {
+      setFormData({
+        email: 'admin@stem.com',
+        password: 'Admin123!'
+      });
+    } else if (type === 'teacher') {
+      setFormData({
+        email: 'teacher@stem.com',
+        password: 'Teacher123!'
+      });
+    } else if (type === 'student') {
+      setFormData({
+        email: 'student@stem.com',
+        password: 'Student123!'
+      });
+    }
     setError('');
     setShowResendVerification(false);
     setResendMessage('');
@@ -308,12 +335,44 @@ const LoginForm = ({
                 {isLocked ? 'Account Locked...' : 'Signing In...'}
               </>
             ) : (
-              'Sign In'
+              '🔑 Sign In'
             )}
           </button>
         </form>
 
-        {/* ✅ DEMO SECTION REMOVED */}
+        {/* Demo Credentials Section */}
+        <div className="demo-credentials">
+          <button 
+            className="demo-toggle"
+            onClick={() => setShowDemoCredentials(!showDemoCredentials)}
+            type="button"
+          >
+            {showDemoCredentials ? '🔽 Hide Demo Accounts' : '▶️ Quick Login with Demo Accounts'}
+          </button>
+          
+          {showDemoCredentials && (
+            <div className="demo-grid">
+              <div className="demo-card" onClick={() => fillDemoCredentials('admin')}>
+                <div className="demo-role">👑 Admin</div>
+                <div className="demo-email">admin@stem.com</div>
+                <div className="demo-password">••••••••</div>
+                <div className="demo-hint">Click to fill</div>
+              </div>
+              <div className="demo-card" onClick={() => fillDemoCredentials('teacher')}>
+                <div className="demo-role">👨‍🏫 Teacher</div>
+                <div className="demo-email">teacher@stem.com</div>
+                <div className="demo-password">••••••••</div>
+                <div className="demo-hint">Click to fill</div>
+              </div>
+              <div className="demo-card" onClick={() => fillDemoCredentials('student')}>
+                <div className="demo-role">👨‍🎓 Student</div>
+                <div className="demo-email">student@stem.com</div>
+                <div className="demo-password">••••••••</div>
+                <div className="demo-hint">Click to fill</div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="auth-footer">
@@ -362,6 +421,7 @@ const LoginForm = ({
         <div className="security-notice">
           <span className="security-icon">🔒</span>
           <p>Your login is secure and encrypted</p>
+          <span className="powered-by">🔹 Powered by Firebase & Netlify</span>
         </div>
       </div>
     </div>
