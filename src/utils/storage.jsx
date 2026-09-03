@@ -32,29 +32,50 @@ import {
 // USER MANAGEMENT FUNCTIONS (Firebase)
 // ============================================
 
-// ✅ Get current user - FIXED
+// src/utils/storage.jsx - Replace getCurrentUser with this
+
+// ✅ Get current user - FIXED with email-based role forcing
 export const getCurrentUser = async () => {
   try {
+    console.log('🔍 START getCurrentUser');
+    
     const firebaseUser = await firebaseGetCurrentUser();
+    console.log('🔍 Firebase user:', firebaseUser);
+    
     if (!firebaseUser) {
       console.log('ℹ️ No Firebase user found');
       return null;
     }
 
-    console.log('🔍 Firebase user found:', firebaseUser.uid);
-
+    console.log('🔍 Firebase user UID:', firebaseUser.uid);
+    
     const userData = await firebaseGetUserData(firebaseUser.uid);
     console.log('🔍 User data from Firestore:', userData);
     console.log('🔍 Role from Firestore:', userData?.role);
-
-    return {
+    
+    // ✅ EMAIL-BASED ROLE FORCING (FIXES THE ISSUE)
+    let role = userData?.role || 'student';
+    
+    // Force role based on email
+    if (firebaseUser.email === 'codesmartng1@gmail.com' || 
+        firebaseUser.email === 'admin@stem.com' ||
+        firebaseUser.email === 'kabiralkasim6@gmail.com') {
+      role = 'admin';
+      console.log('🔍 Force set role to ADMIN for:', firebaseUser.email);
+    } else if (firebaseUser.email === 'kabiralkasim6@gmail.com' || 
+               firebaseUser.email === 'teacher@stem.com') {
+      role = 'teacher';
+      console.log('🔍 Force set role to TEACHER for:', firebaseUser.email);
+    }
+    
+    const mergedUser = {
       id: firebaseUser.uid,
       uid: firebaseUser.uid,
       email: firebaseUser.email || userData?.email || '',
       emailVerified: firebaseUser.emailVerified || userData?.isEmailVerified || false,
       displayName: firebaseUser.displayName || userData?.name || '',
       name: userData?.name || '',
-      role: userData?.role || 'student', // ✅ EXPLICITLY SET ROLE
+      role: role, // ✅ Force set role
       isApproved: userData?.isApproved || false,
       isEmailVerified: userData?.isEmailVerified || firebaseUser.emailVerified || false,
       whatsappNumber: userData?.whatsappNumber || '',
@@ -69,13 +90,20 @@ export const getCurrentUser = async () => {
       createdAt: userData?.createdAt || new Date().toISOString(),
       updatedAt: userData?.updatedAt || new Date().toISOString(),
     };
+    
+    console.log('✅ Final merged user:', mergedUser);
+    console.log('✅ Final role:', mergedUser.role);
+    
+    return mergedUser;
   } catch (error) {
     console.error('❌ Error getting current user:', error);
     return null;
   }
 };
 
-// ✅ Authenticate user - FIXED
+// src/utils/storage.jsx - Replace authenticateUser with this
+
+// ✅ Authenticate user - FIXED with email-based role forcing
 export const authenticateUser = async (email, password) => {
   try {
     console.log('🔐 Attempting login with email:', email);
@@ -87,19 +115,33 @@ export const authenticateUser = async (email, password) => {
     console.log('🔐 User data from Firestore:', userData);
     console.log('🔐 Role from Firestore:', userData?.role);
 
+    // ✅ EMAIL-BASED ROLE FORCING
+    let role = userData?.role || 'student';
+    
+    if (email === 'codesmartng1@gmail.com' || 
+        email === 'admin@stem.com' ||
+        email === 'kabiralkasim6@gmail.com') {
+      role = 'admin';
+      console.log('🔐 Force set role to ADMIN for:', email);
+    } else if (email === 'kabiralkasim6@gmail.com' || 
+               email === 'teacher@stem.com') {
+      role = 'teacher';
+      console.log('🔐 Force set role to TEACHER for:', email);
+    }
+
     const mergedUser = {
       id: user.uid,
       uid: user.uid,
       email: user.email || userData?.email || '',
       emailVerified: user.emailVerified || userData?.isEmailVerified || false,
       name: userData?.name || '',
-      role: userData?.role || 'student', // ✅ EXPLICITLY SET ROLE
+      role: role, // ✅ Force set role
       isApproved: userData?.isApproved || false,
       ...userData
     };
 
     console.log('✅ Merged user:', mergedUser);
-    console.log('🔍 User role:', mergedUser.role);
+    console.log('✅ User role:', mergedUser.role);
 
     return mergedUser;
   } catch (error) {
