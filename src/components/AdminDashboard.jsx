@@ -1,4 +1,4 @@
-// components/AdminDashboard.jsx
+// src/components/AdminDashboard.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -13,7 +13,12 @@ import {
   getTeacherWhatsAppNumber,
   getTeacherWhatsAppUrlAsync,
   initializeStorage,
-  initializeDefaultCourses
+  initializeDefaultCourses,
+  updateUserData,
+  deleteUser,
+  approveTeacher,
+  rejectTeacher,
+  dismissTeacher,
 } from '../utils/storage';
 import paymentService from '../utils/paymentService';
 import './AdminDashboard.css';
@@ -50,7 +55,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
       const teachers = userArray.filter(user => user.role === 'teacher');
       const pending = teachers.filter(teacher => !teacher.isApproved);
       const approved = teachers.filter(teacher => teacher.isApproved);
-      
+
       setPendingTeachers(pending);
       setApprovedTeachers(approved);
 
@@ -75,7 +80,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
         totalCourses: courses.length,
         totalLessons: totalLessons,
         totalEnrolled: totalEnrolled,
-        totalCompletedLessons: 0 // Calculate from progress if available
+        totalCompletedLessons: 0
       });
 
       // Get teacher wallets
@@ -125,18 +130,9 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     if (window.confirm('Are you sure you want to approve this teacher?')) {
       setLoading(true);
       try {
-        const users = await getUsers();
-        if (users[teacherId]) {
-          users[teacherId] = {
-            ...users[teacherId],
-            isApproved: true,
-            approvedDate: new Date().toISOString()
-          };
-          // Save updated users back to Firebase
-          await updateUserData(teacherId, users[teacherId]);
-          await loadData();
-          alert('✅ Teacher approved successfully! They can now access the teacher dashboard.');
-        }
+        await approveTeacher(teacherId);
+        await loadData();
+        alert('✅ Teacher approved successfully! They can now access the teacher dashboard.');
       } catch (error) {
         alert('❌ Error approving teacher: ' + error.message);
       }
@@ -148,19 +144,9 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     if (window.confirm('Are you sure you want to reject this teacher application? This action cannot be undone.')) {
       setLoading(true);
       try {
-        // Remove the teacher from users or mark as rejected
-        const users = await getUsers();
-        if (users[teacherId]) {
-          users[teacherId] = {
-            ...users[teacherId],
-            isApproved: false,
-            rejectedAt: new Date().toISOString(),
-            status: 'rejected'
-          };
-          await updateUserData(teacherId, users[teacherId]);
-          await loadData();
-          alert('✅ Teacher application rejected.');
-        }
+        await rejectTeacher(teacherId);
+        await loadData();
+        alert('✅ Teacher application rejected.');
       } catch (error) {
         alert('❌ Error rejecting teacher: ' + error.message);
       }
@@ -172,18 +158,9 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     if (window.confirm('Are you sure you want to dismiss this teacher? They will lose all access to the teacher dashboard.')) {
       setLoading(true);
       try {
-        const users = await getUsers();
-        if (users[teacherId]) {
-          users[teacherId] = {
-            ...users[teacherId],
-            isApproved: false,
-            dismissedAt: new Date().toISOString(),
-            status: 'dismissed'
-          };
-          await updateUserData(teacherId, users[teacherId]);
-          await loadData();
-          alert('✅ Teacher dismissed successfully.');
-        }
+        await dismissTeacher(teacherId);
+        await loadData();
+        alert('✅ Teacher dismissed successfully.');
       } catch (error) {
         alert('❌ Error dismissing teacher: ' + error.message);
       }
@@ -195,8 +172,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
     if (window.confirm('Are you sure you want to delete this user? This action cannot be undone and all their data will be lost.')) {
       setLoading(true);
       try {
-        // Delete user from Firebase
-        await deleteDoc(doc(db, 'users', userId));
+        await deleteUser(userId);
         await loadData();
         alert('✅ User deleted successfully.');
       } catch (error) {
@@ -219,10 +195,10 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
               status: 'completed',
               completedAt: new Date().toISOString()
             };
-            
+
             wallet.pendingWithdrawals = Math.max(0, (wallet.pendingWithdrawals || 0) - 
               Math.abs(wallet.transactions[transactionIndex].amount || 0));
-            
+
             await updateTeacherWallet(teacherId, wallet);
             await loadData();
             alert('✅ Withdrawal approved successfully!');
@@ -244,16 +220,16 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
           const transactionIndex = wallet.transactions?.findIndex(t => t.id === transactionId);
           if (transactionIndex !== -1 && transactionIndex !== undefined) {
             const amount = Math.abs(wallet.transactions[transactionIndex].amount || 0);
-            
+
             wallet.transactions[transactionIndex] = {
               ...wallet.transactions[transactionIndex],
               status: 'rejected',
               rejectedAt: new Date().toISOString()
             };
-            
+
             wallet.balance = (wallet.balance || 0) + amount;
             wallet.pendingWithdrawals = Math.max(0, (wallet.pendingWithdrawals || 0) - amount);
-            
+
             await updateTeacherWallet(teacherId, wallet);
             await loadData();
             alert('✅ Withdrawal rejected. Funds returned to teacher wallet.');
@@ -331,7 +307,7 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
 
   const getFilteredUsers = useCallback(() => {
     let filtered = allUsers;
-    
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(user => 
@@ -339,11 +315,11 @@ const AdminDashboard = ({ currentUser, setCurrentView }) => {
         user.email?.toLowerCase().includes(term)
       );
     }
-    
+
     if (filterRole !== 'all') {
       filtered = filtered.filter(user => user.role === filterRole);
     }
-    
+
     return filtered;
   }, [allUsers, searchTerm, filterRole]);
 
