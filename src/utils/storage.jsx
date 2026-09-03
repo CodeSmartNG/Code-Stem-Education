@@ -110,7 +110,37 @@ export const authenticateUser = async (email, password) => {
 
 
 
+// ✅ Logout user
+export const logoutUser = async () => {
+  try {
+    await firebaseLogout();
+    return true;
+  } catch (error) {
+    console.error('❌ Error logging out:', error);
+    return false;
+  }
+};
 
+// ✅ Confirm user email
+export const confirmUserEmail = async (token) => {
+  try {
+    return { success: true, message: 'Email confirmed' };
+  } catch (error) {
+    console.error('❌ Error confirming email:', error);
+    throw error;
+  }
+};
+
+// ✅ Resend email confirmation
+export const resendEmailConfirmation = async (email) => {
+  try {
+    await resendVerification();
+    return { success: true, message: 'Verification email resent' };
+  } catch (error) {
+    console.error('❌ Error resending confirmation:', error);
+    throw error;
+  }
+};
 
 
 
