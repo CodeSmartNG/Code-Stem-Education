@@ -1,100 +1,527 @@
-/* Badges Section */
+/* Dashboard.css */
+
+.dashboard {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f4f6;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state h3 {
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.loading-state p {
+  color: #999;
+}
+
+/* ============================================
+   WELCOME SECTION
+   ============================================ */
+
+.welcome-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  color: white;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.welcome-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.welcome-avatar {
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.welcome-text h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.welcome-subtitle {
+  margin: 4px 0 0 0;
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.welcome-stats-mini {
+  display: flex;
+  gap: 24px;
+}
+
+.mini-stat {
+  text-align: center;
+}
+
+.mini-stat-number {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.mini-stat-label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* ============================================
+   STATS GRID
+   ============================================ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.stat-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.stat-info h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #999;
+  font-weight: 500;
+}
+
+.stat-value {
+  margin: 4px 0 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-card-level .stat-value { color: #667eea; }
+.stat-card-progress .stat-value { color: #48bb78; }
+.stat-card-lessons .stat-value { color: #4299e1; }
+.stat-card-points .stat-value { color: #ed8936; }
+
+/* ============================================
+   BADGES SECTION
+   ============================================ */
+
 .badges-section {
   background: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
 }
 
 .badges-section h3 {
-  color: #2c3e50;
-  margin-bottom: 20px;
-  text-align: center;
+  margin: 0 0 16px 0;
+  color: #333;
 }
 
 .badges-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px;
-  justify-content: center;
+  gap: 12px;
 }
 
 .badge-item {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 20px;
-  font-weight: bold;
-  box-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
-}
-
-/* Account Info */
-.account-info {
-  background: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin-top: 30px;
-}
-
-.account-info h3 {
-  color: #2c3e50;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.account-info p {
-  margin: 10px 0;
-  color: #555;
-}
-
-
-
-.dashboard {
-  padding: 20px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f7fafc;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #4a5568;
 }
 
-.dashboard h1 {
-  text-align: center;
-  color: #2c3e50;
-  margin-bottom: 30px;
-  width: 100%;
+.badge-icon {
+  font-size: 18px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  width: 100%;
-  margin-bottom: 30px;
+.badge-name {
+  font-weight: 500;
 }
 
-.stat-card {
-  background: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  text-align: center;
-}
+/* ============================================
+   PROGRESS OVERVIEW
+   ============================================ */
 
 .progress-overview {
   background: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  margin-bottom: 30px;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
 }
 
 .progress-overview h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.course-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.course-name {
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.progress-percentage {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #edf2f7;
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 5px;
+  transition: width 0.8s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  font-weight: 600;
+  min-width: 30px;
+}
+
+.no-progress {
   text-align: center;
-  margin-bottom: 20px;
-  color: #2c3e50;
+  padding: 20px;
+  color: #999;
+}
+
+.browse-courses-btn {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.browse-courses-btn:hover {
+  background: #5a67d8;
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   DASHBOARD GRID (Two Columns)
+   ============================================ */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Recent Activity */
+.recent-activity {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.recent-activity h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-icon {
+  font-size: 16px;
+}
+
+.activity-text {
+  flex: 1;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.activity-time {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Enrolled Courses */
+.enrolled-courses {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.enrolled-courses h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.enrolled-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.enrolled-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.enrolled-item:last-child {
+  border-bottom: none;
+}
+
+.enrolled-icon {
+  font-size: 18px;
+}
+
+.enrolled-name {
+  flex: 1;
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.enrolled-status {
+  font-size: 12px;
+  padding: 2px 12px;
+  background: #ebf8ff;
+  color: #3182ce;
+  border-radius: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}
+
+.explore-btn {
+  margin-top: 12px;
+  padding: 8px 24px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.explore-btn:hover {
+  background: #38a169;
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   ACCOUNT INFO
+   ============================================ */
+
+.account-info {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.account-info h3 {
+  margin: 0 0 16px 0;
+  color: #333;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 24px;
+}
+
+@media (max-width: 600px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.account-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.account-label {
+  color: #999;
+  font-size: 14px;
+}
+
+.account-value {
+  color: #333;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 12px;
+  }
+
+  .welcome-section {
+    padding: 20px;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .welcome-content {
+    flex-direction: column;
+  }
+
+  .welcome-stats-mini {
+    justify-content: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .badges-list {
+    justify-content: center;
+  }
+
+  .welcome-text h2 {
+    font-size: 20px;
+  }
 }
