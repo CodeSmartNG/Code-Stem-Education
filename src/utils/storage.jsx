@@ -32,20 +32,42 @@ import {
 // USER MANAGEMENT FUNCTIONS (Firebase)
 // ============================================
 
-// ✅ Get current user
+// ✅ Get current user - FIXED
 export const getCurrentUser = async () => {
   try {
     const firebaseUser = await firebaseGetCurrentUser();
-    if (!firebaseUser) return null;
+    if (!firebaseUser) {
+      console.log('ℹ️ No Firebase user found');
+      return null;
+    }
+
+    console.log('🔍 Firebase user found:', firebaseUser.uid);
     
     const userData = await firebaseGetUserData(firebaseUser.uid);
+    console.log('🔍 User data from Firestore:', userData);
+    console.log('🔍 Role from Firestore:', userData?.role);
+
     return {
       id: firebaseUser.uid,
       uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      emailVerified: firebaseUser.emailVerified,
+      email: firebaseUser.email || userData?.email || '',
+      emailVerified: firebaseUser.emailVerified || userData?.isEmailVerified || false,
       displayName: firebaseUser.displayName || userData?.name || '',
-      ...userData
+      name: userData?.name || '',
+      role: userData?.role || 'student', // ✅ EXPLICITLY SET ROLE
+      isApproved: userData?.isApproved || false,
+      isEmailVerified: userData?.isEmailVerified || firebaseUser.emailVerified || false,
+      whatsappNumber: userData?.whatsappNumber || '',
+      level: userData?.level || 'Beginner',
+      bio: userData?.bio || '',
+      specialization: userData?.specialization || '',
+      phone: userData?.phone || '',
+      location: userData?.location || '',
+      purchasedLessons: userData?.purchasedLessons || [],
+      completedLessons: userData?.completedLessons || {},
+      progress: userData?.progress || {},
+      createdAt: userData?.createdAt || new Date().toISOString(),
+      updatedAt: userData?.updatedAt || new Date().toISOString(),
     };
   } catch (error) {
     console.error('❌ Error getting current user:', error);
@@ -53,137 +75,44 @@ export const getCurrentUser = async () => {
   }
 };
 
-// ✅ Get user data by ID
-export const getUserData = async (userId) => {
-  try {
-    if (!userId) {
-      console.warn('⚠️ No user ID provided for getUserData');
-      return null;
-    }
-    
-    const userData = await firebaseGetUserData(userId);
-    return userData;
-  } catch (error) {
-    console.error('❌ Error getting user data:', error);
-    return null;
-  }
-};
-
-// ✅ Update user data
-export const updateUserData = async (userId, updatedData) => {
-  try {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-    
-    const result = await firebaseUpdateUserData(userId, updatedData);
-    
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.uid === userId) {
-      const mergedUser = { ...currentUser, ...updatedData };
-      localStorage.setItem('hausaStem_currentUser', JSON.stringify(mergedUser));
-    }
-    
-    console.log('✅ User data updated:', userId);
-    return result;
-  } catch (error) {
-    console.error('❌ Error updating user data:', error);
-    throw error;
-  }
-};
-
-// ✅ Set current user (kept for compatibility)
-export const setCurrentUser = (user) => {
-  return user;
-};
-
-// ✅ Get all users
-export const getUsers = async () => {
-  try {
-    const usersRef = collection(db, 'users');
-    const querySnapshot = await getDocs(usersRef);
-    const users = {};
-    querySnapshot.forEach(doc => {
-      users[doc.id] = { id: doc.id, ...doc.data() };
-    });
-    return users;
-  } catch (error) {
-    console.error('❌ Error getting users:', error);
-    return {};
-  }
-};
-
-// ✅ Set users (kept for compatibility)
-export const setUsers = (users) => {
-  return users;
-};
-
-// ✅ Register user
-export const registerUser = async (userData) => {
-  try {
-    const result = await firebaseRegister(
-      userData.email, 
-      userData.password, 
-      userData
-    );
-    return {
-      user: result.userData,
-      confirmationToken: 'email_verification_sent'
-    };
-  } catch (error) {
-    console.error('❌ Error registering user:', error);
-    throw error;
-  }
-};
-
-// ✅ Authenticate user
+// ✅ Authenticate user - FIXED
 export const authenticateUser = async (email, password) => {
   try {
+    console.log('🔐 Attempting login with email:', email);
+    
     const user = await loginUser(email, password);
-    return {
+    console.log('🔐 loginUser returned:', user);
+    
+    const userData = await firebaseGetUserData(user.uid);
+    console.log('🔐 User data from Firestore:', userData);
+    console.log('🔐 Role from Firestore:', userData?.role);
+
+    const mergedUser = {
       id: user.uid,
       uid: user.uid,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      ...user
+      email: user.email || userData?.email || '',
+      emailVerified: user.emailVerified || userData?.isEmailVerified || false,
+      name: userData?.name || '',
+      role: userData?.role || 'student', // ✅ EXPLICITLY SET ROLE
+      isApproved: userData?.isApproved || false,
+      ...userData
     };
+
+    console.log('✅ Merged user:', mergedUser);
+    console.log('🔍 User role:', mergedUser.role);
+
+    return mergedUser;
   } catch (error) {
     console.error('❌ Error authenticating user:', error);
     throw error;
   }
 };
 
-// ✅ Logout user
-export const logoutUser = async () => {
-  try {
-    await firebaseLogout();
-    return true;
-  } catch (error) {
-    console.error('❌ Error logging out:', error);
-    return false;
-  }
-};
 
-// ✅ Confirm user email
-export const confirmUserEmail = async (token) => {
-  try {
-    return { success: true, message: 'Email confirmed' };
-  } catch (error) {
-    console.error('❌ Error confirming email:', error);
-    throw error;
-  }
-};
 
-// ✅ Resend email confirmation
-export const resendEmailConfirmation = async (email) => {
-  try {
-    await resendVerification();
-    return { success: true, message: 'Verification email resent' };
-  } catch (error) {
-    console.error('❌ Error resending confirmation:', error);
-    throw error;
-  }
-};
+
+
+
 
 // ============================================
 // STUDENT MANAGEMENT FUNCTIONS
