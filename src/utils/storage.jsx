@@ -42,7 +42,7 @@ export const getCurrentUser = async () => {
     }
 
     console.log('🔍 Firebase user found:', firebaseUser.uid);
-    
+
     const userData = await firebaseGetUserData(firebaseUser.uid);
     console.log('🔍 User data from Firestore:', userData);
     console.log('🔍 Role from Firestore:', userData?.role);
@@ -79,10 +79,10 @@ export const getCurrentUser = async () => {
 export const authenticateUser = async (email, password) => {
   try {
     console.log('🔐 Attempting login with email:', email);
-    
+
     const user = await loginUser(email, password);
     console.log('🔐 loginUser returned:', user);
-    
+
     const userData = await firebaseGetUserData(user.uid);
     console.log('🔐 User data from Firestore:', userData);
     console.log('🔐 Role from Firestore:', userData?.role);
@@ -108,7 +108,88 @@ export const authenticateUser = async (email, password) => {
   }
 };
 
+// ✅ Get user data by ID
+export const getUserData = async (userId) => {
+  try {
+    if (!userId) {
+      console.warn('⚠️ No user ID provided for getUserData');
+      return null;
+    }
 
+    const userData = await firebaseGetUserData(userId);
+    return userData;
+  } catch (error) {
+    console.error('❌ Error getting user data:', error);
+    return null;
+  }
+};
+
+// ✅ Update user data
+export const updateUserData = async (userId, updatedData) => {
+  try {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const result = await firebaseUpdateUserData(userId, updatedData);
+
+    const currentUser = await getCurrentUser();
+    if (currentUser && currentUser.uid === userId) {
+      const mergedUser = { ...currentUser, ...updatedData };
+      localStorage.setItem('hausaStem_currentUser', JSON.stringify(mergedUser));
+    }
+
+    console.log('✅ User data updated:', userId);
+    return result;
+  } catch (error) {
+    console.error('❌ Error updating user data:', error);
+    throw error;
+  }
+};
+
+// ✅ Set current user (kept for compatibility)
+export const setCurrentUser = (user) => {
+  return user;
+};
+
+// ✅ Get all users
+export const getUsers = async () => {
+  try {
+    const usersRef = collection(db, 'users');
+    const querySnapshot = await getDocs(usersRef);
+    const users = {};
+    querySnapshot.forEach(doc => {
+      users[doc.id] = { id: doc.id, ...doc.data() };
+    });
+    return users;
+  } catch (error) {
+    console.error('❌ Error getting users:', error);
+    return {};
+  }
+};
+
+// ✅ Set users (kept for compatibility)
+export const setUsers = (users) => {
+  return users;
+};
+
+// ✅ Register user
+export const registerUser = async (userData) => {
+  try {
+    const result = await firebaseRegister(
+      userData.email, 
+      userData.password, 
+      userData
+    );
+    return {
+      user: result.userData,
+      confirmationToken: 'email_verification_sent'
+    };
+  } catch (error) {
+    console.error('❌ Error registering user:', error);
+    throw error;
+  }
+};
 
 // ✅ Logout user
 export const logoutUser = async () => {
@@ -141,8 +222,6 @@ export const resendEmailConfirmation = async (email) => {
     throw error;
   }
 };
-
-
 
 // ============================================
 // STUDENT MANAGEMENT FUNCTIONS
@@ -183,7 +262,7 @@ export const updateStudent = async (student) => {
 // COURSE MANAGEMENT FUNCTIONS
 // ============================================
 
-// ✅ Get all courses (alias for getAllCourses) - ADD THIS
+// ✅ Get all courses
 export const getCourses = async () => {
   try {
     return await getAllCourses();
@@ -204,7 +283,7 @@ export const createCourse = async (courseData) => {
       lessonIds: [],
       enrolledStudents: 0
     });
-    
+
     console.log('✅ Course created:', docRef.id);
     return { id: docRef.id, ...courseData };
   } catch (error) {
@@ -308,13 +387,13 @@ export const createLesson = async (courseId, lessonData) => {
       multimediaIds: [],
       quizId: null
     });
-    
+
     const courseRef = doc(db, 'courses', courseId);
     await updateDoc(courseRef, {
       lessonIds: arrayUnion(docRef.id),
       updatedAt: serverTimestamp()
     });
-    
+
     console.log('✅ Lesson created:', docRef.id);
     return { id: docRef.id, ...lessonData };
   } catch (error) {
@@ -382,12 +461,12 @@ export const deleteLesson = async (lessonId) => {
         updatedAt: serverTimestamp()
       });
     }
-    
+
     const multimedia = await getMultimediaByLesson(lessonId);
     for (const media of multimedia) {
       await deleteDoc(doc(db, 'multimedia', media.id));
     }
-    
+
     await deleteDoc(doc(db, 'lessons', lessonId));
     console.log('✅ Lesson deleted:', lessonId);
     return true;
@@ -410,13 +489,13 @@ export const addMultimediaToLesson = async (lessonId, multimediaData) => {
       lessonId: lessonId,
       createdAt: serverTimestamp()
     });
-    
+
     const lessonRef = doc(db, 'lessons', lessonId);
     await updateDoc(lessonRef, {
       multimediaIds: arrayUnion(docRef.id),
       updatedAt: serverTimestamp()
     });
-    
+
     console.log('✅ Multimedia added:', docRef.id);
     return { id: docRef.id, ...multimediaData };
   } catch (error) {
@@ -479,13 +558,13 @@ export const createQuiz = async (lessonId, quizData) => {
       lessonId: lessonId,
       createdAt: serverTimestamp()
     });
-    
+
     const lessonRef = doc(db, 'lessons', lessonId);
     await updateDoc(lessonRef, {
       quizId: docRef.id,
       updatedAt: serverTimestamp()
     });
-    
+
     console.log('✅ Quiz created:', docRef.id);
     return { id: docRef.id, ...quizData };
   } catch (error) {
@@ -527,13 +606,13 @@ export const enrollStudent = async (studentId, courseId) => {
       completedLessons: [],
       lastAccessed: serverTimestamp()
     });
-    
+
     const courseRef = doc(db, 'courses', courseId);
     await updateDoc(courseRef, {
       enrolledStudents: increment(1),
       updatedAt: serverTimestamp()
     });
-    
+
     console.log('✅ Student enrolled:', studentId, 'in course:', courseId);
     return true;
   } catch (error) {
@@ -569,17 +648,17 @@ export const updateProgress = async (studentId, courseId, completedLessonId) => 
       where('courseId', '==', courseId)
     );
     const querySnapshot = await getDocs(q);
-    
+
     if (!querySnapshot.empty) {
       const docRef = querySnapshot.docs[0].ref;
       const enrollment = querySnapshot.docs[0].data();
       const completedLessons = enrollment.completedLessons || [];
-      
+
       if (!completedLessons.includes(completedLessonId)) {
         completedLessons.push(completedLessonId);
         const lessons = await getLessonsByCourse(courseId);
         const progress = completedLessons.length / (lessons.length || 1);
-        
+
         await updateDoc(docRef, {
           completedLessons: completedLessons,
           progress: progress,
@@ -609,14 +688,14 @@ export const getTeacherWallet = async (teacherId) => {
         transactions: []
       };
     }
-    
+
     const docRef = doc(db, 'wallets', teacherId);
     const docSnap = await getDoc(docRef);
-    
+
     if (docSnap.exists()) {
       return docSnap.data();
     }
-    
+
     const defaultWallet = {
       balance: 0,
       totalEarnings: 0,
@@ -644,13 +723,13 @@ export const updateTeacherWallet = async (teacherId, walletData) => {
     if (!teacherId) {
       throw new Error('Teacher ID is required');
     }
-    
+
     const docRef = doc(db, 'wallets', teacherId);
     await setDoc(docRef, {
       ...walletData,
       updatedAt: new Date().toISOString()
     }, { merge: true });
-    
+
     return walletData;
   } catch (error) {
     console.error('❌ Error updating teacher wallet:', error);
@@ -664,17 +743,17 @@ export const withdrawFromWallet = async (teacherId, amount, bankDetails) => {
     if (!teacherId) {
       throw new Error('Teacher ID is required');
     }
-    
+
     const wallet = await getTeacherWallet(teacherId);
-    
+
     if (amount > wallet.balance) {
       throw new Error('Insufficient balance');
     }
-    
+
     if (amount < 100) {
       throw new Error('Minimum withdrawal is ₦100');
     }
-    
+
     const withdrawal = {
       type: 'withdrawal',
       amount: -amount,
@@ -683,12 +762,12 @@ export const withdrawFromWallet = async (teacherId, amount, bankDetails) => {
       bankDetails: bankDetails,
       status: 'pending'
     };
-    
+
     wallet.transactions = wallet.transactions || [];
     wallet.transactions.push(withdrawal);
     wallet.balance -= amount;
     wallet.pendingWithdrawals = (wallet.pendingWithdrawals || 0) + amount;
-    
+
     const updatedWallet = await updateTeacherWallet(teacherId, wallet);
     console.log('✅ Withdrawal processed:', amount);
     return updatedWallet;
@@ -704,12 +783,12 @@ export const updateTeacherProfileWithWhatsApp = async (teacherId, data) => {
     if (!teacherId) {
       throw new Error('Teacher ID is required');
     }
-    
+
     await updateUserData(teacherId, {
       whatsappNumber: data.whatsappNumber || '',
       updatedAt: new Date().toISOString()
     });
-    
+
     console.log('✅ Teacher profile updated with WhatsApp:', data.whatsappNumber);
     return { whatsappNumber: data.whatsappNumber };
   } catch (error) {
@@ -748,7 +827,7 @@ export const getTeacherWhatsAppUrlAsync = async (teacherId) => {
   try {
     const number = await getTeacherWhatsAppNumber(teacherId);
     if (!number) return '#';
-    
+
     let phoneNumber = number.replace(/\D/g, '');
     if (phoneNumber.startsWith('0')) {
       phoneNumber = phoneNumber.substring(1);
@@ -756,7 +835,7 @@ export const getTeacherWhatsAppUrlAsync = async (teacherId) => {
     if (!phoneNumber.startsWith('234') && phoneNumber.length === 10) {
       phoneNumber = '234' + phoneNumber;
     }
-    
+
     return `https://wa.me/${phoneNumber}`;
   } catch (error) {
     console.error('❌ Error getting WhatsApp URL:', error);
@@ -774,10 +853,10 @@ export const canAccessLesson = async (userId, courseKey, lessonId) => {
     if (!userId || !courseKey || !lessonId) {
       return false;
     }
-    
+
     const userData = await getUserData(userId);
     if (!userData) return false;
-    
+
     const purchasedLessons = userData.purchasedLessons || [];
     return purchasedLessons.some(p => p.courseKey === courseKey && p.lessonId === lessonId);
   } catch (error) {
@@ -792,29 +871,29 @@ export const purchaseLesson = async (userId, courseKey, lessonId) => {
     if (!userId || !courseKey || !lessonId) {
       throw new Error('User ID, course key, and lesson ID are required');
     }
-    
+
     const userData = await getUserData(userId);
     if (!userData) {
       throw new Error('User not found');
     }
-    
+
     const purchasedLessons = userData.purchasedLessons || [];
     const alreadyPurchased = purchasedLessons.some(p => p.courseKey === courseKey && p.lessonId === lessonId);
-    
+
     if (alreadyPurchased) {
       throw new Error('Lesson already purchased');
     }
-    
+
     purchasedLessons.push({
       courseKey: courseKey,
       lessonId: lessonId,
       purchasedAt: new Date().toISOString()
     });
-    
+
     await updateUserData(userId, {
       purchasedLessons: purchasedLessons
     });
-    
+
     console.log('✅ Lesson purchased:', lessonId);
     return true;
   } catch (error) {
@@ -837,7 +916,7 @@ export const processLessonPayment = async (userId, courseKey, lessonId, amount, 
 
     const purchasedLessons = userData.purchasedLessons || [];
     const alreadyPurchased = purchasedLessons.some(p => p.courseKey === courseKey && p.lessonId === lessonId);
-    
+
     if (alreadyPurchased) {
       throw new Error('Lesson already purchased');
     }
@@ -922,10 +1001,10 @@ export const getCourseDetailsForAdmin = async (courseId) => {
   try {
     const course = await getCourseById(courseId);
     if (!course) return null;
-    
+
     const lessons = await getLessonsByCourse(courseId);
     const teacher = await getUserData(course.teacherId);
-    
+
     return {
       ...course,
       lessons: lessons,
@@ -964,22 +1043,22 @@ export const getCourseAnalyticsForAdmin = async (courseId) => {
   try {
     const course = await getCourseById(courseId);
     const lessons = await getLessonsByCourse(courseId);
-    
+
     const enrollmentsRef = collection(db, 'enrollments');
     const q = query(enrollmentsRef, where('courseId', '==', courseId));
     const querySnapshot = await getDocs(q);
-    
+
     let totalEnrolled = 0;
     let totalProgress = 0;
-    
+
     querySnapshot.forEach(doc => {
       const data = doc.data();
       totalEnrolled++;
       totalProgress += data.progress || 0;
     });
-    
+
     const avgProgress = totalEnrolled > 0 ? Math.round((totalProgress / totalEnrolled) * 100) : 0;
-    
+
     return {
       totalEnrolled: totalEnrolled || course.enrolledStudents || 0,
       totalLessons: lessons.length,
@@ -1085,16 +1164,16 @@ export const getPlatformStats = async () => {
     const users = await getUsers();
     const courses = await getAllCourses();
     const userArray = Object.values(users);
-    
+
     const students = userArray.filter(u => u.role === 'student');
     const teachers = userArray.filter(u => u.role === 'teacher' && u.isApproved);
-    
+
     let totalLessons = 0;
     for (const course of courses) {
       const lessons = await getLessonsByCourse(course.id);
       totalLessons += lessons.length;
     }
-    
+
     return {
       totalStudents: students.length,
       totalTeachers: teachers.length,
@@ -1217,14 +1296,14 @@ export const getAllCoursesAnalyticsForAdmin = async () => {
 export const initializeDefaultCourses = async () => {
   try {
     console.log('🔄 Initializing default courses...');
-    
+
     const existingCourses = await getAllCourses();
     if (existingCourses.length > 0) {
       console.log('ℹ️ Courses already exist');
       return true;
     }
-    
-    // Default courses data (keep your existing data here)
+
+    // Default courses data
     const defaultCourseData = [
       // ... your default courses ...
     ];
@@ -1232,27 +1311,27 @@ export const initializeDefaultCourses = async () => {
     for (const courseData of defaultCourseData) {
       const lessons = courseData.lessons || [];
       delete courseData.lessons;
-      
+
       const course = await createCourse(courseData);
-      
+
       for (const lessonData of lessons) {
         const multimedia = lessonData.multimedia || [];
         const quiz = lessonData.quiz || null;
         delete lessonData.multimedia;
         delete lessonData.quiz;
-        
+
         const lesson = await createLesson(course.id, lessonData);
-        
+
         for (const mediaData of multimedia) {
           await addMultimediaToLesson(lesson.id, mediaData);
         }
-        
+
         if (quiz) {
           await createQuiz(lesson.id, quiz);
         }
       }
     }
-    
+
     console.log('✅ Default courses initialized successfully');
     return true;
   } catch (error) {
@@ -1294,41 +1373,41 @@ export default {
   resendEmailConfirmation,
   updateUserData,
   getUserData,
-  
+
   // Student Management
   getStudents,
   updateStudent,
-  
+
   // Course Management
-  getCourses,  // ✅ ADD THIS
+  getCourses,
   createCourse,
   getAllCourses,
   getCourseById,
   getCoursesByTeacher,
   updateCourse,
   deleteCourse,
-  
+
   // Lesson Management
   createLesson,
   getLessonsByCourse,
   getLessonById,
   updateLesson,
   deleteLesson,
-  
+
   // Multimedia Management
   addMultimediaToLesson,
   getMultimediaByLesson,
   deleteMultimedia,
-  
+
   // Quiz Management
   createQuiz,
   getQuizByLesson,
-  
+
   // Enrollment Management
   enrollStudent,
   isStudentEnrolled,
   updateProgress,
-  
+
   // Wallet & Payment
   getTeacherWallet,
   updateTeacherWallet,
@@ -1337,14 +1416,14 @@ export default {
   getTeacherWhatsAppUrl,
   getTeacherWhatsAppNumber,
   getTeacherWhatsAppUrlAsync,
-  
+
   // Lesson Access & Payment
   canAccessLesson,
   purchaseLesson,
   processLessonPayment,
   verifyPayment,
   getUserPurchasedLessons,
-  
+
   // Admin Functions
   getAllCoursesForAdmin,
   getCourseDetailsForAdmin,
@@ -1365,7 +1444,7 @@ export default {
   getPaymentTransactions,
   savePaymentTransactions,
   getAllCoursesAnalyticsForAdmin,
-  
+
   // Storage
   initializeStorage,
   initializeDefaultCourses
