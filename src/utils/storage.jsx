@@ -166,25 +166,51 @@ export const getUserData = async (userId) => {
   }
 };
 
-// ✅ Update user data
+// src/utils/storage.jsx - Update updateUserData
+
 export const updateUserData = async (userId, updatedData) => {
   try {
     if (!userId) {
       throw new Error('User ID is required');
     }
 
-    const result = await firebaseUpdateUserData(userId, updatedData);
+    console.log('🔧 Updating user data:', userId);
+    console.log('🔧 Data:', updatedData);
 
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.uid === userId) {
-      const mergedUser = { ...currentUser, ...updatedData };
-      localStorage.setItem('hausaStem_currentUser', JSON.stringify(mergedUser));
-    }
-
-    console.log('✅ User data updated:', userId);
+    const userRef = doc(db, 'users', userId);
+    
+    // Try to update the document
+    const result = await updateDoc(userRef, {
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ User data updated successfully:', userId);
     return result;
   } catch (error) {
     console.error('❌ Error updating user data:', error);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error message:', error.message);
+    
+    // If update fails, try setting the document instead
+    if (error.code === 'not-found') {
+      try {
+        console.log('🔄 Document not found, creating new...');
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, {
+          ...updatedData,
+          uid: userId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        console.log('✅ User document created successfully');
+        return true;
+      } catch (setError) {
+        console.error('❌ Error creating document:', setError);
+        throw setError;
+      }
+    }
+    
     throw error;
   }
 };
@@ -1146,31 +1172,32 @@ export const getPendingTeachers = async () => {
   }
 };
 
-// ✅ Approve teacher
+// src/utils/storage.jsx - Update approveTeacher
+
 export const approveTeacher = async (teacherId) => {
   try {
+    console.log('👨‍🏫 Approving teacher:', teacherId);
+    
+    // Get the current user to check if they are admin
+    const currentUser = await getCurrentUser();
+    console.log('👨‍🏫 Current user:', currentUser);
+    console.log('👨‍🏫 Current user role:', currentUser?.role);
+    
+    // Check if current user is admin
+    if (currentUser?.role !== 'admin') {
+      throw new Error('Only admin can approve teachers');
+    }
+    
     await updateUserData(teacherId, {
       isApproved: true,
-      approvedDate: new Date().toISOString()
+      approvedDate: new Date().toISOString(),
+      status: 'approved'
     });
+    
+    console.log('✅ Teacher approved successfully:', teacherId);
     return true;
   } catch (error) {
     console.error('❌ Error approving teacher:', error);
-    throw error;
-  }
-};
-
-// ✅ Reject teacher
-export const rejectTeacher = async (teacherId) => {
-  try {
-    await updateUserData(teacherId, {
-      isApproved: false,
-      rejectedAt: new Date().toISOString(),
-      status: 'rejected'
-    });
-    return true;
-  } catch (error) {
-    console.error('❌ Error rejecting teacher:', error);
     throw error;
   }
 };
