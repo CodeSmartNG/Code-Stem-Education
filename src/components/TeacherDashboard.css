@@ -1,3 +1,316 @@
+
+/* TeacherDashboard.css - Add Lesson Form Styles */
+
+/* Form Styles */
+.teacher-form {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: #f7fafc;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: white;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+}
+
+/* Pricing Section */
+.pricing-section {
+  background: #f7fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.pricing-section h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+}
+
+.pricing-options {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.pricing-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 16px;
+  background: white;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.pricing-option:hover {
+  border-color: #667eea;
+}
+
+.pricing-option input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.option-label {
+  font-weight: 500;
+  color: #333;
+}
+
+.option-description {
+  font-size: 12px;
+  color: #666;
+  display: block;
+}
+
+/* File Upload */
+.file-upload-wrapper {
+  position: relative;
+  margin-top: 4px;
+}
+
+.file-input {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.file-upload-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #f7fafc;
+}
+
+.file-upload-label:hover {
+  border-color: #667eea;
+  background: #edf2f7;
+}
+
+.upload-icon {
+  font-size: 24px;
+}
+
+.file-name {
+  color: #667eea;
+  font-weight: 500;
+}
+
+.help-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #999;
+}
+
+.file-preview {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.file-details {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+/* Submit Button */
+.submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Quiz Section */
+.quiz-section {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-header h4 {
+  margin: 0;
+  color: #333;
+}
+
+.toggle-btn {
+  padding: 6px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+  background: #5a67d8;
+}
+
+.quiz-form {
+  background: #f7fafc;
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.current-question {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 12px 0;
+  border: 1px solid #e2e8f0;
+}
+
+.add-question-btn {
+  padding: 8px 20px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.add-question-btn:hover {
+  background: #38a169;
+}
+
+.existing-questions {
+  margin-top: 16px;
+}
+
+.question-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 8px;
+}
+
+.remove-btn {
+  padding: 4px 12px;
+  background: #fc8181;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.remove-btn:hover {
+  background: #f56565;
+}
+
+.no-courses-message {
+  text-align: center;
+  padding: 40px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.no-courses-message p {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.create-course-btn {
+  padding: 10px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.create-course-btn:hover {
+  background: #5a67d8;
+  transform: translateY(-2px);
+}
+
 /* TeacherDashboard.css - Add these payment styles to your existing CSS */
 
 /* Payment Tab Styles */
