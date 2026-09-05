@@ -13,17 +13,12 @@ import {
   addMultimediaToLesson,
   deleteMultimedia,
   getLessonsByCourse,
-  getLessonById,
   getTeacherWallet,
   updateTeacherWallet,
   withdrawFromWallet,
   updateTeacherProfileWithWhatsApp,
   getTeacherWhatsAppUrl,
   getTeacherWhatsAppNumber,
-  // Payment functions
-  processLessonPayment,
-  verifyPayment,
-  getUserPurchasedLessons
 } from '../utils/storage';
 import paymentService from '../utils/paymentService';
 import './TeacherDashboard.css';
@@ -296,9 +291,7 @@ const TeacherDashboard = () => {
         duration: newLessonForm.duration,
         isFree: newLessonForm.isFree,
         price: newLessonForm.isFree ? 0 : newLessonForm.price,
-        order: newLessonForm.order || courseLessons.length + 1,
-        multimedia: [],
-        quiz: null
+        order: newLessonForm.order || courseLessons.length + 1
       };
 
       // 2. Create the lesson first
@@ -332,7 +325,7 @@ const TeacherDashboard = () => {
           passingScore: quizForm.passingScore,
           questions: quizForm.questions
         };
-        
+
         // Create quiz for the lesson
         await createQuiz(lesson.id, quizData);
       }
@@ -526,7 +519,7 @@ const TeacherDashboard = () => {
     return `₦${amount.toLocaleString() || '0'}`;
   };
 
-  // ✅ Handle multimedia file upload
+  // ✅ Handle multimedia file upload - FIXED
   const handleAddMultimedia = async (e) => {
     e.preventDefault();
     setIsUploading(true);
@@ -548,10 +541,10 @@ const TeacherDashboard = () => {
         multimediaData.firebasePath = filePath;
       }
 
+      // ✅ FIXED: Only pass lessonId and multimediaData
       await addMultimediaToLesson(
-        managingMultimedia.courseKey,
-        managingMultimedia.lesson.id,
-        multimediaData
+        managingMultimedia.lesson.id,  // lessonId
+        multimediaData                  // multimediaData
       );
 
       clearInterval(progressInterval);
