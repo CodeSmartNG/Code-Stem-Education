@@ -28,9 +28,9 @@ import {
   increment
 } from 'firebase/firestore';
 
-// ============================================
+// ==========================================
 // USER MANAGEMENT FUNCTIONS (Firebase)
-// ============================================
+// ==========================================
 
 // src/utils/storage.jsx - Replace getCurrentUser with this
 
