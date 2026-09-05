@@ -443,18 +443,35 @@ export const deleteCourse = async (courseId) => {
 // LESSON MANAGEMENT FUNCTIONS
 // ============================================
 
+
+
+
+
 // ✅ Create a new lesson
+
 export const createLesson = async (courseId, lessonData) => {
   try {
     const lessonsRef = collection(db, 'lessons');
-    const docRef = await addDoc(lessonsRef, {
-      ...lessonData,
+    
+    // ✅ Remove any invalid fields before saving
+    const { multimediaData, quizData, ...cleanLessonData } = lessonData || {};
+    
+    // ✅ Ensure clean data has no nested objects
+    const lessonToSave = {
+      title: cleanLessonData.title || '',
+      content: cleanLessonData.content || '',
+      duration: cleanLessonData.duration || '',
+      isFree: cleanLessonData.isFree !== undefined ? cleanLessonData.isFree : true,
+      price: cleanLessonData.isFree ? 0 : (cleanLessonData.price || 0),
+      order: cleanLessonData.order || 0,
       courseId: courseId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       multimediaIds: [],
       quizId: null
-    });
+    };
+    
+    const docRef = await addDoc(lessonsRef, lessonToSave);
 
     const courseRef = doc(db, 'courses', courseId);
     await updateDoc(courseRef, {
@@ -463,12 +480,14 @@ export const createLesson = async (courseId, lessonData) => {
     });
 
     console.log('✅ Lesson created:', docRef.id);
-    return { id: docRef.id, ...lessonData };
+    return { id: docRef.id, ...lessonToSave };
   } catch (error) {
     console.error('❌ Error creating lesson:', error);
     throw error;
   }
 };
+
+
 
 // ✅ Get lessons by course ID
 export const getLessonsByCourse = async (courseId) => {
