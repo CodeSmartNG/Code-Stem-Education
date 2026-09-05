@@ -875,351 +875,360 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        {/* Add Lesson Tab - Complete Form */}
-        {activeTab === 'add-lesson' && (
-          <div className="add-lesson-tab">
-            <h3>➕ Add New Lesson</h3>
 
-            {courses.length === 0 ? (
-              <div className="no-courses-message">
-                <p>⚠️ You need to create a course first before adding lessons.</p>
-                <button onClick={() => setActiveTab('add-course')} className="create-course-btn">
-                  ➕ Create a Course First
-                </button>
+
+{/* Add Lesson Tab - COMPLETE */}
+{activeTab === 'add-lesson' && (
+  <div className="add-lesson-tab">
+    <h3>➕ Add New Lesson</h3>
+
+    {courses.length === 0 ? (
+      <div className="no-courses-message">
+        <p>⚠️ You need to create a course first before adding lessons.</p>
+        <button onClick={() => setActiveTab('add-course')} className="create-course-btn">
+          ➕ Create a Course First
+        </button>
+      </div>
+    ) : (
+      <form onSubmit={handleAddLesson} className="teacher-form">
+        {/* Select Course */}
+        <div className="form-group">
+          <label>Select Course *</label>
+          <select
+            value={selectedCourse || ''}
+            onChange={(e) => setSelectedCourse(e.target.value)}
+            required
+            className="form-select"
+          >
+            <option value="">-- Choose a course --</option>
+            {courses.map(course => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Lesson Title */}
+        <div className="form-group">
+          <label>Lesson Title *</label>
+          <input
+            type="text"
+            value={newLessonForm.title}
+            onChange={(e) => setNewLessonForm({...newLessonForm, title: e.target.value})}
+            required
+            placeholder="e.g., Introduction to React"
+            className="form-input"
+          />
+        </div>
+
+        {/* Lesson Pricing Section */}
+        <div className="pricing-section">
+          <h4>💰 Lesson Pricing</h4>
+          <div className="pricing-options">
+            <label className="pricing-option">
+              <input
+                type="radio"
+                name="lessonType"
+                checked={newLessonForm.isFree}
+                onChange={() => setNewLessonForm({...newLessonForm, isFree: true, price: 0})}
+              />
+              <span className="option-label">🆓 Free Lesson</span>
+              <span className="option-description">Students can access for free</span>
+            </label>
+
+            <label className="pricing-option">
+              <input
+                type="radio"
+                name="lessonType"
+                checked={!newLessonForm.isFree}
+                onChange={() => setNewLessonForm({...newLessonForm, isFree: false, price: 500})}
+              />
+              <span className="option-label">💰 Paid Lesson</span>
+              <span className="option-description">Students pay to access</span>
+            </label>
+          </div>
+
+          {!newLessonForm.isFree && (
+            <div className="price-input">
+              <div className="form-group">
+                <label>Lesson Price (₦)</label>
+                <input
+                  type="number"
+                  value={newLessonForm.price}
+                  onChange={(e) => setNewLessonForm({...newLessonForm, price: parseInt(e.target.value) || 0})}
+                  min="100"
+                  max="10000"
+                  required
+                  placeholder="Enter price"
+                  className="form-input"
+                />
+                <small>Price between ₦100 - ₦10,000</small>
               </div>
-            ) : (
-              <form onSubmit={handleAddLesson} className="teacher-form">
-                {/* Select Course */}
+            </div>
+          )}
+        </div>
+
+        {/* Lesson Content */}
+        <div className="form-group">
+          <label>Lesson Content *</label>
+          <textarea
+            value={newLessonForm.content}
+            onChange={(e) => setNewLessonForm({...newLessonForm, content: e.target.value})}
+            required
+            rows="4"
+            placeholder="Write the lesson content here..."
+            className="form-textarea"
+          />
+        </div>
+
+        {/* Duration */}
+        <div className="form-group">
+          <label>Duration *</label>
+          <input
+            type="text"
+            value={newLessonForm.duration}
+            onChange={(e) => setNewLessonForm({...newLessonForm, duration: e.target.value})}
+            placeholder="30 minutes"
+            required
+            className="form-input"
+          />
+        </div>
+
+        {/* Lesson Order */}
+        <div className="form-group">
+          <label>Lesson Order</label>
+          <input
+            type="number"
+            value={newLessonForm.order}
+            onChange={(e) => setNewLessonForm({...newLessonForm, order: parseInt(e.target.value) || 0})}
+            placeholder={`Auto: ${courseLessons.length + 1}`}
+            min="1"
+            className="form-input"
+          />
+          <small>Leave empty for auto-order (appears at the end)</small>
+        </div>
+
+        {/* Video Upload Section */}
+        <div className="video-upload-section">
+          <h4>📹 Upload Video (Optional)</h4>
+          <div className="form-group">
+            <label>Select Video File</label>
+            <div className="file-upload-wrapper">
+              <input
+                type="file"
+                id="videoFile"
+                accept="video/*,.mp4,.webm,.ogg,.mov,.avi"
+                onChange={handleVideoFileSelect}
+                className="file-input"
+              />
+              <label htmlFor="videoFile" className="file-upload-label">
+                <span className="upload-icon">📤</span>
+                {newLessonForm.videoFileName ? (
+                  <span className="file-name">{newLessonForm.videoFileName}</span>
+                ) : (
+                  <span>Choose Video File (MP4, WebM, OGG, MOV, AVI)</span>
+                )}
+              </label>
+            </div>
+            <small className="help-text">
+              Max file size: 100MB • Supported formats: MP4, WebM, OGG, MOV, AVI
+            </small>
+          </div>
+
+          {newLessonForm.videoFile && (
+            <div className="file-preview">
+              <video controls style={{ maxWidth: '100%', maxHeight: '300px' }}>
+                <source src={URL.createObjectURL(newLessonForm.videoFile)} type={newLessonForm.videoFile.type} />
+                Your browser does not support the video tag.
+              </video>
+              <p className="file-details">
+                File: {newLessonForm.videoFileName} • Size: {(newLessonForm.videoFile.size / (1024 * 1024)).toFixed(2)} MB
+              </p>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Video Title</label>
+            <input
+              type="text"
+              value={newLessonForm.videoTitle}
+              onChange={(e) => setNewLessonForm({...newLessonForm, videoTitle: e.target.value})}
+              placeholder="Lesson Video Tutorial"
+              className="form-input"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Video Description</label>
+            <input
+              type="text"
+              value={newLessonForm.videoDescription}
+              onChange={(e) => setNewLessonForm({...newLessonForm, videoDescription: e.target.value})}
+              placeholder="Watch this video to learn more"
+              className="form-input"
+            />
+          </div>
+        </div>
+
+        {/* Quiz Section */}
+        <div className="quiz-section">
+          <div className="section-header">
+            <h4>📝 Quiz Content (Optional)</h4>
+            <button 
+              type="button"
+              onClick={() => setShowQuizForm(!showQuizForm)}
+              className="toggle-btn"
+            >
+              {showQuizForm ? '❌ Hide Quiz Form' : '➕ Add Quiz'}
+            </button>
+          </div>
+
+          {showQuizForm && (
+            <div className="quiz-form">
+              <div className="form-group">
+                <label>Quiz Title</label>
+                <input
+                  type="text"
+                  value={quizForm.title}
+                  onChange={(e) => setQuizForm({...quizForm, title: e.target.value})}
+                  placeholder="Lesson Quiz"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Passing Score (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={quizForm.passingScore}
+                  onChange={(e) => setQuizForm({...quizForm, passingScore: parseInt(e.target.value) || 70})}
+                  className="form-input"
+                />
+              </div>
+
+              <div className="current-question">
+                <h5>Add New Question</h5>
+
                 <div className="form-group">
-                  <label>Select Course *</label>
+                  <label>Question Type</label>
                   <select
-                    value={selectedCourse || ''}
-                    onChange={(e) => setSelectedCourse(e.target.value)}
-                    required
+                    value={currentQuestion.type}
+                    onChange={(e) => setCurrentQuestion({...currentQuestion, type: e.target.value})}
                     className="form-select"
                   >
-                    <option value="">-- Choose a course --</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.title}
-                      </option>
-                    ))}
+                    <option value="text">📝 Text Question</option>
+                    <option value="image">🖼️ Image Question</option>
                   </select>
                 </div>
 
-                {/* Lesson Title */}
                 <div className="form-group">
-                  <label>Lesson Title *</label>
+                  <label>Question Text</label>
                   <input
                     type="text"
-                    value={newLessonForm.title}
-                    onChange={(e) => setNewLessonForm({...newLessonForm, title: e.target.value})}
-                    required
-                    placeholder="e.g., Introduction to React"
+                    value={currentQuestion.question}
+                    onChange={(e) => setCurrentQuestion({...currentQuestion, question: e.target.value})}
+                    placeholder="Enter your question here"
                     className="form-input"
                   />
                 </div>
 
-                {/* Lesson Pricing Section */}
-                <div className="pricing-section">
-                  <h4>💰 Lesson Pricing</h4>
-                  <div className="pricing-options">
-                    <label className="pricing-option">
-                      <input
-                        type="radio"
-                        name="lessonType"
-                        checked={newLessonForm.isFree}
-                        onChange={() => setNewLessonForm({...newLessonForm, isFree: true, price: 0})}
-                      />
-                      <span className="option-label">🆓 Free Lesson</span>
-                      <span className="option-description">Students can access for free</span>
-                    </label>
-
-                    <label className="pricing-option">
-                      <input
-                        type="radio"
-                        name="lessonType"
-                        checked={!newLessonForm.isFree}
-                        onChange={() => setNewLessonForm({...newLessonForm, isFree: false, price: 500})}
-                      />
-                      <span className="option-label">💰 Paid Lesson</span>
-                      <span className="option-description">Students pay to access</span>
-                    </label>
-                  </div>
-
-                  {!newLessonForm.isFree && (
-                    <div className="price-input">
-                      <div className="form-group">
-                        <label>Lesson Price (₦)</label>
-                        <input
-                          type="number"
-                          value={newLessonForm.price}
-                          onChange={(e) => setNewLessonForm({...newLessonForm, price: parseInt(e.target.value) || 0})}
-                          min="100"
-                          max="10000"
-                          required
-                          placeholder="Enter price"
-                          className="form-input"
-                        />
-                        <small>Price between ₦100 - ₦10,000</small>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Lesson Content */}
-                <div className="form-group">
-                  <label>Lesson Content *</label>
-                  <textarea
-                    value={newLessonForm.content}
-                    onChange={(e) => setNewLessonForm({...newLessonForm, content: e.target.value})}
-                    required
-                    rows="4"
-                    placeholder="Write the lesson content here..."
-                    className="form-textarea"
-                  />
-                </div>
-
-                {/* Duration */}
-                <div className="form-group">
-                  <label>Duration *</label>
-                  <input
-                    type="text"
-                    value={newLessonForm.duration}
-                    onChange={(e) => setNewLessonForm({...newLessonForm, duration: e.target.value})}
-                    placeholder="30 minutes"
-                    required
-                    className="form-input"
-                  />
-                </div>
-
-                {/* Lesson Order */}
-                <div className="form-group">
-                  <label>Lesson Order</label>
-                  <input
-                    type="number"
-                    value={newLessonForm.order}
-                    onChange={(e) => setNewLessonForm({...newLessonForm, order: parseInt(e.target.value) || 0})}
-                    placeholder={`Auto: ${courseLessons.length + 1}`}
-                    min="1"
-                    className="form-input"
-                  />
-                  <small>Leave empty for auto-order (appears at the end)</small>
-                </div>
-
-                {/* Video Upload Section */}
-                <div className="video-upload-section">
-                  <h4>📹 Upload Video (Optional)</h4>
+                {currentQuestion.type === 'image' && (
                   <div className="form-group">
-                    <label>Select Video File</label>
-                    <div className="file-upload-wrapper">
-                      <input
-                        type="file"
-                        id="videoFile"
-                        accept="video/*,.mp4,.webm,.ogg,.mov,.avi"
-                        onChange={handleVideoFileSelect}
-                        className="file-input"
-                      />
-                      <label htmlFor="videoFile" className="file-upload-label">
-                        <span className="upload-icon">📤</span>
-                        {newLessonForm.videoFileName ? (
-                          <span className="file-name">{newLessonForm.videoFileName}</span>
-                        ) : (
-                          <span>Choose Video File (MP4, WebM, OGG, MOV, AVI)</span>
-                        )}
-                      </label>
-                    </div>
-                    <small className="help-text">
-                      Max file size: 100MB • Supported formats: MP4, WebM, OGG, MOV, AVI
-                    </small>
-                  </div>
-
-                  {newLessonForm.videoFile && (
-                    <div className="file-preview">
-                      <video controls style={{ maxWidth: '100%', maxHeight: '300px' }}>
-                        <source src={URL.createObjectURL(newLessonForm.videoFile)} type={newLessonForm.videoFile.type} />
-                        Your browser does not support the video tag.
-                      </video>
-                      <p className="file-details">
-                        File: {newLessonForm.videoFileName} • Size: {(newLessonForm.videoFile.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label>Video Title</label>
+                    <label>Image URL</label>
                     <input
-                      type="text"
-                      value={newLessonForm.videoTitle}
-                      onChange={(e) => setNewLessonForm({...newLessonForm, videoTitle: e.target.value})}
-                      placeholder="Lesson Video Tutorial"
+                      type="url"
+                      value={currentQuestion.imageUrl}
+                      onChange={(e) => setCurrentQuestion({...currentQuestion, imageUrl: e.target.value})}
+                      placeholder="https://example.com/image.jpg"
                       className="form-input"
                     />
                   </div>
+                )}
 
-                  <div className="form-group">
-                    <label>Video Description</label>
-                    <input
-                      type="text"
-                      value={newLessonForm.videoDescription}
-                      onChange={(e) => setNewLessonForm({...newLessonForm, videoDescription: e.target.value})}
-                      placeholder="Watch this video to learn more"
-                      className="form-input"
-                    />
-                  </div>
+                <div className="options-section">
+                  <h6>Options</h6>
+                  {currentQuestion.options.map((option, index) => (
+                    <div key={index} className="option-item">
+                      <input
+                        type="radio"
+                        name="correctAnswer"
+                        checked={currentQuestion.correctAnswer === index}
+                        onChange={() => handleCorrectAnswerChange(index)}
+                      />
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                        className="option-input"
+                      />
+                      <span className="correct-label">
+                        {currentQuestion.correctAnswer === index ? '✅ Correct' : ''}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Quiz Section */}
-                <div className="quiz-section">
-                  <div className="section-header">
-                    <h4>📝 Quiz Content (Optional)</h4>
-                    <button 
-                      type="button"
-                      onClick={() => setShowQuizForm(!showQuizForm)}
-                      className="toggle-btn"
-                    >
-                      {showQuizForm ? '❌ Hide Quiz Form' : '➕ Add Quiz'}
-                    </button>
-                  </div>
+                <button 
+                  type="button" 
+                  onClick={handleAddQuestion}
+                  className="add-question-btn"
+                >
+                  ➕ Add Question to Quiz
+                </button>
+              </div>
 
-                  {showQuizForm && (
-                    <div className="quiz-form">
-                      <div className="form-group">
-                        <label>Quiz Title</label>
-                        <input
-                          type="text"
-                          value={quizForm.title}
-                          onChange={(e) => setQuizForm({...quizForm, title: e.target.value})}
-                          placeholder="Lesson Quiz"
-                          className="form-input"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Passing Score (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={quizForm.passingScore}
-                          onChange={(e) => setQuizForm({...quizForm, passingScore: parseInt(e.target.value) || 70})}
-                          className="form-input"
-                        />
-                      </div>
-
-                      <div className="current-question">
-                        <h5>Add New Question</h5>
-
-                        <div className="form-group">
-                          <label>Question Type</label>
-                          <select
-                            value={currentQuestion.type}
-                            onChange={(e) => setCurrentQuestion({...currentQuestion, type: e.target.value})}
-                            className="form-select"
-                          >
-                            <option value="text">📝 Text Question</option>
-                            <option value="image">🖼️ Image Question</option>
-                          </select>
-                        </div>
-
-                        <div className="form-group">
-                          <label>Question Text</label>
-                          <input
-                            type="text"
-                            value={currentQuestion.question}
-                            onChange={(e) => setCurrentQuestion({...currentQuestion, question: e.target.value})}
-                            placeholder="Enter your question here"
-                            className="form-input"
-                          />
-                        </div>
-
-                        {currentQuestion.type === 'image' && (
-                          <div className="form-group">
-                            <label>Image URL</label>
-                            <input
-                              type="url"
-                              value={currentQuestion.imageUrl}
-                              onChange={(e) => setCurrentQuestion({...currentQuestion, imageUrl: e.target.value})}
-                              placeholder="https://example.com/image.jpg"
-                              className="form-input"
-                            />
+              {quizForm.questions.length > 0 && (
+                <div className="existing-questions">
+                  <h5>Questions in Quiz ({quizForm.questions.length})</h5>
+                  {quizForm.questions.map((question, index) => (
+                    <div key={question.id} className="question-item">
+                      <div className="question-info">
+                        <strong>Q{index + 1}:</strong> {question.question}
+                        {question.type === 'image' && question.imageUrl && (
+                          <div className="question-image-preview">
+                            <img src={question.imageUrl} alt="Question" style={{maxWidth: '100px'}} />
                           </div>
                         )}
-
-                        <div className="options-section">
-                          <h6>Options</h6>
-                          {currentQuestion.options.map((option, index) => (
-                            <div key={index} className="option-item">
-                              <input
-                                type="radio"
-                                name="correctAnswer"
-                                checked={currentQuestion.correctAnswer === index}
-                                onChange={() => handleCorrectAnswerChange(index)}
-                              />
-                              <input
-                                type="text"
-                                value={option}
-                                onChange={(e) => handleOptionChange(index, e.target.value)}
-                                placeholder={`Option ${index + 1}`}
-                                className="option-input"
-                              />
-                              <span className="correct-label">
-                                {currentQuestion.correctAnswer === index ? '✅ Correct' : ''}
-                              </span>
-                            </div>
-                          ))}
+                        <div className="options-preview">
+                          Options: {question.options.join(', ')}
                         </div>
-
-                        <button 
-                          type="button" 
-                          onClick={handleAddQuestion}
-                          className="add-question-btn"
-                        >
-                          ➕ Add Question to Quiz
-                        </button>
+                        <div className="correct-answer">
+                          Correct: Option {question.correctAnswer + 1}
+                        </div>
                       </div>
-
-                      {quizForm.questions.length > 0 && (
-                        <div className="existing-questions">
-                          <h5>Questions in Quiz ({quizForm.questions.length})</h5>
-                          {quizForm.questions.map((question, index) => (
-                            <div key={question.id} className="question-item">
-                              <div className="question-info">
-                                <strong>Q{index + 1}:</strong> {question.question}
-                                {question.type === 'image' && question.imageUrl && (
-                                  <div className="question-image-preview">
-                                    <img src={question.imageUrl} alt="Question" style={{maxWidth: '100px'}} />
-                                  </div>
-                                )}
-                                <div className="options-preview">
-                                  Options: {question.options.join(', ')}
-                                </div>
-                                <div className="correct-answer">
-                                  Correct: Option {question.correctAnswer + 1}
-                                </div>
-                              </div>
-                              <button 
-                                type="button"
-                                onClick={() => handleRemoveQuestion(question.id)}
-                                className="remove-btn"
-                              >
-                                🗑️ Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <button 
+                        type="button"
+                        onClick={() => handleRemoveQuestion(question.id)}
+                        className="remove-btn"
+                      >
+                        🗑️ Remove
+                      </button>
                     </div>
-                  )}
+                  ))}
                 </div>
+              )}
+            </div>
+          )}
+        </div>
 
-                <button type="submit" className="submit-btn" disabled={isUploading}>
-                  {isUploading ? '📤 Uploading...' : '➕ Add Lesson'}
-                </button>
-              </form>
-            )}
-          </div>
-        )}
+        <button type="submit" className="submit-btn" disabled={isUploading}>
+          {isUploading ? '📤 Uploading...' : '➕ Add Lesson'}
+        </button>
+      </form>
+    )}
+  </div>
+)}
+
+        
+
+
+
+
+
 
         {/* Manage Lessons Tab */}
         {activeTab === 'manage-lessons' && (
