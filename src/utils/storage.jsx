@@ -1202,6 +1202,37 @@ export const approveTeacher = async (teacherId) => {
   }
 };
 
+// src/utils/storage.jsx - Add this function
+
+// ✅ Reject teacher
+export const rejectTeacher = async (teacherId) => {
+  try {
+    console.log('👨‍🏫 Rejecting teacher:', teacherId);
+
+    // Get the current user to check if they are admin
+    const currentUser = await getCurrentUser();
+    console.log('👨‍🏫 Current user:', currentUser);
+    console.log('👨‍🏫 Current user role:', currentUser?.role);
+
+    // Check if current user is admin
+    if (currentUser?.role !== 'admin') {
+      throw new Error('Only admin can reject teachers');
+    }
+
+    await updateUserData(teacherId, {
+      isApproved: false,
+      rejectedAt: new Date().toISOString(),
+      status: 'rejected'
+    });
+
+    console.log('✅ Teacher rejected successfully:', teacherId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error rejecting teacher:', error);
+    throw error;
+  }
+};
+
 // ✅ Dismiss teacher
 export const dismissTeacher = async (teacherId) => {
   try {
@@ -1502,7 +1533,7 @@ export default {
   getAllTeachers,
   getPendingTeachers,
   approveTeacher,
-  rejectTeacher,
+  rejectTeacher, // ✅ ADD THIS
   dismissTeacher,
   getTeacherCoursesForAdmin,
   getPlatformStats,
